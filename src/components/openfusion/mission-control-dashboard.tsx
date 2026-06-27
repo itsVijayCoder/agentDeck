@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { classifyCommandRisk, getPrivacyStorageDecision } from "@/lib/openfusion-policy";
+import { deriveRunProgress, transitionApprovalStatus, transitionTerminalLease } from "@/lib/openfusion-state";
 import {
 	activeRun,
 	agentInstallations,
@@ -48,6 +50,7 @@ export function MissionControlDashboard() {
 	const [leaseMode, setLeaseMode] = useState<TerminalLeaseMode>("agent-control");
 	const [approvedIds, setApprovedIds] = useState<Set<string>>(() => new Set());
 	const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+	const runProgress = deriveRunProgress(activeRun.status);
 
 	const selectedNode = useMemo(
 		() => activeRun.graphNodes.find((node) => node.id === selectedNodeId) ?? activeRun.graphNodes[0],
@@ -60,6 +63,22 @@ export function MissionControlDashboard() {
 	);
 
 	const pendingApprovals = activeRun.approvals.filter((approval) => !approvedIds.has(approval.id));
+	const privacyDecision = getPrivacyStorageDecision(workspaceSummary.privacyMode);
+
+	function requestLeaseMode(mode: TerminalLeaseMode) {
+		const transition = transitionTerminalLease(leaseMode, mode);
+		if (transition.ok) setLeaseMode(mode);
+	}
+
+	function approveRequest(approvalId: string) {
+		const approval = activeRun.approvals.find((item) => item.id === approvalId);
+		if (!approval) return;
+
+		const transition = transitionApprovalStatus(approval.status, "approved");
+		if (transition.ok) {
+			setApprovedIds((current) => new Set(current).add(approvalId));
+		}
+	}
 
 	return (
 		<div className="of-shell">
@@ -67,11 +86,13 @@ export function MissionControlDashboard() {
 			<div className="of-main">
 				<TopCommandBar
 					commandPaletteOpen={commandPaletteOpen}
+					privacyModeLabel={formatPrivacyMode(workspaceSummary.privacyMode)}
+					privacyStorageLabel={privacyDecision.r2}
 					onToggleCommandPalette={() => setCommandPaletteOpen((isOpen) => !isOpen)}
 				/>
 				<main className="of-workspace">
 					<section className="of-center">
-						<ActiveRunHeader leaseMode={leaseMode} onLeaseModeChange={setLeaseMode} />
+						<ActiveRunHeader leaseMode={leaseMode} progress={runProgress} onLeaseModeChange={requestLeaseMode} />
 						<MissionCanvas selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />
 						<div className="of-lower-grid">
 							<RunTimeline />
@@ -81,9 +102,7 @@ export function MissionControlDashboard() {
 					<RightInspector
 						selectedNode={selectedNode}
 						approvals={pendingApprovals}
-						onApprove={(approvalId) => {
-							setApprovedIds((current) => new Set(current).add(approvalId));
-						}}
+						onApprove={approveRequest}
 					/>
 				</main>
 				<TerminalDock
@@ -91,7 +110,7 @@ export function MissionControlDashboard() {
 					selectedTabId={terminalTabId}
 					leaseMode={leaseMode}
 					onSelectTab={setTerminalTabId}
-					onLeaseModeChange={setLeaseMode}
+					onLeaseModeChange={requestLeaseMode}
 				/>
 			</div>
 			{commandPaletteOpen ? <CommandPalette onClose={() => setCommandPaletteOpen(false)} /> : null}
@@ -141,9 +160,13 @@ function LeftNavigation({
 
 function TopCommandBar({
 	commandPaletteOpen,
+	privacyModeLabel,
+	privacyStorageLabel,
 	onToggleCommandPalette,
 }: {
 	commandPaletteOpen: boolean;
+	privacyModeLabel: string;
+	privacyStorageLabel: string;
 	onToggleCommandPalette: () => void;
 }) {
 	return (
@@ -155,7 +178,8 @@ function TopCommandBar({
 				<button className="of-select-button" type="button">
 					{workspaceSummary.repo}:{workspaceSummary.branch}
 				</button>
-				<span className="of-privacy">{formatPrivacyMode(workspaceSummary.privacyMode)}</span>
+				<span className="of-privacy">{privacyModeLabel}</span>
+				<span className="of-privacy">R2 {privacyStorageLabel}</span>
 			</div>
 			<button
 				className={commandPaletteOpen ? "of-task-input is-open" : "of-task-input"}
@@ -178,9 +202,11 @@ function TopCommandBar({
 
 function ActiveRunHeader({
 	leaseMode,
+	progress,
 	onLeaseModeChange,
 }: {
 	leaseMode: TerminalLeaseMode;
+	progress: number;
 	onLeaseModeChange: (mode: TerminalLeaseMode) => void;
 }) {
 	return (
@@ -196,6 +222,9 @@ function ActiveRunHeader({
 					<span>{activeRun.worktreeLabel}</span>
 					<span>{activeRun.branchName}</span>
 					<RiskBadge risk={activeRun.risk} />
+				</div>
+				<div className="of-run-progress" aria-label={`Run progress ${progress} percent`}>
+					<span style={{ width: `${progress}%` }} />
 				</div>
 			</div>
 			<div className="of-hero-actions" aria-label="Run controls">
@@ -550,6 +579,11 @@ function TerminalDock({
 	onSelectTab: (tabId: string) => void;
 	onLeaseModeChange: (mode: TerminalLeaseMode) => void;
 }) {
+	const commandPolicy = useMemo(() => {
+		const lastPromptLine = selectedTab.lines.findLast((line) => line.prompt);
+		return lastPromptLine ? classifyCommandRisk(lastPromptLine.text) : undefined;
+	}, [selectedTab]);
+
 	return (
 		<section className="of-terminal-dock" aria-label="Terminal dock">
 			<div className="of-terminal-tabs">
@@ -566,7 +600,14 @@ function TerminalDock({
 				))}
 			</div>
 			<div className="of-terminal-toolbar">
-				<span>{leaseLabels[leaseMode]}</span>
+				<div className="of-terminal-toolbar-copy">
+					<span>{leaseLabels[leaseMode]}</span>
+					{commandPolicy ? (
+						<span className={`of-command-policy is-${commandPolicy.decision}`}>
+							{commandPolicy.decision} / {commandPolicy.risk}
+						</span>
+					) : null}
+				</div>
 				<div>
 					<button type="button" onClick={() => onLeaseModeChange("human-control")}>
 						Jump In
