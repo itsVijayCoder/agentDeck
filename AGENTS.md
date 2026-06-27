@@ -4,7 +4,9 @@ Guidance for AI coding agents working in this repository.
 
 ## Current State
 
-This repo is a **UI-only mock** of OpenFusion Mission Control: a single Next.js app with typed domain models, state machines, a policy classifier, and mock data. There is no backend, bridge, workers, D1, R2, or real agent execution yet.
+This repo is a **flat Next.js/OpenNext app** for OpenFusion Mission Control. It has typed domain models, event contracts, state machines, a policy classifier, mock data, the production dashboard UI, and the first D1 persistence contracts.
+
+There is still no Worker API implementation, Durable Object session hub, local bridge, R2 write path, Queue consumer, Workflow, or real agent execution yet.
 
 `Docs/IMPLEMENTATION_GUIDE_WITH_PI.md` describes the *planned* monorepo (`apps/`, `packages/`, `workers/`), but the actual repo is a flat Next.js app. Do not assume the monorepo exists. Trust the code, not the guide, for what is implemented today.
 
@@ -35,11 +37,15 @@ src/components/openfusion/
   mission-control-dashboard.tsx         Entire UI in one 698-line file (intentional for mock phase)
 src/lib/
   mock-openfusion.ts                    All mock data — keep mock data here
+  openfusion-db.ts                      D1 repository factory using prepared statements
   openfusion-policy.ts                  classifyCommandRisk() + privacy storage decisions
   openfusion-state.ts                   Run/approval/terminal-lease state machines
 src/types/
   openfusion.ts                         Domain types (the contract)
+  openfusion-db.ts                      D1 row types and repository input contracts
   openfusion-events.ts                  Event-sourced protocol types
+infra/migrations/
+  0001_openfusion_core.sql              D1 control-plane schema
 ```
 
 ### Key conventions
@@ -48,6 +54,7 @@ src/types/
 - **Types are the contract.** `src/types/openfusion.ts` and `src/types/openfusion-events.ts` define the domain model. Add shared types here before component-local shapes. The implementation guide rule "typed contracts come before backend implementation" is enforced.
 - **State machines are authoritative.** `src/lib/openfusion-state.ts` defines legal transitions for `RunStatus`, `ApprovalStatus`, and `TerminalLeaseMode`. Use `transitionRunStatus()`, `transitionApprovalStatus()`, `transitionTerminalLease()` — do not invent new transitions or bypass these.
 - **Policy classifier is authoritative.** `src/lib/openfusion-policy.ts` `classifyCommandRisk()` maps commands to `allow`/`approval`/`deny` + `RiskLevel`. Reuse it; do not duplicate risk logic.
+- **D1 repositories are the database boundary.** `src/lib/openfusion-db.ts` exposes `createOpenFusionRepositories()`. Use it in future Worker/API code instead of writing ad hoc queries in handlers.
 - **Mock data stays in `src/lib/mock-openfusion.ts`.** Do not inline mock data in components. Do not introduce real provider calls, real fetch, or real auth into the mock UI.
 
 ## CSS and Styling
@@ -90,12 +97,14 @@ chore: update project metadata
 - Deployment target is Cloudflare Workers via `@opennextjs/cloudflare`.
 - `wrangler.jsonc` is the deploy config. `compatibility_date` is pinned to `2026-06-27`.
 - `cloudflare-env.d.ts` is **generated** by `npm run cf-typegen`. Do not edit it by hand. Regenerate after changing `wrangler.jsonc` bindings.
+- D1 migration history lives in `infra/migrations`. Add a real `OPENFUSION_DB` binding with `migrations_dir: "infra/migrations"` after a D1 database is created.
 - `next.config.ts` calls `initOpenNextCloudflareForDev()` to enable `getCloudflareContext()` in `next dev`.
 - `.dev.vars` holds local secrets for dev (gitignored). `.dev.vars.example` is the template.
 
 ## Reference Docs
 
 - `Docs/ARCHITECTURE_BLUEPRINT.md` — concise HLD/LLD baseline for the current milestone.
+- `Docs/DATABASE_SCHEMA.md` — D1/R2 persistence schema, bindings, and repository usage.
 - `Docs/IMPLEMENTATION_GUIDE_WITH_PI.md` — full planned architecture (4172 lines). Source of truth for *intent*, not for *current state*.
 - `CONTRIBUTING.md` — commit style, code standards, security defaults.
 - `README.md` — product framing, tech stack, repo layout.

@@ -72,6 +72,9 @@ The first concrete shared contracts are documented in `Docs/CORE_CONTRACTS.md` a
 src/types/openfusion-events.ts
 src/lib/openfusion-state.ts
 src/lib/openfusion-policy.ts
+src/types/openfusion-db.ts
+src/lib/openfusion-db.ts
+infra/migrations/0001_openfusion_core.sql
 ```
 
 ## Event-Sourced Core
@@ -109,12 +112,14 @@ The first usable milestone should include:
 Backend implementation follows in this order:
 
 ```text
-1. Event schema and state machines.
-2. Local bridge pairing and agent probe.
-3. PTY streaming through a session hub.
-4. Approval gates and policy classifier.
-5. Worktree and verifier execution.
-6. Queue, schedules, reports, and artifacts.
+1. Event schema, state machines, policy primitives, and D1 metadata schema.
+2. Durable Object session hub for event ordering and WebSocket fanout.
+3. Worker API endpoints backed by the typed D1 repositories.
+4. Local bridge pairing and agent probe.
+5. PTY streaming through the session hub.
+6. Approval gates and policy classifier.
+7. Worktree and verifier execution.
+8. Queue, schedules, reports, and artifacts.
 ```
 
 ## UI Design System

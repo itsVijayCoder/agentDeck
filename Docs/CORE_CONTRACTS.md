@@ -30,6 +30,15 @@ src/lib/openfusion-state.ts
 
 src/lib/openfusion-policy.ts
   Command risk classifier, privacy storage matrix, and approval requirement helper.
+
+infra/migrations/0001_openfusion_core.sql
+  D1 control-plane schema for metadata, queueing, approvals, reports, policy, and R2 object references.
+
+src/types/openfusion-db.ts
+  D1 row shapes and repository input contracts.
+
+src/lib/openfusion-db.ts
+  Prepared-statement D1 repository factory for Worker/API code.
 ```
 
 ## Event Envelope
@@ -161,13 +170,12 @@ full-sync
 Next backend slices should be implemented in this order:
 
 ```text
-1. D1 migrations matching the domain model.
-2. Durable Object session hub that assigns event sequence numbers.
-3. Worker API endpoints for sessions, approvals, agents, queue, schedules, and reports.
-4. Local Bridge probe command that emits agent.detected events.
-5. PTY runner that emits terminal.* events.
-6. Approval gate that blocks risky policy decisions.
-7. Verifier runner that emits verifier.* and artifact.* events.
+1. Durable Object session hub that assigns event sequence numbers.
+2. Worker API endpoints for sessions, approvals, agents, queue, schedules, and reports.
+3. Local Bridge probe command that emits agent.detected events.
+4. PTY runner that emits terminal.* events.
+5. Approval gate that blocks risky policy decisions.
+6. Verifier runner that emits verifier.* and artifact.* events.
 ```
 
 ## Design Constraints

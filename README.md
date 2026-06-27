@@ -14,10 +14,11 @@ This repository currently contains the first product milestone:
 
 - Architecture blueprint derived from `Docs/IMPLEMENTATION_GUIDE_WITH_PI.md`.
 - Type-safe OpenFusion domain model and realistic mock data.
+- D1 schema migration plus typed repository contracts for the control-plane metadata layer.
 - Production-style Mission Control dashboard in Next.js.
 - Local UI interactions for terminal tabs, command palette, approval state, and run inspection.
 
-Backend services, bridge execution, Durable Objects, D1, R2, Queues, Workflows, and real agent adapters are planned next.
+Worker API routes, Durable Objects, bridge execution, R2 object writes, Queues, Workflows, and real agent adapters are planned next.
 
 ## Product Architecture
 
@@ -41,7 +42,7 @@ Core rule:
 Workers coordinate. The local bridge executes. Humans approve important actions.
 ```
 
-See [Docs/ARCHITECTURE_BLUEPRINT.md](Docs/ARCHITECTURE_BLUEPRINT.md) for the implementation-oriented HLD/LLD baseline and [Docs/CORE_CONTRACTS.md](Docs/CORE_CONTRACTS.md) for the shared event, state-machine, and policy contracts.
+See [Docs/ARCHITECTURE_BLUEPRINT.md](Docs/ARCHITECTURE_BLUEPRINT.md) for the implementation-oriented HLD/LLD baseline, [Docs/CORE_CONTRACTS.md](Docs/CORE_CONTRACTS.md) for the shared event/state/policy contracts, and [Docs/DATABASE_SCHEMA.md](Docs/DATABASE_SCHEMA.md) for D1/R2 persistence.
 
 ## Tech Stack
 
@@ -51,12 +52,12 @@ See [Docs/ARCHITECTURE_BLUEPRINT.md](Docs/ARCHITECTURE_BLUEPRINT.md) for the imp
 - Tailwind CSS
 - OpenNext Cloudflare adapter
 - Cloudflare Workers deployment target
+- Cloudflare D1 schema and repository contracts
 
 Planned:
 
 - Durable Objects for live session hubs
-- D1 for metadata
-- R2 for logs and artifacts
+- R2 write path for logs and artifacts
 - Queues and Workflows for background runs
 - Cron Triggers for schedules
 - Local Node/Tauri OpenFusion Bridge
@@ -103,6 +104,9 @@ The UI should also be smoke-tested in a browser at desktop and mobile widths. Th
 Docs/
   Architecture and product implementation notes.
 
+infra/migrations/
+  Cloudflare D1 schema history.
+
 src/app/
   Next.js app shell, metadata, global design tokens, and route entry.
 
@@ -110,10 +114,10 @@ src/components/openfusion/
   Product UI components for Mission Control.
 
 src/lib/
-  Mock data, lifecycle helpers, and policy helpers shaped for future shared packages.
+  Mock data, lifecycle helpers, policy helpers, and D1 repository helpers shaped for future shared packages.
 
 src/types/
-  Shared OpenFusion domain and event/protocol types.
+  Shared OpenFusion domain, event/protocol, and D1 row/input types.
 ```
 
 ## Open-Source Principles
