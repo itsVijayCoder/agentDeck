@@ -1,47 +1,130 @@
-# OpenNext Starter
+# OpenFusion
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+OpenFusion is mission control for AI coding agents. It coordinates Claude Code, Codex CLI, OpenCode, Qwen Code, Pi, Aider, ACP agents, and future tools through visible terminal runs, human approval gates, deterministic verification, build queues, scheduled jobs, and decision reports.
 
-## Getting Started
+OpenFusion is not auto-merge and not a black box.
 
-Read the documentation at https://opennext.js.org/cloudflare.
+```text
+Watch agents work. Jump in anytime. Review before merge.
+```
 
-## Develop
+## Current Status
 
-Run the Next.js development server:
+This repository currently contains the first product milestone:
+
+- Architecture blueprint derived from `Docs/IMPLEMENTATION_GUIDE_WITH_PI.md`.
+- Type-safe OpenFusion domain model and realistic mock data.
+- Production-style Mission Control dashboard in Next.js.
+- Local UI interactions for terminal tabs, command palette, approval state, and run inspection.
+
+Backend services, bridge execution, Durable Objects, D1, R2, Queues, Workflows, and real agent adapters are planned next.
+
+## Product Architecture
+
+```text
+Browser UI
+  Observe runs, approve risky actions, jump into terminals, review reports.
+
+Cloudflare Control Plane
+  Coordinate sessions, events, queues, schedules, metadata, artifacts, and audit.
+
+Local OpenFusion Bridge
+  Detect agents, create worktrees, run PTYs, enforce policy, redact secrets, verify output.
+
+Agent Adapters
+  Normalize Claude Code, Codex, OpenCode, Qwen Code, Pi, Aider, ACP, and custom agents.
+```
+
+Core rule:
+
+```text
+Workers coordinate. The local bridge executes. Humans approve important actions.
+```
+
+See [Docs/ARCHITECTURE_BLUEPRINT.md](Docs/ARCHITECTURE_BLUEPRINT.md) for the implementation-oriented HLD/LLD baseline.
+
+## Tech Stack
+
+- Next.js App Router
+- React
+- TypeScript strict mode
+- Tailwind CSS
+- OpenNext Cloudflare adapter
+- Cloudflare Workers deployment target
+
+Planned:
+
+- Durable Objects for live session hubs
+- D1 for metadata
+- R2 for logs and artifacts
+- Queues and Workflows for background runs
+- Cron Triggers for schedules
+- Local Node/Tauri OpenFusion Bridge
+
+## Development
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run the dev server:
 
 ```bash
 npm run dev
-# or similar package manager command
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-## Preview
-
-Preview the application locally on the Cloudflare runtime:
+Build for production:
 
 ```bash
-npm run preview
-# or similar package manager command
+npm run build
 ```
 
-## Deploy
-
-Deploy the application to Cloudflare:
+Start the production server after a build:
 
 ```bash
-npm run deploy
-# or similar package manager command
+npm run start
 ```
 
-## Learn More
+## Quality Gates
 
-To learn more about Next.js, take a look at the following resources:
+Run before opening a pull request:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run build
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The UI should also be smoke-tested in a browser at desktop and mobile widths. The current dashboard has been verified with production build rendering at `1440x1000` and `390x900`.
+
+## Repository Layout
+
+```text
+Docs/
+  Architecture and product implementation notes.
+
+src/app/
+  Next.js app shell, metadata, global design tokens, and route entry.
+
+src/components/openfusion/
+  Product UI components for Mission Control.
+
+src/lib/
+  Mock data shaped like future API responses.
+
+src/types/
+  Shared OpenFusion domain types.
+```
+
+## Open-Source Principles
+
+- Local code is private by default.
+- No auto-merge, git push, publish, or deploy by default.
+- Risky actions require explicit human approval.
+- Typed contracts come before backend implementation.
+- Changes should be small, reviewable, and documented.
+- Commit messages should explain the product or engineering slice.
+
+## License
+
+No license has been selected yet. Add a license before accepting external contributions.
