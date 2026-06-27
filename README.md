@@ -41,7 +41,7 @@ Core rule:
 Workers coordinate. The local bridge executes. Humans approve important actions.
 ```
 
-See [Docs/ARCHITECTURE_BLUEPRINT.md](Docs/ARCHITECTURE_BLUEPRINT.md) for the implementation-oriented HLD/LLD baseline.
+See [Docs/ARCHITECTURE_BLUEPRINT.md](Docs/ARCHITECTURE_BLUEPRINT.md) for the implementation-oriented HLD/LLD baseline and [Docs/CORE_CONTRACTS.md](Docs/CORE_CONTRACTS.md) for the shared event, state-machine, and policy contracts.
 
 ## Tech Stack
 
@@ -110,10 +110,10 @@ src/components/openfusion/
   Product UI components for Mission Control.
 
 src/lib/
-  Mock data shaped like future API responses.
+  Mock data, lifecycle helpers, and policy helpers shaped for future shared packages.
 
 src/types/
-  Shared OpenFusion domain types.
+  Shared OpenFusion domain and event/protocol types.
 ```
 
 ## Open-Source Principles

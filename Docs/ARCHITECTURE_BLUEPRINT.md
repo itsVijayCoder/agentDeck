@@ -66,6 +66,14 @@ Bridge -> core + harness + policy + redaction + verifier
 Adapters -> bridge primitives, not UI
 ```
 
+The first concrete shared contracts are documented in `Docs/CORE_CONTRACTS.md` and implemented in:
+
+```text
+src/types/openfusion-events.ts
+src/lib/openfusion-state.ts
+src/lib/openfusion-policy.ts
+```
+
 ## Event-Sourced Core
 
 Every important action is represented as an event:
