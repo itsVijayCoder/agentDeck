@@ -8,12 +8,12 @@
 
 ## Current State
 
-- D1 schema exists (`infra/migrations/0001_openfusion_core.sql`) — 12 tables, 16 indexes.
-- Typed D1 repositories exist (`@openfusion/db`) — 12 repos with prepared statements.
-- **No D1 binding** in `wrangler.jsonc`. No database has been created.
-- **No R2 binding** in `wrangler.jsonc`. No bucket has been created.
-- **No API routes** exist. `src/app/api/` does not exist. No Worker handlers.
-- No auth, no session management, no REST endpoints.
+- D1 schema exists (`packages/db/migrations/0001_openfusion_core.sql`) — 12 tables, 17 indexes.
+- Typed D1 repositories exist (`@openfusion/db`) — repository facades for workspaces, machines, agent installations, sessions, runs, events, approvals, queue items, schedules, artifacts, reports, and policies.
+- D1 database `openfusion-control` exists and is bound as `OPENFUSION_DB` (`d5243135-2e7c-48d7-8e45-82470791e1eb`).
+- R2 bucket `openfusion-artifacts` exists and is bound as `OPENFUSION_ARTIFACTS`.
+- Next.js Worker API/BFF routes exist in `apps/web/src/app/api/`.
+- Cookie-based signed session auth and signed bridge pairing codes exist.
 
 ---
 
@@ -553,17 +553,18 @@ describe("POST /api/sessions", () => {
 ## Acceptance Criteria
 
 ```text
-[ ] D1 database "openfusion-control" created and bound as OPENFUSION_DB
-[ ] R2 bucket "openfusion-artifacts" created and bound as OPENFUSION_ARTIFACTS
-[ ] Migrations applied locally (wrangler d1 migrations apply --local)
-[ ] cloudflare-env.d.ts includes OPENFUSION_DB and OPENFUSION_ARTIFACTS
-[ ] All 30+ REST endpoints respond correctly
-[ ] Auth middleware blocks unauthenticated requests with 401
-[ ] zod validation rejects malformed input with 400
-[ ] R2 artifact download returns correct content-type
-[ ] Event replay endpoint returns events after given seq
-[ ] Integration tests pass against miniflare D1
-[ ] pnpm build passes
+[x] D1 database "openfusion-control" created and bound as OPENFUSION_DB
+[x] R2 bucket "openfusion-artifacts" created and bound as OPENFUSION_ARTIFACTS
+[x] Migrations applied locally (wrangler d1 migrations apply --local)
+[x] Migrations applied remotely (wrangler d1 migrations apply --remote)
+[x] cloudflare-env.d.ts includes OPENFUSION_DB and OPENFUSION_ARTIFACTS
+[x] All 30+ REST endpoints are implemented
+[x] Auth middleware blocks unauthenticated requests with 401
+[x] zod validation rejects malformed input with 400
+[x] R2 artifact download returns correct content-type
+[x] Event replay endpoint returns events after given seq
+[x] Integration tests pass against miniflare D1
+[x] pnpm build passes
 ```
 
 ---

@@ -2,6 +2,9 @@
 # Copy to .dev.vars from apps/web when running Wrangler or OpenNext commands there.
 # .dev.vars is gitignored.
 
+# Cookie signing secret for the Phase 02 BFF.
+OPENFUSION_SESSION_SECRET=
+
 # Cloudflare AI Gateway (Phase 10)
 CLOUDFLARE_API_KEY=
 CLOUDFLARE_ACCOUNT_ID=

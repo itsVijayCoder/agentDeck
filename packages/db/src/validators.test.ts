@@ -16,6 +16,7 @@ import {
 	openFusionEventTypes,
 	parsePersistEventInput,
 	persistEventInputSchema,
+	updateQueueItemInputSchema,
 	updateRunStatusInputSchema,
 	upsertAgentInstallationInputSchema,
 	upsertMachineInputSchema,
@@ -165,6 +166,16 @@ const validSchemaCases: SchemaCase[] = [
 	},
 	{
 		input: {
+			cancelledAt: now,
+			id: "queue_01",
+			priority: "urgent",
+			status: "cancelled",
+		},
+		name: "UpdateQueueItemInput",
+		schema: updateQueueItemInputSchema,
+	},
+	{
+		input: {
 			agentSelector: { kind: "codex" },
 			cron: "0 8 * * *",
 			enabled: true,
@@ -228,8 +239,8 @@ describe("D1 input validators", () => {
 		expect(schema.safeParse(input).success).toBe(true);
 	});
 
-	it("covers every D1 input contract from Phase 00", () => {
-		expect(validSchemaCases).toHaveLength(14);
+	it("covers every D1 input contract exposed by the repository boundary", () => {
+		expect(validSchemaCases).toHaveLength(15);
 	});
 
 	it("rejects blank required strings", () => {

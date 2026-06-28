@@ -12,6 +12,7 @@ import type {
 	JsonRecord,
 	JsonValue,
 	PersistEventInput,
+	UpdateQueueItemInput,
 	UpdateRunStatusInput,
 	UpsertAgentInstallationInput,
 	UpsertMachineInput,
@@ -320,6 +321,22 @@ export const createQueueItemInputSchema = z
 		workspaceId: nonBlankStringSchema,
 	})
 	.strict() satisfies z.ZodType<CreateQueueItemInput>;
+
+export const updateQueueItemInputSchema = z
+	.object({
+		agentSelector: jsonValueSchema.nullable().optional(),
+		cancelledAt: optionalNullableTimestampSchema,
+		id: nonBlankStringSchema,
+		machineSelector: jsonValueSchema.nullable().optional(),
+		maxCostUsd: nonNegativeFiniteNumberSchema.nullable().optional(),
+		maxRuntimeMinutes: positiveIntegerSchema.nullable().optional(),
+		priority: queuePrioritySchema.optional(),
+		runAfter: optionalNullableTimestampSchema,
+		scheduleWindow: jsonValueSchema.nullable().optional(),
+		status: runStatusSchema.optional(),
+		updatedAt: optionalTimestampSchema,
+	})
+	.strict() satisfies z.ZodType<UpdateQueueItemInput>;
 
 export const upsertScheduledJobInputSchema = z
 	.object({

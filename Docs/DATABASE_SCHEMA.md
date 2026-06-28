@@ -99,7 +99,7 @@ After creating the Cloudflare resources, add real IDs to `apps/web/wrangler.json
 		{
 			"binding": "OPENFUSION_DB",
 			"database_name": "openfusion-control",
-			"database_id": "<cloudflare-d1-database-id>",
+			"database_id": "d5243135-2e7c-48d7-8e45-82470791e1eb",
 			"migrations_dir": "../../packages/db/migrations"
 		}
 	],

@@ -328,6 +328,20 @@ export type CreateQueueItemInput = {
 	updatedAt?: IsoTimestamp;
 };
 
+export type UpdateQueueItemInput = {
+	id: string;
+	priority?: QueuePriority;
+	status?: RunStatus;
+	runAfter?: IsoTimestamp | null;
+	scheduleWindow?: JsonValue | null;
+	agentSelector?: JsonValue | null;
+	machineSelector?: JsonValue | null;
+	maxCostUsd?: number | null;
+	maxRuntimeMinutes?: number | null;
+	cancelledAt?: IsoTimestamp | null;
+	updatedAt?: IsoTimestamp;
+};
+
 export type UpsertScheduledJobInput = {
 	id: string;
 	workspaceId: string;

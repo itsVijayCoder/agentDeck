@@ -27,14 +27,14 @@ This document is the master index for a 13-phase buildout plan (Phase 00 through
 | Mission Control dashboard (mock) | `apps/web/src/components/openfusion/mission-control-dashboard.tsx` | 698 | Complete — 14 sub-components, custom `of-*` design system |
 | Design system CSS | `apps/web/src/app/globals.css` | 1322 | Complete — 262 `of-*` classes, CSS variables, responsive |
 | Mock data | `apps/web/src/lib/mock-openfusion.ts` | 410 | Complete — 5 agents, active run, queue, schedules, reports |
+| Cloudflare control-plane bindings | `apps/web/wrangler.jsonc`, `apps/web/cloudflare-env.d.ts` | — | Complete — D1 + R2 bindings for Phase 02 |
+| Worker API / BFF routes | `apps/web/src/app/api/` | — | Complete — REST endpoints for workspaces, machines, sessions, approvals, queue, schedules, reports, policies, and artifacts |
 | Architecture docs | `Docs/` (6 files) | ~6000+ | Complete — Blueprint, Core Contracts, DB Schema, Impl Guide |
 
 ### 1.2 Missing (blocks the full vision)
 
 | Missing component | Impact | Phase |
 |---|---|---|
-| Cloudflare D1/R2 bindings in `apps/web/wrangler.jsonc` | No database access | Phase 02 |
-| Worker API / BFF (REST endpoints) | No server-state source | Phase 02 |
 | Durable Object session hub | No realtime, no event ordering | Phase 03 |
 | Local OpenFusion Bridge | No agent detection or execution | Phase 04 |
 | Real terminal (xterm.js + PTY) | No live terminal streaming | Phase 05 |

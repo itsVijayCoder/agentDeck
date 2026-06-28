@@ -21,6 +21,7 @@ import type {
 	ScheduledJobRow,
 	SessionRow,
 	SqliteBoolean,
+	UpdateQueueItemInput,
 	UpdateRunStatusInput,
 	UpsertAgentInstallationInput,
 	UpsertMachineInput,
@@ -39,6 +40,7 @@ import {
 	createWorkspaceInputSchema,
 	decideApprovalInputSchema,
 	parsePersistEventInput,
+	updateQueueItemInputSchema,
 	updateRunStatusInputSchema,
 	upsertAgentInstallationInputSchema,
 	upsertMachineInputSchema,
@@ -85,6 +87,7 @@ export function createOpenFusionRepositories(db: QueryableD1) {
 		machines: {
 			upsert: (input: UpsertMachineInput) => upsertMachine(db, upsertMachineInputSchema.parse(input)),
 			findById: (id: string) => firstRow<MachineRow>(db, "SELECT * FROM machines WHERE id = ?", [id]),
+			revoke: (id: string, revokedAt = nowIso()) => revokeMachine(db, id, revokedAt),
 			listByWorkspace: (workspaceId: string, status?: MachineRow["status"], limit?: number) =>
 				status
 					? allRows<MachineRow>(
@@ -135,6 +138,7 @@ export function createOpenFusionRepositories(db: QueryableD1) {
 		},
 		events: {
 			append: (input: PersistEventInput) => appendEvent(db, parsePersistEventInput(input)),
+			nextSeq: (sessionId: string) => nextEventSequence(db, sessionId),
 			listBySession: (sessionId: string, afterSeq = -1, limit?: number) =>
 				allRows<EventIndexRow>(
 					db,
@@ -161,6 +165,9 @@ export function createOpenFusionRepositories(db: QueryableD1) {
 		queue: {
 			enqueue: (input: CreateQueueItemInput) => createQueueItem(db, createQueueItemInputSchema.parse(input)),
 			findById: (id: string) => firstRow<QueueItemRow>(db, "SELECT * FROM queue_items WHERE id = ?", [id]),
+			update: (input: UpdateQueueItemInput) => updateQueueItem(db, updateQueueItemInputSchema.parse(input)),
+			cancel: (id: string, cancelledAt = nowIso()) =>
+				updateQueueItem(db, { cancelledAt, id, status: "cancelled", updatedAt: cancelledAt }),
 			listByWorkspace: (workspaceId: string, status?: RunStatus, limit?: number) =>
 				status
 					? allRows<QueueItemRow>(
@@ -177,6 +184,11 @@ export function createOpenFusionRepositories(db: QueryableD1) {
 		scheduledJobs: {
 			upsert: (input: UpsertScheduledJobInput) => upsertScheduledJob(db, upsertScheduledJobInputSchema.parse(input)),
 			findById: (id: string) => firstRow<ScheduledJobRow>(db, "SELECT * FROM scheduled_jobs WHERE id = ?", [id]),
+			listByWorkspace: (workspaceId: string, limit?: number) =>
+				allRows<ScheduledJobRow>(db, "SELECT * FROM scheduled_jobs WHERE workspace_id = ? ORDER BY updated_at DESC LIMIT ?", [
+					workspaceId,
+					normalizeLimit(limit),
+				]),
 			listDue: (now: string, limit?: number) =>
 				allRows<ScheduledJobRow>(
 					db,
@@ -206,6 +218,7 @@ export function createOpenFusionRepositories(db: QueryableD1) {
 		},
 		policyRules: {
 			upsert: (input: UpsertPolicyRuleInput) => upsertPolicyRule(db, upsertPolicyRuleInputSchema.parse(input)),
+			findById: (id: string) => firstRow<PolicyRuleRow>(db, "SELECT * FROM policy_rules WHERE id = ?", [id]),
 			listByWorkspace: (workspaceId: string, enabledOnly = true) =>
 				enabledOnly
 					? allRows<PolicyRuleRow>(
@@ -274,6 +287,16 @@ async function upsertMachine(db: QueryableD1, input: UpsertMachineInput): Promis
 		],
 	);
 	return requireRow(await firstRow<MachineRow>(db, "SELECT * FROM machines WHERE id = ?", [input.id]), "Machine");
+}
+
+async function revokeMachine(db: QueryableD1, id: string, revokedAt: string): Promise<MachineRow | null> {
+	await runStatement(db, "UPDATE machines SET status = ?, revoked_at = ?, updated_at = ? WHERE id = ?", [
+		"revoked",
+		revokedAt,
+		revokedAt,
+		id,
+	]);
+	return firstRow<MachineRow>(db, "SELECT * FROM machines WHERE id = ?", [id]);
 }
 
 async function upsertAgentInstallation(
@@ -441,6 +464,15 @@ async function appendEvent(db: QueryableD1, input: PersistEventInput): Promise<E
 	return requireRow(await firstRow<EventIndexRow>(db, "SELECT * FROM event_index WHERE id = ?", [input.event.id]), "Event");
 }
 
+async function nextEventSequence(db: QueryableD1, sessionId: string): Promise<number> {
+	const row = await firstRow<{ seq: number }>(
+		db,
+		"SELECT COALESCE(MAX(seq), -1) + 1 AS seq FROM event_index WHERE session_id = ?",
+		[sessionId],
+	);
+	return row?.seq ?? 0;
+}
+
 async function createApproval(db: QueryableD1, input: CreateApprovalInput): Promise<ApprovalRow> {
 	const createdAt = input.createdAt ?? nowIso();
 	await runStatement(
@@ -519,6 +551,43 @@ async function createQueueItem(db: QueryableD1, input: CreateQueueItemInput): Pr
 		],
 	);
 	return requireRow(await firstRow<QueueItemRow>(db, "SELECT * FROM queue_items WHERE id = ?", [input.id]), "Queue item");
+}
+
+async function updateQueueItem(db: QueryableD1, input: UpdateQueueItemInput): Promise<QueueItemRow | null> {
+	const existing = await firstRow<QueueItemRow>(db, "SELECT * FROM queue_items WHERE id = ?", [input.id]);
+	if (!existing) {
+		return null;
+	}
+
+	await runStatement(
+		db,
+		`UPDATE queue_items SET
+			priority = ?,
+			status = ?,
+			run_after = ?,
+			schedule_window_json = ?,
+			agent_selector_json = ?,
+			machine_selector_json = ?,
+			max_cost_usd = ?,
+			max_runtime_minutes = ?,
+			cancelled_at = ?,
+			updated_at = ?
+		WHERE id = ?`,
+		[
+			input.priority ?? existing.priority,
+			input.status ?? existing.status,
+			input.runAfter === undefined ? existing.run_after : input.runAfter,
+			input.scheduleWindow === undefined ? existing.schedule_window_json : encodeOptionalJson(input.scheduleWindow),
+			input.agentSelector === undefined ? existing.agent_selector_json : encodeOptionalJson(input.agentSelector),
+			input.machineSelector === undefined ? existing.machine_selector_json : encodeOptionalJson(input.machineSelector),
+			input.maxCostUsd === undefined ? existing.max_cost_usd : input.maxCostUsd,
+			input.maxRuntimeMinutes === undefined ? existing.max_runtime_minutes : input.maxRuntimeMinutes,
+			input.cancelledAt === undefined ? existing.cancelled_at : input.cancelledAt,
+			input.updatedAt ?? nowIso(),
+			input.id,
+		],
+	);
+	return firstRow<QueueItemRow>(db, "SELECT * FROM queue_items WHERE id = ?", [input.id]);
 }
 
 async function upsertScheduledJob(db: QueryableD1, input: UpsertScheduledJobInput): Promise<ScheduledJobRow> {

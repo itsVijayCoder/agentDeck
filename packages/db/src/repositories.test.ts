@@ -70,6 +70,12 @@ class MemoryD1 implements QueryableD1 {
 			return;
 		}
 
+		if (normalized.startsWith("update machines set")) {
+			const [status, revoked_at, updated_at, id] = values;
+			this.patch("machines", id, { revoked_at, status, updated_at });
+			return;
+		}
+
 		if (normalized.startsWith("insert into agent_installations")) {
 			const [id, machine_id, agent_kind, command, version, auth_status, capabilities_json, detected_at, updated_at] = values;
 			const existing = this
@@ -258,6 +264,35 @@ class MemoryD1 implements QueryableD1 {
 			return;
 		}
 
+		if (normalized.startsWith("update queue_items set")) {
+			const [
+				priority,
+				status,
+				run_after,
+				schedule_window_json,
+				agent_selector_json,
+				machine_selector_json,
+				max_cost_usd,
+				max_runtime_minutes,
+				cancelled_at,
+				updated_at,
+				id,
+			] = values;
+			this.patch("queue_items", id, {
+				agent_selector_json,
+				cancelled_at,
+				machine_selector_json,
+				max_cost_usd,
+				max_runtime_minutes,
+				priority,
+				run_after,
+				schedule_window_json,
+				status,
+				updated_at,
+			});
+			return;
+		}
+
 		if (normalized.startsWith("insert into scheduled_jobs")) {
 			const [
 				id,
@@ -364,6 +399,13 @@ class MemoryD1 implements QueryableD1 {
 			);
 		}
 
+		if (normalized === "select coalesce(max(seq), -1) + 1 as seq from event_index where session_id = ?") {
+			const seq = this.rows("event_index")
+				.filter((row) => row.session_id === values[0])
+				.reduce((max, row) => Math.max(max, Number(row.seq)), -1);
+			return [{ seq: seq + 1 }];
+		}
+
 		const idMatch = /^select \* from ([a-z_]+) where id = \?$/.exec(normalized);
 		if (idMatch && isTableName(idMatch[1])) {
 			const row = this.table(idMatch[1]).get(String(values[0]));
@@ -430,6 +472,10 @@ class MemoryD1 implements QueryableD1 {
 				),
 				values[1],
 			);
+		}
+
+		if (normalized.includes("from scheduled_jobs where workspace_id = ?")) {
+			return limitRows(this.rows("scheduled_jobs").filter((row) => row.workspace_id === values[0]), values[1]);
 		}
 
 		if (normalized.includes("from artifacts where session_id = ?")) {
@@ -621,6 +667,7 @@ describe("OpenFusion D1 repositories", () => {
 		expect(machine.status).toBe("online");
 		expect(await repositories.machines.listByWorkspace("ws_01", "online")).toHaveLength(1);
 		expect(await repositories.machines.listByWorkspace("ws_01")).toHaveLength(1);
+		expect((await repositories.machines.revoke("machine_01", later))?.status).toBe("revoked");
 
 		const agent = await repositories.agentInstallations.upsert({
 			agentKind: "codex",
@@ -671,6 +718,15 @@ describe("OpenFusion D1 repositories", () => {
 		expect(await repositories.queue.findById("queue_01")).toEqual(queueItem);
 		expect(await repositories.queue.listByWorkspace("ws_01", "queued")).toHaveLength(1);
 		expect(await repositories.queue.listByWorkspace("ws_01")).toHaveLength(1);
+		expect(
+			await repositories.queue.update({
+				id: "queue_01",
+				priority: "urgent",
+				scheduleWindow: null,
+				status: "waiting-machine",
+				updatedAt: later,
+			}),
+		).toMatchObject({ priority: "urgent", schedule_window_json: null, status: "waiting-machine" });
 
 		const scheduledJob = await repositories.scheduledJobs.upsert({
 			agentSelector: { kind: "codex" },
@@ -690,6 +746,7 @@ describe("OpenFusion D1 repositories", () => {
 		});
 		expect(scheduledJob.enabled).toBe(1);
 		expect(await repositories.scheduledJobs.findById("schedule_01")).toEqual(scheduledJob);
+		expect(await repositories.scheduledJobs.listByWorkspace("ws_01")).toHaveLength(1);
 		expect(await repositories.scheduledJobs.listDue(later)).toHaveLength(1);
 
 		const run = await repositories.runs.create({
@@ -739,6 +796,7 @@ describe("OpenFusion D1 repositories", () => {
 		const eventRow = await repositories.events.append({ event, objectKey: "events/ws_01/sess_01/evt_01.json" });
 		expect(eventRow.payload_hash).toBe("hash");
 		expect(await repositories.events.listBySession("sess_01")).toHaveLength(1);
+		expect(await repositories.events.nextSeq("sess_01")).toBe(1);
 
 		const approval = await repositories.approvals.create({
 			createdAt: now,
@@ -813,6 +871,7 @@ describe("OpenFusion D1 repositories", () => {
 			workspaceId: "ws_01",
 		});
 		expect(rule.enabled).toBe(1);
+		expect(await repositories.policyRules.findById("policy_01")).toEqual(rule);
 		expect(await repositories.policyRules.listByWorkspace("ws_01")).toHaveLength(1);
 		expect(await repositories.policyRules.listByWorkspace("ws_01", false)).toHaveLength(1);
 	});
@@ -949,6 +1008,7 @@ describe("OpenFusion D1 repositories", () => {
 		expect(queueItem.run_after).toBeNull();
 		expect(queueItem.schedule_window_json).toBeNull();
 		expect(queueItem.status).toBe("queued");
+		expect(await repositories.queue.cancel("queue_min", later)).toMatchObject({ cancelled_at: later, status: "cancelled" });
 
 		const scheduledJob = await repositories.scheduledJobs.upsert({
 			agentSelector: {},

@@ -35,7 +35,21 @@
 	"observability": {
 		"enabled": true
 	},
-	"upload_source_maps": true
+	"upload_source_maps": true,
+	"d1_databases": [
+		{
+			"binding": "OPENFUSION_DB",
+			"database_name": "openfusion-control",
+			"database_id": "d5243135-2e7c-48d7-8e45-82470791e1eb",
+			"migrations_dir": "../../packages/db/migrations"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "OPENFUSION_ARTIFACTS",
+			"bucket_name": "openfusion-artifacts"
+		}
+	]
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
