@@ -29,8 +29,8 @@ const criticalCommandPatterns: RegExp[] = [
 const highRiskCommandPatterns: RegExp[] = [
 	/\bcurl\b.+\|\s*(bash|sh)\b/,
 	/\bwget\b.+\|\s*(bash|sh)\b/,
-	/\bchmod\s+-R\b/,
-	/\bchown\s+-R\b/,
+	/\bchmod\s+-r\b/,
+	/\bchown\s+-r\b/,
 	/\b(psql|mysql)\b.*\b(migrate|drop|delete|truncate)\b/,
 	/\bcat\b.+\.env\b/,
 	/\b(printenv|env)\b/,

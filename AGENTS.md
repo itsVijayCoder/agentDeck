@@ -14,15 +14,20 @@ There is still no Worker API implementation, Durable Object session hub, local b
 
 ```bash
 npm run dev        # next dev (local dev server)
+npm run typecheck  # tsc --noEmit (fast TypeScript gate)
+npm run lint       # eslint . (Next.js 16-compatible lint gate)
+npm run test       # vitest run --coverage (unit tests + coverage thresholds)
+npm run test:watch # vitest watch mode
+npm run test:e2e   # playwright test (Phase 00 skeleton)
 npm run build      # next build — current quality gate (includes TypeScript checking)
 npm run start      # next start (serve production build)
 npm run deploy     # opennextjs-cloudflare build && deploy to Cloudflare
 npm run cf-typegen # regenerate cloudflare-env.d.ts from wrangler.jsonc bindings
 ```
 
-- **`npm run lint` is broken.** Next.js 16 removed `next lint`. Use `npm run build` for type checking and linting. Do not add `eslint` CLI calls without fixing the script first.
-- **No test framework is configured.** No test runner, no test files. The implementation guide describes a testing strategy, but nothing is wired up. Do not assume `npm test` works.
-- Run `npm run build` before considering any task complete. It must pass cleanly. Add a real lint/test workflow before treating style or unit coverage as enforced.
+- `npm run lint` uses the ESLint CLI directly because Next.js 16 removed `next lint`.
+- `npm run test` uses Vitest with V8 coverage thresholds for the existing contracts.
+- Run `npm run typecheck`, `npm run lint`, `npm run test`, and `npm run build` before considering any task complete.
 
 ## Architecture
 
@@ -40,12 +45,15 @@ src/lib/
   openfusion-db.ts                      D1 repository factory using prepared statements
   openfusion-policy.ts                  classifyCommandRisk() + privacy storage decisions
   openfusion-state.ts                   Run/approval/terminal-lease state machines
+  validators.ts                         zod runtime validators for D1 inputs and event envelopes
 src/types/
   openfusion.ts                         Domain types (the contract)
   openfusion-db.ts                      D1 row types and repository input contracts
   openfusion-events.ts                  Event-sourced protocol types
 infra/migrations/
   0001_openfusion_core.sql              D1 control-plane schema
+e2e/
+  phase-00.spec.ts                      Playwright wiring smoke test
 ```
 
 ### Key conventions
@@ -55,6 +63,7 @@ infra/migrations/
 - **State machines are authoritative.** `src/lib/openfusion-state.ts` defines legal transitions for `RunStatus`, `ApprovalStatus`, and `TerminalLeaseMode`. Use `transitionRunStatus()`, `transitionApprovalStatus()`, `transitionTerminalLease()` — do not invent new transitions or bypass these.
 - **Policy classifier is authoritative.** `src/lib/openfusion-policy.ts` `classifyCommandRisk()` maps commands to `allow`/`approval`/`deny` + `RiskLevel`. Reuse it; do not duplicate risk logic.
 - **D1 repositories are the database boundary.** `src/lib/openfusion-db.ts` exposes `createOpenFusionRepositories()`. Use it in future Worker/API code instead of writing ad hoc queries in handlers.
+- **Runtime validators guard D1 inputs.** `src/lib/validators.ts` mirrors the D1 input contracts with zod. Parse at the repository/API boundary; do not duplicate ad hoc validation in handlers.
 - **Mock data stays in `src/lib/mock-openfusion.ts`.** Do not inline mock data in components. Do not introduce real provider calls, real fetch, or real auth into the mock UI.
 
 ## CSS and Styling

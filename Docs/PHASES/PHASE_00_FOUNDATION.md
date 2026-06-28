@@ -2,11 +2,13 @@
 
 **Objective:** Establish automated quality gates (typecheck, lint, test, validate) before any feature work begins. Fix the broken `lint` script, add a test framework, add runtime validation, and write unit tests for all existing contracts.
 
+**Status:** Implemented in the current flat Next.js app. The quality gates, runtime validators, tests, and `.dev.vars.example` now exist in the workspace; commit is intentionally left to the user.
+
 **Prerequisites:** None — this is the starting point.
 
 ---
 
-## Current State
+## Current State Before Phase 00
 
 - `npm run build` passes (includes TypeScript checking) — the only working quality gate.
 - `npm run lint` is broken: Next.js 16 removed `next lint`. Running it produces `Invalid project directory provided, no such directory: .../openfusion/lint`.
@@ -22,7 +24,7 @@
 ```text
 npm run typecheck   # tsc --noEmit (fast, no build)
 npm run lint        # eslint (fixed, working)
-npm run test        # vitest run
+npm run test        # vitest run --coverage
 npm run test:watch  # vitest
 npm run test:e2e    # playwright (skeleton)
 npm run build       # next build (unchanged, full gate)
@@ -501,15 +503,15 @@ Delete the unused `useOpenFusionMock()` hook from `src/lib/mock-openfusion.ts:40
 ## Acceptance Criteria
 
 ```text
-[ ] npm run typecheck passes with zero errors
-[ ] npm run lint passes with zero errors
-[ ] npm run test passes with >90% coverage on src/lib/ and src/types/
-[ ] npm run build passes (unchanged)
-[ ] zod schemas exist for all D1 input contracts
-[ ] .dev.vars.example exists and is committed
-[ ] Dead useOpenFusionMock() hook removed
-[ ] AGENTS.md updated with working lint/test commands
-[ ] All tests run in <5 seconds
+[x] npm run typecheck passes with zero errors
+[x] npm run lint passes with zero errors
+[x] npm run test passes with >90% coverage on src/lib/ and src/types/
+[x] npm run build passes (unchanged)
+[x] zod schemas exist for all D1 input contracts
+[x] .dev.vars.example exists in the workspace
+[x] Dead useOpenFusionMock() hook removed
+[x] AGENTS.md updated with working lint/test commands
+[x] All tests run in <5 seconds
 ```
 
 ---

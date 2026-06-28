@@ -29,9 +29,25 @@ import type {
 	WorkspaceRow,
 } from "@/types/openfusion-db";
 import type { ApprovalStatus, RunStatus } from "@/types/openfusion";
+import {
+	createApprovalInputSchema,
+	createArtifactInputSchema,
+	createDecisionReportInputSchema,
+	createQueueItemInputSchema,
+	createRunInputSchema,
+	createSessionInputSchema,
+	createWorkspaceInputSchema,
+	decideApprovalInputSchema,
+	parsePersistEventInput,
+	updateRunStatusInputSchema,
+	upsertAgentInstallationInputSchema,
+	upsertMachineInputSchema,
+	upsertPolicyRuleInputSchema,
+	upsertScheduledJobInputSchema,
+} from "@/lib/validators";
 
 type BindValue = string | number | null;
-type QueryableD1 = Pick<D1Database, "prepare">;
+export type QueryableD1 = Pick<D1Database, "prepare">;
 
 export class OpenFusionDatabaseError extends Error {
 	constructor(message: string, options?: { cause?: unknown }) {
@@ -58,16 +74,16 @@ export function parseNullableJsonColumn<T extends JsonValue>(value: string | nul
 	return value === null ? null : parseJsonColumn<T>(value);
 }
 
-export function createOpenFusionRepositories(db: D1Database) {
+export function createOpenFusionRepositories(db: QueryableD1) {
 	return {
 		workspaces: {
-			create: (input: CreateWorkspaceInput) => createWorkspace(db, input),
+			create: (input: CreateWorkspaceInput) => createWorkspace(db, createWorkspaceInputSchema.parse(input)),
 			findById: (id: string) => firstRow<WorkspaceRow>(db, "SELECT * FROM workspaces WHERE id = ?", [id]),
 			list: (limit?: number) =>
 				allRows<WorkspaceRow>(db, "SELECT * FROM workspaces ORDER BY updated_at DESC LIMIT ?", [normalizeLimit(limit)]),
 		},
 		machines: {
-			upsert: (input: UpsertMachineInput) => upsertMachine(db, input),
+			upsert: (input: UpsertMachineInput) => upsertMachine(db, upsertMachineInputSchema.parse(input)),
 			findById: (id: string) => firstRow<MachineRow>(db, "SELECT * FROM machines WHERE id = ?", [id]),
 			listByWorkspace: (workspaceId: string, status?: MachineRow["status"], limit?: number) =>
 				status
@@ -82,7 +98,8 @@ export function createOpenFusionRepositories(db: D1Database) {
 						]),
 		},
 		agentInstallations: {
-			upsert: (input: UpsertAgentInstallationInput) => upsertAgentInstallation(db, input),
+			upsert: (input: UpsertAgentInstallationInput) =>
+				upsertAgentInstallation(db, upsertAgentInstallationInputSchema.parse(input)),
 			findById: (id: string) => firstRow<AgentInstallationRow>(db, "SELECT * FROM agent_installations WHERE id = ?", [id]),
 			listByMachine: (machineId: string) =>
 				allRows<AgentInstallationRow>(db, "SELECT * FROM agent_installations WHERE machine_id = ? ORDER BY agent_kind ASC", [
@@ -90,7 +107,7 @@ export function createOpenFusionRepositories(db: D1Database) {
 				]),
 		},
 		sessions: {
-			create: (input: CreateSessionInput) => createSession(db, input),
+			create: (input: CreateSessionInput) => createSession(db, createSessionInputSchema.parse(input)),
 			findById: (id: string) => firstRow<SessionRow>(db, "SELECT * FROM sessions WHERE id = ?", [id]),
 			listByWorkspace: (workspaceId: string, status?: RunStatus, limit?: number) =>
 				status
@@ -107,17 +124,17 @@ export function createOpenFusionRepositories(db: D1Database) {
 				updateSessionStatus(db, id, status, updatedAt),
 		},
 		runs: {
-			create: (input: CreateRunInput) => createRun(db, input),
+			create: (input: CreateRunInput) => createRun(db, createRunInputSchema.parse(input)),
 			findById: (id: string) => firstRow<RunRow>(db, "SELECT * FROM runs WHERE id = ?", [id]),
 			listBySession: (sessionId: string, limit?: number) =>
 				allRows<RunRow>(db, "SELECT * FROM runs WHERE session_id = ? ORDER BY created_at DESC LIMIT ?", [
 					sessionId,
 					normalizeLimit(limit),
 				]),
-			updateStatus: (input: UpdateRunStatusInput) => updateRunStatus(db, input),
+			updateStatus: (input: UpdateRunStatusInput) => updateRunStatus(db, updateRunStatusInputSchema.parse(input)),
 		},
 		events: {
-			append: (input: PersistEventInput) => appendEvent(db, input),
+			append: (input: PersistEventInput) => appendEvent(db, parsePersistEventInput(input)),
 			listBySession: (sessionId: string, afterSeq = -1, limit?: number) =>
 				allRows<EventIndexRow>(
 					db,
@@ -126,7 +143,7 @@ export function createOpenFusionRepositories(db: D1Database) {
 				),
 		},
 		approvals: {
-			create: (input: CreateApprovalInput) => createApproval(db, input),
+			create: (input: CreateApprovalInput) => createApproval(db, createApprovalInputSchema.parse(input)),
 			findById: (id: string) => firstRow<ApprovalRow>(db, "SELECT * FROM approvals WHERE id = ?", [id]),
 			listByWorkspace: (workspaceId: string, status?: ApprovalStatus, limit?: number) =>
 				status
@@ -139,10 +156,10 @@ export function createOpenFusionRepositories(db: D1Database) {
 							workspaceId,
 							normalizeLimit(limit),
 						]),
-			decide: (input: DecideApprovalInput) => decideApproval(db, input),
+			decide: (input: DecideApprovalInput) => decideApproval(db, decideApprovalInputSchema.parse(input)),
 		},
 		queue: {
-			enqueue: (input: CreateQueueItemInput) => createQueueItem(db, input),
+			enqueue: (input: CreateQueueItemInput) => createQueueItem(db, createQueueItemInputSchema.parse(input)),
 			findById: (id: string) => firstRow<QueueItemRow>(db, "SELECT * FROM queue_items WHERE id = ?", [id]),
 			listByWorkspace: (workspaceId: string, status?: RunStatus, limit?: number) =>
 				status
@@ -158,7 +175,7 @@ export function createOpenFusionRepositories(db: D1Database) {
 						),
 		},
 		scheduledJobs: {
-			upsert: (input: UpsertScheduledJobInput) => upsertScheduledJob(db, input),
+			upsert: (input: UpsertScheduledJobInput) => upsertScheduledJob(db, upsertScheduledJobInputSchema.parse(input)),
 			findById: (id: string) => firstRow<ScheduledJobRow>(db, "SELECT * FROM scheduled_jobs WHERE id = ?", [id]),
 			listDue: (now: string, limit?: number) =>
 				allRows<ScheduledJobRow>(
@@ -168,7 +185,7 @@ export function createOpenFusionRepositories(db: D1Database) {
 				),
 		},
 		artifacts: {
-			create: (input: CreateArtifactInput) => createArtifact(db, input),
+			create: (input: CreateArtifactInput) => createArtifact(db, createArtifactInputSchema.parse(input)),
 			findById: (id: string) => firstRow<ArtifactRow>(db, "SELECT * FROM artifacts WHERE id = ?", [id]),
 			listBySession: (sessionId: string, limit?: number) =>
 				allRows<ArtifactRow>(db, "SELECT * FROM artifacts WHERE session_id = ? ORDER BY created_at DESC LIMIT ?", [
@@ -177,7 +194,8 @@ export function createOpenFusionRepositories(db: D1Database) {
 				]),
 		},
 		decisionReports: {
-			create: (input: CreateDecisionReportInput) => createDecisionReport(db, input),
+			create: (input: CreateDecisionReportInput) =>
+				createDecisionReport(db, createDecisionReportInputSchema.parse(input)),
 			findById: (id: string) => firstRow<DecisionReportRow>(db, "SELECT * FROM decision_reports WHERE id = ?", [id]),
 			listByWorkspace: (workspaceId: string, limit?: number) =>
 				allRows<DecisionReportRow>(
@@ -187,7 +205,7 @@ export function createOpenFusionRepositories(db: D1Database) {
 				),
 		},
 		policyRules: {
-			upsert: (input: UpsertPolicyRuleInput) => upsertPolicyRule(db, input),
+			upsert: (input: UpsertPolicyRuleInput) => upsertPolicyRule(db, upsertPolicyRuleInputSchema.parse(input)),
 			listByWorkspace: (workspaceId: string, enabledOnly = true) =>
 				enabledOnly
 					? allRows<PolicyRuleRow>(

@@ -21,6 +21,8 @@ This document is the master index for a 13-phase buildout plan (Phase 00 through
 | Policy classifier + privacy matrix | `src/lib/openfusion-policy.ts` | 138 | Complete — 4 risk tiers, 3 privacy modes |
 | D1 schema | `infra/migrations/0001_openfusion_core.sql` | 224 | Complete — 12 tables, 16 indexes, FKs, CHECKs |
 | Typed D1 repositories | `src/lib/openfusion-db.ts` | 693 | Complete — 12 repos, prepared statements, R2 object_key support |
+| Runtime validators | `src/lib/validators.ts` | 390+ | Complete — zod schemas for all D1 input contracts + event envelope validation |
+| Quality gates | `package.json`, `vitest.config.ts`, `playwright.config.ts` | — | Complete — typecheck, eslint, vitest coverage, Playwright skeleton |
 | Mission Control dashboard (mock) | `src/components/openfusion/mission-control-dashboard.tsx` | 698 | Complete — 14 sub-components, custom `of-*` design system |
 | Design system CSS | `src/app/globals.css` | 1322 | Complete — 262 `of-*` classes, CSS variables, responsive |
 | Mock data | `src/lib/mock-openfusion.ts` | 410 | Complete — 5 agents, active run, queue, schedules, reports |
@@ -30,10 +32,6 @@ This document is the master index for a 13-phase buildout plan (Phase 00 through
 
 | Missing component | Impact | Phase |
 |---|---|---|
-| Test framework (vitest) | No automated quality gate | Phase 00 |
-| Runtime validation (zod) | Inputs unvalidated at runtime | Phase 00 |
-| `lint` script broken (Next 16) | No lint gate | Phase 00 |
-| `.dev.vars.example` template | Dev onboarding friction | Phase 00 |
 | Monorepo (`apps/`, `packages/`, `workers/`) | No package isolation | Phase 01 |
 | Cloudflare D1/R2 bindings in `wrangler.jsonc` | No database access | Phase 02 |
 | Worker API / BFF (REST endpoints) | No server-state source | Phase 02 |
@@ -54,8 +52,9 @@ This document is the master index for a 13-phase buildout plan (Phase 00 through
 |---|---|---|
 | `next`, `react`, `react-dom` | Yes | — |
 | `@opennextjs/cloudflare`, `wrangler` | Yes | Deploy |
-| `zod` | No | Validation (all phases) |
-| `vitest` | No | Testing (Phase 00+) |
+| `zod` | Yes | Validation (all phases) |
+| `vitest`, `@vitest/coverage-v8`, `@vitest/ui` | Yes | Testing (Phase 00+) |
+| `@playwright/test` | Yes | E2E skeleton (Phase 00+) |
 | `@tanstack/react-query` | No | Server state (Phase 02+) |
 | `zustand` | No | UI state (Phase 11) |
 | `@xyflow/react` | No | Agent graph (Phase 11) |

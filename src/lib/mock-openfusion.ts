@@ -397,14 +397,3 @@ export const policyRules: PolicyRule[] = [
 		risk: "critical",
 	},
 ];
-
-export const useOpenFusionMock = () => ({
-	navigationItems,
-	workspaceSummary,
-	agentInstallations,
-	activeRun,
-	queueItems,
-	scheduledJobs,
-	decisionReport,
-	policyRules,
-});

@@ -26,7 +26,6 @@ import type {
 	TerminalTab,
 	TerminalTabStatus,
 	VerificationResult,
-	VerificationStatus,
 } from "@/types/openfusion";
 
 const statusLabels: Record<GraphNodeStatus, string> = {

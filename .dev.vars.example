@@ -1,0 +1,11 @@
+# OpenFusion local development secrets
+# Copy to .dev.vars and fill in real values.
+# .dev.vars is gitignored.
+
+# Cloudflare AI Gateway (Phase 10)
+CLOUDFLARE_API_KEY=
+CLOUDFLARE_ACCOUNT_ID=
+CLOUDFLARE_GATEWAY_ID=default
+
+# Bridge pairing secret (Phase 04)
+OPENFUSION_BRIDGE_TOKEN=
