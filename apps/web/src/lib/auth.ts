@@ -5,6 +5,7 @@ import { unauthorized } from "@/lib/api/errors";
 export const SESSION_COOKIE = "of_session";
 export const SESSION_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 const PAIRING_CODE_MAX_AGE_MS = 1000 * 60 * 10;
+const BRIDGE_CONNECTION_TOKEN_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 30;
 
 export type SessionUser = {
 	role: "member" | "observer" | "owner";
@@ -23,6 +24,14 @@ type PairingPayload = {
 	nonce: string;
 	purpose: "bridge-pairing";
 	requestedBy: string;
+	workspaceId: string;
+};
+
+export type BridgeConnectionPayload = {
+	expiresAt: number;
+	machineId: string;
+	nonce: string;
+	purpose: "bridge-connection";
 	workspaceId: string;
 };
 
@@ -97,6 +106,27 @@ export async function generatePairingCode(user: SessionUser, now = Date.now()): 
 export async function verifyPairingCode(value: string, now = Date.now()): Promise<PairingPayload | null> {
 	const payload = await verifySignedPayload<PairingPayload>(value);
 	if (!payload || payload.purpose !== "bridge-pairing" || payload.expiresAt <= now) {
+		return null;
+	}
+	return payload;
+}
+
+export async function generateBridgeConnectionToken(
+	input: { machineId: string; workspaceId: string },
+	now = Date.now(),
+): Promise<string> {
+	return signPayload({
+		expiresAt: now + BRIDGE_CONNECTION_TOKEN_MAX_AGE_MS,
+		machineId: input.machineId,
+		nonce: randomHex(16),
+		purpose: "bridge-connection",
+		workspaceId: input.workspaceId,
+	});
+}
+
+export async function verifyBridgeConnectionToken(value: string, now = Date.now()): Promise<BridgeConnectionPayload | null> {
+	const payload = await verifySignedPayload<BridgeConnectionPayload>(value);
+	if (!payload || payload.purpose !== "bridge-connection" || payload.expiresAt <= now) {
 		return null;
 	}
 	return payload;

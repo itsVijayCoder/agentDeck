@@ -9,7 +9,7 @@
 {
 	"$schema": "../../node_modules/wrangler/config-schema.json",
 	"name": "openfusion",
-	"main": ".open-next/worker.js",
+	"main": "worker.ts",
 	"compatibility_date": "2026-06-27",
 	"compatibility_flags": [
 		"nodejs_compat",
@@ -48,6 +48,22 @@
 		{
 			"binding": "OPENFUSION_ARTIFACTS",
 			"bucket_name": "openfusion-artifacts"
+		}
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "SESSION_HUB",
+				"class_name": "SessionHub"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1_session_hub",
+			"new_sqlite_classes": [
+				"SessionHub"
+			]
 		}
 	]
 	/**

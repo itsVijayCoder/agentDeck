@@ -41,6 +41,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@openfusion/bridge-protocol':
+        specifier: workspace:*
+        version: link:../../packages/bridge-protocol
       '@openfusion/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -101,6 +104,10 @@ importers:
         version: 4.105.0(@cloudflare/workers-types@4.20260628.1)
 
   packages/bridge-protocol:
+    dependencies:
+      '@openfusion/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       '@openfusion/config':
         specifier: workspace:*

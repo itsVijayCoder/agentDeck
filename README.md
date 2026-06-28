@@ -16,10 +16,12 @@ This repository currently contains the first product milestone:
 - pnpm monorepo with shared `core`, `policy`, `db`, and `config` packages.
 - Type-safe OpenFusion domain model and realistic mock data.
 - D1 schema migration plus typed repository contracts for the control-plane metadata layer.
+- Worker API/BFF routes for workspaces, machines, sessions, approvals, queue, schedules, reports, policies, and artifacts.
+- Durable Object SessionHub for live WebSocket fanout, event sequencing, replay cache, and D1/R2 event persistence boundaries.
 - Production-style Mission Control dashboard in Next.js.
 - Local UI interactions for terminal tabs, command palette, approval state, and run inspection.
 
-Worker API routes, Durable Objects, bridge execution, R2 object writes, Queues, Workflows, and real agent adapters are planned next.
+Local bridge execution, Queues, Workflows, and real agent adapters are planned next.
 
 ## Product Architecture
 
@@ -55,11 +57,11 @@ See [Docs/ARCHITECTURE_BLUEPRINT.md](Docs/ARCHITECTURE_BLUEPRINT.md) for the imp
 - OpenNext Cloudflare adapter
 - Cloudflare Workers deployment target
 - Cloudflare D1 schema and repository contracts
+- Cloudflare Durable Objects for live session hubs
+- Cloudflare R2 bindings for artifacts and large event payloads
 
 Planned:
 
-- Durable Objects for live session hubs
-- R2 write path for logs and artifacts
 - Queues and Workflows for background runs
 - Cron Triggers for schedules
 - Local Node/Tauri OpenFusion Bridge

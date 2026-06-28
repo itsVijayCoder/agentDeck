@@ -37,6 +37,7 @@ export type SessionEvent =
 
 export type MachineEvent =
 	| EventEnvelope<"machine.online", { machineId: string; bridgeVersion: string }>
+	| EventEnvelope<"machine.heartbeat", { machineId: string; sentAt: string }>
 	| EventEnvelope<"machine.offline", { machineId: string; reason?: string }>
 	| EventEnvelope<"machine.revoked", { machineId: string; revokedBy: string }>;
 
@@ -50,8 +51,10 @@ export type RunEvent =
 	| EventEnvelope<"run.created", { task: string; targetBranch: string }>
 	| EventEnvelope<"run.dispatched", { machineId: string; agentInstallationId: string }>
 	| EventEnvelope<"run.started", { status: RunStatus; worktreePathHash?: string }>
+	| EventEnvelope<"run.status", { runId: string; status: RunStatus }>
 	| EventEnvelope<"run.waiting_approval", { approvalId: string }>
 	| EventEnvelope<"run.paused", { reason?: string }>
+	| EventEnvelope<"run.resumed", { reason?: string }>
 	| EventEnvelope<"run.verifying", { verifierCount: number }>
 	| EventEnvelope<"run.completed", { reportId?: string; confidence?: number }>
 	| EventEnvelope<"run.failed", { error: string; retryable: boolean }>

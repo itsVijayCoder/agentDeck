@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { jsonResponse, unauthorized, withApiErrors } from "@/lib/api/errors";
 import { parseJsonRequest } from "@/lib/api/request";
 import { completePairingRequestSchema } from "@/lib/api/schemas";
-import { verifyPairingCode } from "@/lib/auth";
+import { generateBridgeConnectionToken, verifyPairingCode } from "@/lib/auth";
 import { getRepositories } from "@/lib/cloudflare-context";
 
 export async function POST(request: NextRequest) {
@@ -42,7 +42,8 @@ export async function POST(request: NextRequest) {
 				}),
 			),
 		);
+		const token = await generateBridgeConnectionToken({ machineId: machine.id, workspaceId: pairing.workspaceId });
 
-		return jsonResponse({ agents, machine }, { status: 201 });
+		return jsonResponse({ agents, machine, token }, { status: 201 });
 	});
 }

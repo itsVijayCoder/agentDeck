@@ -1,0 +1,105 @@
+import { describe, expect, it } from "vitest";
+
+import {
+	bridgeMessageToEventDrafts,
+	browserControlToEventDraft,
+	parseBrowserControlMessage,
+	shouldStorePayloadInR2,
+	visibilityForEvent,
+} from "./session-hub-protocol";
+
+describe("session hub protocol helpers", () => {
+	it("normalizes bridge heartbeat messages into event drafts", () => {
+		const drafts = bridgeMessageToEventDrafts({
+			machineId: "machine_01",
+			sentAt: "2026-06-28T00:00:00.000Z",
+			type: "machine.heartbeat",
+		});
+
+		expect(drafts).toEqual([
+			{
+				payload: { machineId: "machine_01", sentAt: "2026-06-28T00:00:00.000Z" },
+				source: "bridge",
+				type: "machine.heartbeat",
+				visibility: "metadata",
+			},
+		]);
+	});
+
+	it("normalizes event batches without trusting caller sequence numbers", () => {
+		const drafts = bridgeMessageToEventDrafts({
+			events: [
+				{
+					payload: { data: "hello" },
+					runId: "run_01",
+					seq: 999,
+					source: "agent",
+					type: "terminal.stdout",
+					visibility: "local-only",
+				},
+			],
+			type: "event.batch",
+		});
+
+		expect(drafts).toEqual([
+			{
+				payload: { data: "hello" },
+				runId: "run_01",
+				source: "agent",
+				type: "terminal.stdout",
+				visibility: "local-only",
+			},
+		]);
+	});
+
+	it("parses browser controls and maps persisted control events", () => {
+		const control = parseBrowserControlMessage({
+			reason: "Need a breakpoint",
+			runId: "run_01",
+			type: "control.pause",
+		});
+
+		expect(control).toEqual({
+			reason: "Need a breakpoint",
+			runId: "run_01",
+			type: "control.pause",
+		});
+		expect(control ? browserControlToEventDraft(control, "user_01") : null).toEqual({
+			payload: { reason: "Need a breakpoint" },
+			runId: "run_01",
+			source: "browser",
+			type: "run.paused",
+			visibility: "metadata",
+		});
+	});
+
+	it("keeps terminal visibility local unless full sync is enabled", () => {
+		expect(visibilityForEvent("terminal.stdout", "metadata-only")).toBe("local-only");
+		expect(visibilityForEvent("terminal.stdout", "full-sync")).toBe("full");
+		expect(visibilityForEvent("agent.detected", "metadata-only")).toBe("metadata");
+	});
+
+	it("routes only large sync-eligible payloads to R2", () => {
+		expect(
+			shouldStorePayloadInR2({
+				payloadBytes: 20_000,
+				privacyMode: "metadata-only",
+				type: "terminal.stdout",
+			}),
+		).toBe(true);
+		expect(
+			shouldStorePayloadInR2({
+				payloadBytes: 20_000,
+				privacyMode: "local-only",
+				type: "terminal.stdout",
+			}),
+		).toBe(false);
+		expect(
+			shouldStorePayloadInR2({
+				payloadBytes: 120,
+				privacyMode: "full-sync",
+				type: "agent.detected",
+			}),
+		).toBe(false);
+	});
+});

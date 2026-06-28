@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@openfusion/core": "workspace:*",
+    "@openfusion/bridge-protocol": "workspace:*",
     "@openfusion/db": "workspace:*",
     "@openfusion/policy": "workspace:*",
     "@opennextjs/cloudflare": "^1.19.9",

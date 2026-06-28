@@ -1,7 +1,7 @@
 {
 	"extends": "@openfusion/config/tsconfig/react.json",
 	"compilerOptions": {
-		"allowJs": true,
+		"allowJs": false,
 		"noEmit": true,
 		"incremental": true,
 		"plugins": [
@@ -18,5 +18,5 @@
 		]
 	},
 	"include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".next/dev/types/**/*.ts"],
-	"exclude": ["node_modules"]
+	"exclude": [".next", ".open-next", ".wrangler", "coverage", "dist", "node_modules", "test-results"]
 }

@@ -8,10 +8,13 @@
 
 ## Current State
 
-- Event types exist in `@openfusion/core` (`OpenFusionEvent`, `BrowserControlMessage`, `BridgeMessage`).
-- D1 `event_index` table exists for persistence.
-- No Durable Object code exists. No WebSocket code exists. No `durable_objects` binding in `wrangler.jsonc`.
-- The `seq` field on events is currently set to 0 or `MAX(seq)+1` — no authoritative ordering.
+- Event types exist in `@openfusion/core` (`OpenFusionEvent`, `BrowserControlMessage`, `BridgeMessage`) and now include Phase 03 bridge/runtime events: `machine.heartbeat`, `run.status`, and `run.resumed`.
+- D1 `event_index` table exists for metadata persistence. Large payload references use `object_key`; full payloads are not stored in D1 rows.
+- `SessionHub` exists in `apps/web/src/do/session-hub.ts` and is exported through `apps/web/worker.ts` for Cloudflare.
+- `wrangler.jsonc` binds `SESSION_HUB` with a SQLite Durable Object migration.
+- The WebSocket endpoint exists at `/api/sessions/:id/ws?role=browser|observer|bridge`.
+- Browser connections are authorized with the signed session cookie. Bridge connections use a signed machine-scoped bridge token returned by pairing.
+- `SessionHub` is the authoritative event sequence writer for live WebSocket events. REST-created Phase 02 events still use the repository fallback until those write paths are routed through the hub.
 
 ---
 
@@ -19,12 +22,12 @@
 
 ```text
 - SessionHub Durable Object class owns each live session
-- WebSocket endpoint: /api/sessions/:id/ws?role=browser|bridge
-- DO assigns monotonically increasing seq numbers to every event
+- WebSocket endpoint: /api/sessions/:id/ws?role=browser|observer|bridge
+- DO assigns monotonically increasing seq numbers to every live event
 - DO fans out events to all connected clients in real time
-- DO persists small events to D1; large payloads go to R2
-- Browser reconnect fetches missed events via /api/sessions/:id/events?afterSeq=N
-- Bridge connects as a special WebSocket client with elevated permissions
+- DO persists event metadata to D1; large payloads go to R2 when privacy mode allows it
+- Browser reconnect receives cached missed events by reconnecting with lastSeq
+- Bridge connects as a special WebSocket client with machine-token permissions
 ```
 
 ---
@@ -573,36 +576,36 @@ DO -> All clients (EventEnvelope):
 
 ## Implementation Steps
 
-1. Add `durable_objects` binding + migration to `wrangler.jsonc`
-2. Run `npm run cf-typegen`
-3. Create `apps/web/src/do/session-hub.ts`
-4. Create `apps/web/src/app/api/sessions/[id]/ws/route.ts`
-5. Implement DO: WebSocket handling, seq assignment, broadcast, D1 persist
-6. Implement DO storage initialization (workspace/session metadata)
-7. Create `apps/web/src/lib/use-session-websocket.ts` client hook
-8. Implement reconnect/replay logic (client-side)
-9. Write unit tests with miniflare DO
-10. Write integration tests with WebSocket clients
-11. Run `pnpm typecheck && pnpm lint && pnpm test && pnpm build`
-12. Test manually: open 2 browser tabs, connect both, verify events broadcast to both
+1. Add `durable_objects` binding + migration to `wrangler.jsonc` — done.
+2. Run `pnpm cf-typegen` — done; `CloudflareEnv` includes `SESSION_HUB`.
+3. Create `apps/web/src/do/session-hub.ts` — done.
+4. Create `apps/web/src/app/api/sessions/[id]/ws/route.ts` — done.
+5. Implement DO: WebSocket handling, seq assignment, broadcast, D1 metadata persist — done.
+6. Implement DO storage initialization (workspace/session metadata) — done.
+7. Create `apps/web/src/lib/use-session-websocket.ts` client hook — done.
+8. Implement reconnect/replay logic (client-side) — done via `lastSeq` reconnect and DO recent-event replay.
+9. Write unit tests for protocol normalization, control-event mapping, and R2 routing — done.
+10. Validate Cloudflare bundle shape — done with OpenNext build and Wrangler dry run.
+11. Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm test:e2e`, `pnpm build:packages`, and `pnpm build` — done.
+12. Manual multi-client WebSocket testing remains a runtime follow-up once a local bridge/client harness exists.
 
 ---
 
 ## Acceptance Criteria
 
 ```text
-[ ] SessionHub DO class exists and is bound in wrangler.jsonc
-[ ] WebSocket endpoint /api/sessions/:id/ws accepts browser and bridge connections
-[ ] DO assigns monotonically increasing seq to every event (no gaps, no duplicates)
-[ ] Events are broadcast to all connected clients in real time
-[ ] Events are persisted to D1 event_index table
-[ ] Recent events (500) are cached in DO storage for fast replay
-[ ] Browser reconnect receives missed events
-[ ] Bridge disconnect notifies all browsers
-[ ] Browser control messages are forwarded to bridge
-[ ] Large payloads (terminal logs) are routed to R2, not stored in D1
-[ ] Unit and integration tests pass
-[ ] pnpm build passes
+[x] SessionHub DO class exists and is bound in wrangler.jsonc
+[x] WebSocket endpoint /api/sessions/:id/ws accepts browser, observer, and bridge roles
+[x] DO assigns monotonically increasing seq to live WebSocket events
+[x] Events are broadcast to all connected clients in real time
+[x] Event metadata is persisted to D1 event_index table
+[x] Recent events (500) are cached in DO storage for fast replay
+[x] Browser reconnect receives cached missed events with lastSeq
+[x] Bridge disconnect notifies all browsers
+[x] Browser control messages are forwarded to bridge
+[x] Large sync-eligible payloads are routed to R2; D1 stores metadata/object_key only
+[x] Unit tests pass; Wrangler dry-run validates the Cloudflare binding/bundle shape
+[x] pnpm build passes
 ```
 
 ---

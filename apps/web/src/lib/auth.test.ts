@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { generatePairingCode, openSessionCookie, sealSessionCookie, verifyPairingCode } from "./auth";
+import {
+	generateBridgeConnectionToken,
+	generatePairingCode,
+	openSessionCookie,
+	sealSessionCookie,
+	verifyBridgeConnectionToken,
+	verifyPairingCode,
+} from "./auth";
 
 const user = {
 	role: "owner" as const,
@@ -35,5 +42,16 @@ describe("OpenFusion API auth tokens", () => {
 			workspaceId: user.workspaceId,
 		});
 		await expect(verifyPairingCode(pairingCode, 1000 + 1000 * 60 * 11)).resolves.toBeNull();
+	});
+
+	it("round-trips bridge connection tokens scoped to a machine", async () => {
+		const token = await generateBridgeConnectionToken({ machineId: "machine_01", workspaceId: user.workspaceId }, 1000);
+
+		await expect(verifyBridgeConnectionToken(token, 2000)).resolves.toMatchObject({
+			machineId: "machine_01",
+			purpose: "bridge-connection",
+			workspaceId: user.workspaceId,
+		});
+		await expect(verifyBridgeConnectionToken(token, 1000 + 1000 * 60 * 60 * 24 * 31)).resolves.toBeNull();
 	});
 });

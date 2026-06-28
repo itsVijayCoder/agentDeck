@@ -18,6 +18,9 @@
     "lint:fix": "eslint . --fix",
     "test": "vitest run --passWithNoTests"
   },
+  "dependencies": {
+    "@openfusion/core": "workspace:*"
+  },
   "devDependencies": {
     "@openfusion/config": "workspace:*",
     "eslint": "^9",

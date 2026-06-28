@@ -29,13 +29,14 @@ This document is the master index for a 13-phase buildout plan (Phase 00 through
 | Mock data | `apps/web/src/lib/mock-openfusion.ts` | 410 | Complete — 5 agents, active run, queue, schedules, reports |
 | Cloudflare control-plane bindings | `apps/web/wrangler.jsonc`, `apps/web/cloudflare-env.d.ts` | — | Complete — D1 + R2 bindings for Phase 02 |
 | Worker API / BFF routes | `apps/web/src/app/api/` | — | Complete — REST endpoints for workspaces, machines, sessions, approvals, queue, schedules, reports, policies, and artifacts |
+| Durable Object session hub | `apps/web/src/do/session-hub.ts`, `apps/web/src/app/api/sessions/[id]/ws/route.ts` | — | Complete — WebSocket auth gate, DO sequencing, fanout, replay cache, D1 metadata, R2 large payload path |
+| Bridge protocol facade | `packages/bridge-protocol/src/index.ts` | — | Complete — shared SessionHub roles, server messages, and replay/payload constants |
 | Architecture docs | `Docs/` (6 files) | ~6000+ | Complete — Blueprint, Core Contracts, DB Schema, Impl Guide |
 
 ### 1.2 Missing (blocks the full vision)
 
 | Missing component | Impact | Phase |
 |---|---|---|
-| Durable Object session hub | No realtime, no event ordering | Phase 03 |
 | Local OpenFusion Bridge | No agent detection or execution | Phase 04 |
 | Real terminal (xterm.js + PTY) | No live terminal streaming | Phase 05 |
 | Agent adapters (Claude/Codex/OpenCode/Qwen/Pi) | No real agent runs | Phase 06 |

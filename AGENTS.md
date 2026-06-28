@@ -4,9 +4,9 @@ Guidance for AI coding agents working in this repository.
 
 ## Current State
 
-This repo is a **pnpm monorepo** for OpenFusion Mission Control. It has typed domain models, event contracts, state machines, a policy classifier, D1 persistence contracts, runtime validators, mock data, and the production dashboard UI.
+This repo is a **pnpm monorepo** for OpenFusion Mission Control. It has typed domain models, event contracts, state machines, a policy classifier, D1 persistence contracts, runtime validators, Worker API routes, a Durable Object session hub, mock data, and the production dashboard UI.
 
-There is still no Worker API implementation, Durable Object session hub, local bridge, R2 write path, Queue consumer, Workflow, or real agent execution yet.
+There is still no local bridge, Queue consumer, Workflow, or real agent execution yet. The R2 path exists for artifacts and large SessionHub event payloads, but bridge-side redaction/upload workflows are still planned.
 
 `Docs/IMPLEMENTATION_GUIDE_WITH_PI.md` describes the full planned architecture. Trust the code and current phase docs for what is implemented today.
 
@@ -39,7 +39,9 @@ pnpm cf-typegen     # regenerate apps/web/cloudflare-env.d.ts
 apps/
   web/                                  Next.js/OpenNext Mission Control app
     src/app/                            App Router shell, fonts, metadata, global CSS
+    src/app/api/                        Worker API/BFF routes, including SessionHub WebSocket gate
     src/components/openfusion/          Dashboard UI
+    src/do/                             SessionHub Durable Object + protocol helpers
     src/lib/mock-openfusion.ts          App-local mock data
     e2e/phase-00.spec.ts                Playwright wiring smoke test
     wrangler.jsonc                      Cloudflare deploy config
@@ -49,7 +51,7 @@ packages/
   policy/                               Command risk + privacy storage decisions
   db/                                   D1 repositories, input validators, migrations
   config/                               Shared tsconfig and ESLint presets
-  bridge-protocol/                      Placeholder for Phase 03+ protocol schemas
+  bridge-protocol/                      Shared SessionHub protocol roles/messages/constants
   ui/                                   Placeholder for Phase 11 shared UI/tokens
 infra/migrations/
   README.md                             Compatibility marker; canonical SQL is in packages/db/migrations

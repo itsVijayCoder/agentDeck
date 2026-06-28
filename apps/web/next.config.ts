@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-	transpilePackages: ["@openfusion/core", "@openfusion/db", "@openfusion/policy"],
+	transpilePackages: ["@openfusion/bridge-protocol", "@openfusion/core", "@openfusion/db", "@openfusion/policy"],
 };
 
 export default nextConfig;
