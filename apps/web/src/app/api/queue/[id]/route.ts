@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { transitionRunStatus } from "@openfusion/core";
+import { transitionRunStatus } from "@agentdeck/core";
 
 import { requireWorkspaceRow } from "@/lib/api/access";
 import { conflict, jsonResponse, notFound, withApiErrors } from "@/lib/api/errors";

@@ -6,8 +6,8 @@ import type {
 	QueuePriority,
 	RiskLevel,
 	RunStatus,
-} from "@openfusion/core";
-import type { EventSource, EventVisibility, OpenFusionEvent } from "@openfusion/core";
+} from "@agentdeck/core";
+import type { EventSource, EventVisibility, AgentDeckEvent } from "@agentdeck/core";
 
 export type IsoTimestamp = string;
 export type R2ObjectKey = string;
@@ -99,7 +99,7 @@ export type EventIndexRow = {
 	session_id: string;
 	run_id: string | null;
 	seq: number;
-	type: OpenFusionEvent["type"];
+	type: AgentDeckEvent["type"];
 	source: EventSource;
 	visibility: EventVisibility;
 	object_key: R2ObjectKey | null;
@@ -282,7 +282,7 @@ export type UpdateRunStatusInput = {
 };
 
 export type PersistEventInput = {
-	event: OpenFusionEvent;
+	event: AgentDeckEvent;
 	objectKey?: R2ObjectKey | null;
 };
 

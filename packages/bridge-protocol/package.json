@@ -1,5 +1,5 @@
 {
-  "name": "@openfusion/bridge-protocol",
+  "name": "@agentdeck/bridge-protocol",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -19,10 +19,10 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@openfusion/core": "workspace:*"
+    "@agentdeck/core": "workspace:*"
   },
   "devDependencies": {
-    "@openfusion/config": "workspace:*",
+    "@agentdeck/config": "workspace:*",
     "eslint": "^9",
     "typescript": "^5.7.4",
     "vitest": "^4.1.9"

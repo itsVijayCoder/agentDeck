@@ -1,13 +1,13 @@
-# Contributing to OpenFusion
+# Contributing to AgentDeck
 
-Thanks for considering a contribution. OpenFusion is early, so the highest-value work is clear architecture, typed contracts, verified UI, and small implementation slices.
+Thanks for considering a contribution. AgentDeck is early, so the highest-value work is clear architecture, typed contracts, verified UI, and small implementation slices.
 
 ## Development Flow
 
 1. Read `Docs/ARCHITECTURE_BLUEPRINT.md`.
 2. Keep changes focused on one product or engineering slice.
 3. Prefer shared types in `src/types` before adding component-only shapes.
-4. Keep mock data in `src/lib/mock-openfusion.ts` until real APIs exist.
+4. Keep mock data in `src/lib/mock-agentdeck.ts` until real APIs exist.
 5. Run `npm run build` before submitting.
 
 ## Commit Style
@@ -33,7 +33,7 @@ chore: update project metadata
 
 ## Security and Privacy
 
-OpenFusion is local-first and human-controlled. Contributions must preserve these defaults:
+AgentDeck is local-first and human-controlled. Contributions must preserve these defaults:
 
 - Workspace folders are explicit.
 - Secrets are not read silently.

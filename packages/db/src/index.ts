@@ -1,12 +1,12 @@
 export {
-	createOpenFusionRepositories,
+	createAgentDeckRepositories,
 	fromSqlBoolean,
-	OpenFusionDatabaseError,
+	AgentDeckDatabaseError,
 	parseJsonColumn,
 	parseNullableJsonColumn,
 	toSqlBoolean,
 } from "./repositories";
-export type { OpenFusionRepositories, QueryableD1 } from "./repositories";
+export type { AgentDeckRepositories, QueryableD1 } from "./repositories";
 export { defaultWorkspaceSeed, seedWorkspace } from "./seed";
-export * from "./types/openfusion-db";
+export * from "./types/agentdeck-db";
 export * from "./validators";

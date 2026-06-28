@@ -26,7 +26,7 @@ const workspace = {
 	created_at: "2026-06-28T00:00:00.000Z",
 	default_branch: "main",
 	id: "ws_01",
-	name: "OpenFusion",
+	name: "AgentDeck",
 	privacy_mode: "metadata-only",
 	repository_url: null,
 	updated_at: "2026-06-28T00:00:00.000Z",

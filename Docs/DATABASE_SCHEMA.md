@@ -1,6 +1,6 @@
-# OpenFusion Database Schema
+# AgentDeck Database Schema
 
-This document describes the first Cloudflare D1 persistence slice for OpenFusion Mission Control.
+This document describes the first Cloudflare D1 persistence slice for AgentDeck Mission Control.
 
 ## Scope
 
@@ -22,10 +22,10 @@ The boundary is intentional: D1 remains queryable and small, while R2 holds appe
 ## Files
 
 ```text
-packages/db/migrations/0001_openfusion_core.sql
+packages/db/migrations/0001_agentdeck_core.sql
   Initial D1 schema, constraints, foreign keys, and indexes.
 
-packages/db/src/types/openfusion-db.ts
+packages/db/src/types/agentdeck-db.ts
   Raw D1 row types and camelCase repository input contracts.
 
 packages/db/src/repositories.ts
@@ -97,16 +97,16 @@ After creating the Cloudflare resources, add real IDs to `apps/web/wrangler.json
 {
 	"d1_databases": [
 		{
-			"binding": "OPENFUSION_DB",
-			"database_name": "openfusion-control",
+			"binding": "AGENTDECK_DB",
+			"database_name": "agentdeck-control",
 			"database_id": "d5243135-2e7c-48d7-8e45-82470791e1eb",
 			"migrations_dir": "../../packages/db/migrations"
 		}
 	],
 	"r2_buckets": [
 		{
-			"binding": "OPENFUSION_ARTIFACTS",
-			"bucket_name": "openfusion-artifacts"
+			"binding": "AGENTDECK_ARTIFACTS",
+			"bucket_name": "agentdeck-artifacts"
 		}
 	]
 }
@@ -123,24 +123,24 @@ pnpm cf-typegen
 Local:
 
 ```bash
-pnpm --filter @openfusion/web wrangler d1 migrations apply openfusion-control --local
+pnpm --filter @agentdeck/web wrangler d1 migrations apply agentdeck-control --local
 ```
 
 Remote:
 
 ```bash
-pnpm --filter @openfusion/web wrangler d1 migrations apply openfusion-control --remote
+pnpm --filter @agentdeck/web wrangler d1 migrations apply agentdeck-control --remote
 ```
 
 ## Repository Usage
 
-Worker/API code should use `createOpenFusionRepositories()` instead of hand-written queries in route handlers:
+Worker/API code should use `createAgentDeckRepositories()` instead of hand-written queries in route handlers:
 
 ```ts
-import { createOpenFusionRepositories } from "@openfusion/db";
+import { createAgentDeckRepositories } from "@agentdeck/db";
 
-export async function createSession(env: { OPENFUSION_DB: D1Database }) {
-	const db = createOpenFusionRepositories(env.OPENFUSION_DB);
+export async function createSession(env: { AGENTDECK_DB: D1Database }) {
+	const db = createAgentDeckRepositories(env.AGENTDECK_DB);
 
 	return db.sessions.create({
 		id: crypto.randomUUID(),

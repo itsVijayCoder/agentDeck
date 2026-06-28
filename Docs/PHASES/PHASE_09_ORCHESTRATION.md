@@ -10,7 +10,7 @@
 
 - Single-agent runs work (one agent per session).
 - No task classifier. No router. No candidate comparison. No judge. No synthesis.
-- Decision report type exists in `@openfusion/core` but is mock only.
+- Decision report type exists in `@agentdeck/core` but is mock only.
 - No multi-agent orchestration logic exists.
 
 ---
@@ -243,9 +243,9 @@ export function route(
 **`apps/bridge/src/orchestration/candidate-runner.ts`:**
 
 ```ts
-import type { HarnessAdapter, HarnessSessionHandle, EventSink, HarnessTask } from "@openfusion/harness";
+import type { HarnessAdapter, HarnessSessionHandle, EventSink, HarnessTask } from "@agentdeck/harness";
 import type { WorktreeManager } from "../repo/worktree.js";
-import type { AgentCandidate } from "@openfusion/harness";
+import type { AgentCandidate } from "@agentdeck/harness";
 
 export type CandidateResult = {
   candidateId: string;

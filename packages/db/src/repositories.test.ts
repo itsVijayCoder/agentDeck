@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import type { OpenFusionEvent } from "@openfusion/core";
+import type { AgentDeckEvent } from "@agentdeck/core";
 import {
-	createOpenFusionRepositories,
+	createAgentDeckRepositories,
 	fromSqlBoolean,
-	OpenFusionDatabaseError,
+	AgentDeckDatabaseError,
 	parseJsonColumn,
 	parseNullableJsonColumn,
 	type QueryableD1,
@@ -635,20 +635,20 @@ class MissingRowAfterWriteStatement {
 	}
 }
 
-describe("OpenFusion D1 repositories", () => {
+describe("AgentDeck D1 repositories", () => {
 	it("writes and reads every existing repository contract through a D1 test double", async () => {
-		const repositories = createOpenFusionRepositories(new MemoryD1());
+		const repositories = createAgentDeckRepositories(new MemoryD1());
 
 		const workspace = await repositories.workspaces.create({
 			createdAt: now,
 			defaultBranch: "main",
 			id: "ws_01",
-			name: "OpenFusion",
+			name: "AgentDeck",
 			privacyMode: "metadata-only",
-			repositoryUrl: "https://github.com/example/openfusion",
+			repositoryUrl: "https://github.com/example/agentdeck",
 			updatedAt: now,
 		});
-		expect(workspace.repository_url).toBe("https://github.com/example/openfusion");
+		expect(workspace.repository_url).toBe("https://github.com/example/agentdeck");
 		expect(await repositories.workspaces.findById("ws_01")).toEqual(workspace);
 		expect(await repositories.workspaces.list()).toHaveLength(1);
 
@@ -779,7 +779,7 @@ describe("OpenFusion D1 repositories", () => {
 		).toMatchObject({ completed_at: later, status: "completed" });
 		expect(await repositories.runs.updateStatus({ id: "missing", status: "failed" })).toBeNull();
 
-		const event: OpenFusionEvent = {
+		const event: AgentDeckEvent = {
 			createdAt: now,
 			hash: "hash",
 			id: "evt_01",
@@ -877,7 +877,7 @@ describe("OpenFusion D1 repositories", () => {
 	});
 
 	it("applies repository defaults for optional input fields", async () => {
-		const repositories = createOpenFusionRepositories(new MemoryD1());
+		const repositories = createAgentDeckRepositories(new MemoryD1());
 
 		const workspace = await repositories.workspaces.create({
 			id: "ws_min",
@@ -954,7 +954,7 @@ describe("OpenFusion D1 repositories", () => {
 			status: "running",
 		});
 
-		const event: OpenFusionEvent = {
+		const event: AgentDeckEvent = {
 			createdAt: now,
 			id: "evt_min",
 			payload: { status: "running" },
@@ -1070,7 +1070,7 @@ describe("OpenFusion D1 repositories", () => {
 	});
 
 	it("rejects invalid repository input before preparing a D1 statement", () => {
-		const repositories = createOpenFusionRepositories(new MemoryD1());
+		const repositories = createAgentDeckRepositories(new MemoryD1());
 
 		expect(() =>
 			repositories.sessions.create({
@@ -1084,46 +1084,46 @@ describe("OpenFusion D1 repositories", () => {
 	});
 
 	it("wraps unsuccessful D1 writes", async () => {
-		const repositories = createOpenFusionRepositories(new FailedRunD1());
+		const repositories = createAgentDeckRepositories(new FailedRunD1());
 
 		await expect(
 			repositories.workspaces.create({
 				id: "ws_01",
-				name: "OpenFusion",
+				name: "AgentDeck",
 				privacyMode: "metadata-only",
 			}),
-		).rejects.toThrow(OpenFusionDatabaseError);
+		).rejects.toThrow(AgentDeckDatabaseError);
 	});
 
 	it("wraps thrown D1 writes", async () => {
-		const repositories = createOpenFusionRepositories(new ThrowRunD1());
+		const repositories = createAgentDeckRepositories(new ThrowRunD1());
 
 		await expect(
 			repositories.workspaces.create({
 				id: "ws_01",
-				name: "OpenFusion",
+				name: "AgentDeck",
 				privacyMode: "metadata-only",
 			}),
-		).rejects.toThrow(OpenFusionDatabaseError);
+		).rejects.toThrow(AgentDeckDatabaseError);
 	});
 
 	it("wraps D1 read and list failures", async () => {
-		await expect(createOpenFusionRepositories(new ThrowFirstD1()).workspaces.findById("ws_01")).rejects.toThrow(
-			OpenFusionDatabaseError,
+		await expect(createAgentDeckRepositories(new ThrowFirstD1()).workspaces.findById("ws_01")).rejects.toThrow(
+			AgentDeckDatabaseError,
 		);
-		await expect(createOpenFusionRepositories(new ThrowAllD1()).workspaces.list()).rejects.toThrow(OpenFusionDatabaseError);
+		await expect(createAgentDeckRepositories(new ThrowAllD1()).workspaces.list()).rejects.toThrow(AgentDeckDatabaseError);
 	});
 
 	it("fails if D1 does not return a row after a successful write", async () => {
-		const repositories = createOpenFusionRepositories(new MissingRowAfterWriteD1());
+		const repositories = createAgentDeckRepositories(new MissingRowAfterWriteD1());
 
 		await expect(
 			repositories.workspaces.create({
 				id: "ws_01",
-				name: "OpenFusion",
+				name: "AgentDeck",
 				privacyMode: "metadata-only",
 			}),
-		).rejects.toThrow(OpenFusionDatabaseError);
+		).rejects.toThrow(AgentDeckDatabaseError);
 	});
 
 	it("converts SQLite booleans and JSON columns", () => {

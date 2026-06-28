@@ -169,9 +169,9 @@ async function sign(value: string): Promise<string> {
 }
 
 function getSessionSecret(): string {
-	const secret = process.env.OPENFUSION_SESSION_SECRET;
+	const secret = process.env.AGENTDECK_SESSION_SECRET;
 	if (!secret) {
-		throw new Error("OPENFUSION_SESSION_SECRET is required for OpenFusion API sessions.");
+		throw new Error("AGENTDECK_SESSION_SECRET is required for AgentDeck API sessions.");
 	}
 	return secret;
 }

@@ -8,7 +8,7 @@
 
 ## Current State
 
-- `classifyCommandRisk()` exists in `@openfusion/policy` — classifies commands into allow/approval/deny.
+- `classifyCommandRisk()` exists in `@agentdeck/policy` — classifies commands into allow/approval/deny.
 - `getPrivacyStorageDecision()` exists — determines D1/R2/live-stream behavior per privacy mode.
 - State machines exist for approval and run transitions.
 - No approval gate is wired at runtime. No worktree creation. No verifier execution. No R2 writes. No patch generation.
@@ -33,7 +33,7 @@
 
 ```mermaid
 flowchart TB
-  subgraph Bridge[OpenFusion Bridge]
+  subgraph Bridge[AgentDeck Bridge]
     Gate[Approval Gate]
     Worktree[Worktree Manager]
     Verifier[Verifier Runner]
@@ -42,7 +42,7 @@ flowchart TB
   end
 
   Agent[Agent PTY]
-  Policy["@openfusion/policy<br/>classifyCommandRisk"]
+  Policy["@agentdeck/policy<br/>classifyCommandRisk"]
   DO[SessionHub DO]
   D1[(D1)]
   R2[(R2)]
@@ -79,8 +79,8 @@ flowchart TB
 **`apps/bridge/src/policy/approval-gate.ts`:**
 
 ```ts
-import { classifyCommandRisk, type PolicyDecision } from "@openfusion/policy";
-import type { EventSink } from "@openfusion/harness";
+import { classifyCommandRisk, type PolicyDecision } from "@agentdeck/policy";
+import type { EventSink } from "@agentdeck/harness";
 
 export type ApprovalRequest = {
   id: string;
@@ -174,12 +174,12 @@ export class WorktreeManager {
   private readonly worktreeBase: string;
 
   constructor(repoPath: string) {
-    this.worktreeBase = join(repoPath, "..", "openfusion-worktrees", basename(repoPath));
+    this.worktreeBase = join(repoPath, "..", "agentdeck-worktrees", basename(repoPath));
   }
 
   async create(runId: string, targetBranch: string): Promise<WorktreeInfo> {
     const git = simpleGit();
-    const branchName = `openfusion/run-${runId.slice(0, 8)}`;
+    const branchName = `agentdeck/run-${runId.slice(0, 8)}`;
     const worktreePath = join(this.worktreeBase, `run_${runId}`);
 
     await mkdir(worktreePath, { recursive: true });
@@ -348,7 +348,7 @@ export class NodeVerifier implements Verifier {
 
 ```ts
 import type { WorktreeManager } from "./worktree.js";
-import type { EventSink } from "@openfusion/harness";
+import type { EventSink } from "@agentdeck/harness";
 import { redact } from "../redaction/secrets.js";
 
 export type PatchArtifact = {
@@ -416,9 +416,9 @@ The bridge sends large payloads to the DO, which writes them to R2 and stores th
 **`apps/bridge/src/stream/r2-writer.ts`:**
 
 ```ts
-import type { EventSink } from "@openfusion/harness";
+import type { EventSink } from "@agentdeck/harness";
 import { redact } from "../redaction/secrets.js";
-import { getPrivacyStorageDecision } from "@openfusion/policy";
+import { getPrivacyStorageDecision } from "@agentdeck/policy";
 
 export class R2Writer {
   constructor(
@@ -489,10 +489,10 @@ In the SessionHub DO (Phase 03), add handling for `artifact.upload` events:
 case "artifact.upload": {
   const { objectKey, data, kind, mimeType } = message.payload;
   // Write to R2
-  await this.env.OPENFUSION_ARTIFACTS.put(objectKey, data);
+  await this.env.AGENTDECK_ARTIFACTS.put(objectKey, data);
 
   // Store metadata in D1
-  const repos = createOpenFusionRepositories(this.env.OPENFUSION_DB);
+  const repos = createAgentDeckRepositories(this.env.AGENTDECK_DB);
   await repos.artifacts.create({
     id: crypto.randomUUID(),
     workspaceId: this.getWorkspaceId(),
@@ -564,8 +564,8 @@ sequenceDiagram
 - **OCP:** New verifiers (Java, Docker) are added as new classes implementing `Verifier`. No existing verifier is modified.
 - **LSP:** Any `Verifier` can replace any other. The bridge calls `verifier.run()` without knowing the language.
 - **ISP:** `Verifier` interface has only `detect()` and `run()`. No verifier depends on bridge internals.
-- **DIP:** `ApprovalGate` depends on `classifyCommandRisk` (abstraction in `@openfusion/policy`), not on bridge-specific logic.
-- **DRY:** Risk classification is in `@openfusion/policy` (one place). Privacy decisions are in `@openfusion/policy` (one place). Redaction is in `@openfusion/redaction` (one place). Worktree logic is in `WorktreeManager` (one place).
+- **DIP:** `ApprovalGate` depends on `classifyCommandRisk` (abstraction in `@agentdeck/policy`), not on bridge-specific logic.
+- **DRY:** Risk classification is in `@agentdeck/policy` (one place). Privacy decisions are in `@agentdeck/policy` (one place). Redaction is in `@agentdeck/redaction` (one place). Worktree logic is in `WorktreeManager` (one place).
 
 ---
 

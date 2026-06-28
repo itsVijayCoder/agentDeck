@@ -15,9 +15,9 @@ const user = {
 	workspaceId: "ws_01",
 };
 
-describe("OpenFusion API auth tokens", () => {
+describe("AgentDeck API auth tokens", () => {
 	beforeEach(() => {
-		vi.stubEnv("OPENFUSION_SESSION_SECRET", "test-secret-with-enough-entropy-for-hmac-signing");
+		vi.stubEnv("AGENTDECK_SESSION_SECRET", "test-secret-with-enough-entropy-for-hmac-signing");
 	});
 
 	it("round-trips signed session cookies", async () => {

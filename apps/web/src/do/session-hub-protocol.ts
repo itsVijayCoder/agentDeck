@@ -2,14 +2,14 @@ import type {
 	BrowserControlMessage,
 	EventSource,
 	EventVisibility,
-	OpenFusionEvent,
+	AgentDeckEvent,
 	PrivacyMode,
 	RunStatus,
 	TerminalLeaseMode,
-} from "@openfusion/core";
-import { SESSION_HUB_LARGE_PAYLOAD_BYTES } from "@openfusion/bridge-protocol";
-import { getPrivacyStorageDecision } from "@openfusion/policy";
-import type { JsonValue } from "@openfusion/db";
+} from "@agentdeck/core";
+import { SESSION_HUB_LARGE_PAYLOAD_BYTES } from "@agentdeck/bridge-protocol";
+import { getPrivacyStorageDecision } from "@agentdeck/policy";
+import type { JsonValue } from "@agentdeck/db";
 
 const runStatuses = [
 	"draft",
@@ -27,18 +27,18 @@ const runStatuses = [
 const terminalLeaseModes = ["agent-control", "human-control", "read-only"] as const satisfies readonly TerminalLeaseMode[];
 
 export const SESSION_HUB_HEADERS = {
-	clientRole: "x-openfusion-client-role",
-	machineId: "x-openfusion-machine-id",
-	sessionId: "x-openfusion-session-id",
-	userId: "x-openfusion-user-id",
-	workspaceId: "x-openfusion-workspace-id",
+	clientRole: "x-agentdeck-client-role",
+	machineId: "x-agentdeck-machine-id",
+	sessionId: "x-agentdeck-session-id",
+	userId: "x-agentdeck-user-id",
+	workspaceId: "x-agentdeck-workspace-id",
 } as const;
 
 export type SessionHubEventDraft = {
 	payload: JsonValue;
 	runId?: string;
 	source: EventSource;
-	type: OpenFusionEvent["type"];
+	type: AgentDeckEvent["type"];
 	visibility?: EventVisibility;
 };
 
@@ -223,7 +223,7 @@ export function browserControlToEventDraft(
 	}
 }
 
-export function visibilityForEvent(type: OpenFusionEvent["type"], privacyMode: PrivacyMode): EventVisibility {
+export function visibilityForEvent(type: AgentDeckEvent["type"], privacyMode: PrivacyMode): EventVisibility {
 	if (privacyMode === "full-sync") {
 		return "full";
 	}
@@ -238,7 +238,7 @@ export function visibilityForEvent(type: OpenFusionEvent["type"], privacyMode: P
 export function shouldStorePayloadInR2(input: {
 	payloadBytes: number;
 	privacyMode: PrivacyMode;
-	type: OpenFusionEvent["type"];
+	type: AgentDeckEvent["type"];
 }): boolean {
 	const decision = getPrivacyStorageDecision(input.privacyMode);
 	return decision.r2 !== "blocked" && input.payloadBytes > SESSION_HUB_LARGE_PAYLOAD_BYTES;
@@ -274,7 +274,7 @@ function inboundEventToDraft(message: unknown, defaultSource: EventSource): Sess
 		payload: message.payload,
 		runId: typeof message.runId === "string" ? message.runId : runIdFromPayload(message.payload),
 		source: isEventSource(message.source) ? message.source : defaultSource,
-		type: message.type as OpenFusionEvent["type"],
+		type: message.type as AgentDeckEvent["type"],
 		visibility: isEventVisibility(message.visibility) ? message.visibility : undefined,
 	};
 }

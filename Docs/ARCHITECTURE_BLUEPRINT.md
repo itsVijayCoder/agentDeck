@@ -1,10 +1,10 @@
-# OpenFusion Architecture Blueprint
+# AgentDeck Architecture Blueprint
 
 This blueprint translates `Docs/IMPLEMENTATION_GUIDE_WITH_PI.md` into an implementation-oriented HLD/LLD baseline for the first open-source milestone.
 
 ## Product Thesis
 
-OpenFusion is mission control for AI coding agents. It coordinates agents, terminals, worktrees, approvals, verification, queueing, schedules, and audit trails. It is not a replacement for Claude Code, Codex, OpenCode, Qwen Code, Pi, or future agents; it is the control plane above them.
+AgentDeck is mission control for AI coding agents. It coordinates agents, terminals, worktrees, approvals, verification, queueing, schedules, and audit trails. It is not a replacement for Claude Code, Codex, OpenCode, Qwen Code, Pi, or future agents; it is the control plane above them.
 
 Core promise:
 
@@ -22,13 +22,13 @@ Cloudflare Control Plane
   Coordinates sessions, WebSocket fanout, metadata, queues, schedules, artifacts,
   reports, provider policy, and audit.
 
-Local OpenFusion Bridge
+Local AgentDeck Bridge
   Detects local agents, creates isolated worktrees, starts PTY processes, enforces
   policy, redacts secrets, runs verifiers, and streams events.
 
 Agent Adapters
   Normalize Claude Code, Codex, OpenCode, Qwen Code, Pi, Aider, ACP, and future
-  agents into the OpenFusion event model.
+  agents into the AgentDeck event model.
 ```
 
 Boundary rule:
@@ -42,19 +42,19 @@ Humans approve important actions.
 
 The core implementation should be built around five stable contracts:
 
-1. `@openfusion/core`
+1. `@agentdeck/core`
    Domain types, event envelopes, state machines, reports, artifacts, and run lifecycle.
 
-2. `@openfusion/bridge-protocol`
+2. `@agentdeck/bridge-protocol`
    Browser, Durable Object, Worker, and Bridge WebSocket/RPC payloads.
 
-3. `@openfusion/policy`
+3. `@agentdeck/policy`
    Privacy modes, command risk, provider allowlists, protected paths, approval rules.
 
-4. `@openfusion/harness`
+4. `@agentdeck/harness`
    Agent adapter interface, event normalization, steering/follow-up, terminal input.
 
-5. `@openfusion/verifier`
+5. `@agentdeck/verifier`
    Build/test/lint/typecheck detection and deterministic evidence.
 
 Dependency rule:
@@ -69,12 +69,12 @@ Adapters -> bridge primitives, not UI
 The first concrete shared contracts are documented in `Docs/CORE_CONTRACTS.md` and implemented in:
 
 ```text
-src/types/openfusion-events.ts
-src/lib/openfusion-state.ts
-src/lib/openfusion-policy.ts
-src/types/openfusion-db.ts
-src/lib/openfusion-db.ts
-infra/migrations/0001_openfusion_core.sql
+src/types/agentdeck-events.ts
+src/lib/agentdeck-state.ts
+src/lib/agentdeck-policy.ts
+src/types/agentdeck-db.ts
+src/lib/agentdeck-db.ts
+infra/migrations/0001_agentdeck_core.sql
 ```
 
 ## Event-Sourced Core
@@ -124,7 +124,7 @@ Backend implementation follows in this order:
 
 ## UI Design System
 
-OpenFusion should feel like a premium command center, not a chatbot:
+AgentDeck should feel like a premium command center, not a chatbot:
 
 ```text
 Theme: dark-first obsidian and graphite
@@ -173,7 +173,7 @@ Commit guidance:
 
 ```text
 docs: add architecture blueprint
-feat(core): add openfusion domain types and mock data
+feat(core): add agentdeck domain types and mock data
 feat(ui): build mission control dashboard
 chore: update project metadata and quality gates
 ```

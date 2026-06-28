@@ -10,7 +10,7 @@ import {
 	queuePrioritySchema,
 	riskLevelSchema,
 	runStatusSchema,
-} from "@openfusion/db";
+} from "@agentdeck/db";
 import { z } from "zod";
 
 const nonBlankStringSchema = z.string().trim().min(1);

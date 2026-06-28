@@ -441,7 +441,7 @@ apps/web/src/app/
 
 ### 7. AppShell layout
 
-**`apps/web/src/components/openfusion/app-shell.tsx`:**
+**`apps/web/src/components/agentdeck/app-shell.tsx`:**
 
 ```tsx
 "use client";
@@ -466,7 +466,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 ### 8. Agent graph with React Flow
 
-**`apps/web/src/components/openfusion/agent-graph.tsx`:**
+**`apps/web/src/components/agentdeck/agent-graph.tsx`:**
 
 ```tsx
 "use client";
@@ -537,7 +537,7 @@ export function AgentGraph({ nodes, edges, onNodeClick, selectedNodeId }: AgentG
 
 ### 9. Command palette
 
-**`apps/web/src/components/openfusion/command-palette.tsx`:**
+**`apps/web/src/components/agentdeck/command-palette.tsx`:**
 
 ```tsx
 "use client";
@@ -632,7 +632,7 @@ export function CommandPalette() {
 
 ### 10. Status pills, risk badges, meters
 
-**`apps/web/src/components/openfusion/primitives.tsx`:**
+**`apps/web/src/components/agentdeck/primitives.tsx`:**
 
 ```tsx
 "use client";
@@ -709,7 +709,7 @@ export function CostMeter({ costUsd }: { costUsd: number }) {
 
 ### 11. Empty machine pairing state
 
-**`apps/web/src/components/openfusion/empty-pairing-state.tsx`:**
+**`apps/web/src/components/agentdeck/empty-pairing-state.tsx`:**
 
 ```tsx
 "use client";
@@ -733,7 +733,7 @@ export function EmptyMachinePairingState({ pairingCode }: { pairingCode: string 
           A local bridge is required to detect and run terminal agents. Run this command on your machine:
         </p>
         <div className="rounded-md border border-border bg-background/50 p-3 text-left">
-          <code className="text-xs text-cyan">npx openfusion-bridge pair {pairingCode}</code>
+          <code className="text-xs text-cyan">npx agentdeck-bridge pair {pairingCode}</code>
         </div>
         <div className="mt-6 flex items-center justify-center gap-4 text-xs text-muted">
           <span className="flex items-center gap-1"><Lock className="h-3 w-3" /> Local-first</span>

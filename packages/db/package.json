@@ -1,5 +1,5 @@
 {
-  "name": "@openfusion/db",
+  "name": "@agentdeck/db",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -19,12 +19,12 @@
     "test": "vitest run --coverage"
   },
   "dependencies": {
-    "@openfusion/core": "workspace:*",
+    "@agentdeck/core": "workspace:*",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260628.0",
-    "@openfusion/config": "workspace:*",
+    "@agentdeck/config": "workspace:*",
     "@vitest/coverage-v8": "^4.1.9",
     "eslint": "^9",
     "miniflare": "^4.20260625.0",

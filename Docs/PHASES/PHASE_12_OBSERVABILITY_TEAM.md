@@ -473,7 +473,7 @@ export async function writeAudit(
 **`evals/harness/runner.ts`:**
 
 ```ts
-import type { HarnessAdapter } from "@openfusion/harness";
+import type { HarnessAdapter } from "@agentdeck/harness";
 
 export type EvalDataset = {
   id: string;
@@ -575,10 +575,10 @@ export async function runEval(
 **`apps/web/src/workers/retention.ts`:**
 
 ```ts
-import { createOpenFusionRepositories } from "@openfusion/db";
+import { createAgentDeckRepositories } from "@agentdeck/db";
 
 export async function enforceRetention(env: Env): Promise<void> {
-  const repos = createOpenFusionRepositories(env.OPENFUSION_DB);
+  const repos = createAgentDeckRepositories(env.AGENTDECK_DB);
   const policies = await repos.retentionPolicies.listAll();
 
   for (const policy of policies) {
@@ -587,16 +587,16 @@ export async function enforceRetention(env: Env): Promise<void> {
     switch (policy.resourceType) {
       case "terminal-logs":
         // List R2 objects older than cutoff and delete
-        const objects = await env.OPENFUSION_ARTIFACTS.list({ prefix: `workspaces/${policy.workspaceId}/` });
+        const objects = await env.AGENTDECK_ARTIFACTS.list({ prefix: `workspaces/${policy.workspaceId}/` });
         for (const obj of objects.objects) {
           if (obj.uploaded < new Date(cutoff)) {
-            await env.OPENFUSION_ARTIFACTS.delete(obj.key);
+            await env.AGENTDECK_ARTIFACTS.delete(obj.key);
           }
         }
         break;
       case "events":
         // Archive old events from D1 to R2, then delete from D1
-        await env.OPENFUSION_DB.prepare(
+        await env.AGENTDECK_DB.prepare(
           "DELETE FROM event_index WHERE created_at < ? AND workspace_id = ?"
         ).bind(cutoff, policy.workspaceId).run();
         break;
@@ -663,7 +663,7 @@ PATCH /api/retention/:id                            — update retention policy
 2. Create `packages/core/src/tracing.ts`
 3. Create `packages/core/src/logger.ts`
 4. Create migration `0002_team_and_observability.sql`
-5. Apply migration: `wrangler d1 migrations apply openfusion-control --local`
+5. Apply migration: `wrangler d1 migrations apply agentdeck-control --local`
 6. Create `packages/policy/src/permissions.ts`
 7. Create `packages/db/src/audit.ts`
 8. Create `apps/web/src/workers/retention.ts`

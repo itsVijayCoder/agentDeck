@@ -6,7 +6,7 @@ import type {
 	RunStatus,
 	TerminalLeaseMode,
 	VerificationStatus,
-} from "./openfusion";
+} from "./agentdeck";
 
 export type EventSource = "browser" | "worker" | "durable-object" | "bridge" | "agent" | "verifier" | "ai-gateway";
 
@@ -119,7 +119,7 @@ export type ReportEvent =
 	| EventEnvelope<"synthesis.completed", { winningRunId?: string }>
 	| EventEnvelope<"report.created", { reportId: string; recommendation: "accept" | "review-carefully" | "reject" | "rerun" }>;
 
-export type OpenFusionEvent =
+export type AgentDeckEvent =
 	| SessionEvent
 	| MachineEvent
 	| AgentEvent
@@ -134,7 +134,7 @@ export type OpenFusionEvent =
 	| ScheduleEvent
 	| ReportEvent;
 
-export type OpenFusionEventType = OpenFusionEvent["type"];
+export type AgentDeckEventType = AgentDeckEvent["type"];
 
 export type BrowserControlMessage =
 	| { type: "control.pause"; runId: string; reason?: string }
@@ -152,4 +152,4 @@ export type BridgeMessage =
 	| { type: "machine.heartbeat"; machineId: string; sentAt: string }
 	| { type: "agent.detected"; agentKind: AgentKind; command: string; version?: string }
 	| { type: "run.status"; runId: string; status: RunStatus }
-	| { type: "event.batch"; events: OpenFusionEvent[] };
+	| { type: "event.batch"; events: AgentDeckEvent[] };

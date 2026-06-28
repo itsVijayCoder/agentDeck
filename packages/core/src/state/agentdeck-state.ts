@@ -1,4 +1,4 @@
-import type { ApprovalStatus, RunStatus, TerminalLeaseMode } from "../types/openfusion";
+import type { ApprovalStatus, RunStatus, TerminalLeaseMode } from "../types/agentdeck";
 
 export type StateTransitionResult<TState extends string> =
 	| { ok: true; from: TState; to: TState }

@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { BrowserControlMessage, EventEnvelope } from "@openfusion/core";
+import type { BrowserControlMessage, EventEnvelope } from "@agentdeck/core";
 import type {
 	SessionHubConnectionEstablished,
 	SessionHubErrorMessage,
 	SessionHubServerMessage,
-} from "@openfusion/bridge-protocol";
+} from "@agentdeck/bridge-protocol";
 
 type SessionWebSocketState = {
 	connected: boolean;

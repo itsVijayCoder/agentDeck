@@ -1,4 +1,4 @@
-# OpenFusion — Phased Architecture & Implementation Guide
+# AgentDeck — Phased Architecture & Implementation Guide
 
 **Prepared:** 2026-06-27
 **Source of intent:** `Docs/IMPLEMENTATION_GUIDE_WITH_PI.md` (4172 lines)
@@ -15,18 +15,18 @@ This document is the master index for a 13-phase buildout plan (Phase 00 through
 | Artifact | Location | Lines | Status |
 |---|---|---|---|
 | pnpm monorepo | `pnpm-workspace.yaml`, `apps/`, `packages/`, `workers/` | — | Complete — web app + shared package boundaries |
-| Domain types (UI-facing) | `packages/core/src/types/openfusion.ts` | 205 | Complete — 7 agent kinds, 13 capabilities, 10 run statuses |
-| D1 row types + input contracts | `packages/db/src/types/openfusion-db.ts` | 388 | Complete — 12 row types, 14 input contracts |
-| Event-sourced protocol | `packages/core/src/types/openfusion-events.ts` | 152 | Complete — 13 event categories, browser/bridge control messages |
-| State machines | `packages/core/src/state/openfusion-state.ts` | 118 | Complete — run/approval/lease transitions |
+| Domain types (UI-facing) | `packages/core/src/types/agentdeck.ts` | 205 | Complete — 7 agent kinds, 13 capabilities, 10 run statuses |
+| D1 row types + input contracts | `packages/db/src/types/agentdeck-db.ts` | 388 | Complete — 12 row types, 14 input contracts |
+| Event-sourced protocol | `packages/core/src/types/agentdeck-events.ts` | 152 | Complete — 13 event categories, browser/bridge control messages |
+| State machines | `packages/core/src/state/agentdeck-state.ts` | 118 | Complete — run/approval/lease transitions |
 | Policy classifier + privacy matrix | `packages/policy/src/classify-command-risk.ts` | 138 | Complete — 4 risk tiers, 3 privacy modes |
-| D1 schema | `packages/db/migrations/0001_openfusion_core.sql` | 224 | Complete — 12 tables, 16 indexes, FKs, CHECKs |
+| D1 schema | `packages/db/migrations/0001_agentdeck_core.sql` | 224 | Complete — 12 tables, 16 indexes, FKs, CHECKs |
 | Typed D1 repositories | `packages/db/src/repositories.ts` | 693 | Complete — 12 repos, prepared statements, R2 object_key support |
 | Runtime validators | `packages/db/src/validators.ts` | 390+ | Complete — zod schemas for all D1 input contracts + event envelope validation |
 | Quality gates | `package.json`, package `vitest.config.ts`, `apps/web/playwright.config.ts` | — | Complete — typecheck, eslint, vitest coverage, Playwright skeleton |
-| Mission Control dashboard (mock) | `apps/web/src/components/openfusion/mission-control-dashboard.tsx` | 698 | Complete — 14 sub-components, custom `of-*` design system |
+| Mission Control dashboard (mock) | `apps/web/src/components/agentdeck/mission-control-dashboard.tsx` | 698 | Complete — 14 sub-components, custom `of-*` design system |
 | Design system CSS | `apps/web/src/app/globals.css` | 1322 | Complete — 262 `of-*` classes, CSS variables, responsive |
-| Mock data | `apps/web/src/lib/mock-openfusion.ts` | 410 | Complete — 5 agents, active run, queue, schedules, reports |
+| Mock data | `apps/web/src/lib/mock-agentdeck.ts` | 410 | Complete — 5 agents, active run, queue, schedules, reports |
 | Cloudflare control-plane bindings | `apps/web/wrangler.jsonc`, `apps/web/cloudflare-env.d.ts` | — | Complete — D1 + R2 bindings for Phase 02 |
 | Worker API / BFF routes | `apps/web/src/app/api/` | — | Complete — REST endpoints for workspaces, machines, sessions, approvals, queue, schedules, reports, policies, and artifacts |
 | Durable Object session hub | `apps/web/src/do/session-hub.ts`, `apps/web/src/app/api/sessions/[id]/ws/route.ts` | — | Complete — WebSocket auth gate, DO sequencing, fanout, replay cache, D1 metadata, R2 large payload path |
@@ -37,7 +37,7 @@ This document is the master index for a 13-phase buildout plan (Phase 00 through
 
 | Missing component | Impact | Phase |
 |---|---|---|
-| Local OpenFusion Bridge | No agent detection or execution | Phase 04 |
+| Local AgentDeck Bridge | No agent detection or execution | Phase 04 |
 | Real terminal (xterm.js + PTY) | No live terminal streaming | Phase 05 |
 | Agent adapters (Claude/Codex/OpenCode/Qwen/Pi) | No real agent runs | Phase 06 |
 | Approval gates + worktrees + verifiers | No safety or verification | Phase 07 |
@@ -77,9 +77,9 @@ This document is the master index for a 13-phase buildout plan (Phase 00 through
 ```mermaid
 flowchart TB
   Dev[Developer]
-  Browser[OpenFusion Web UI<br/>Next.js on Workers]
+  Browser[AgentDeck Web UI<br/>Next.js on Workers]
   CF[Cloudflare Control Plane<br/>Worker API + Durable Objects + D1 + R2 + Queues + Workflows + Cron]
-  Bridge[OpenFusion Local Bridge<br/>Node.js CLI / Tauri]
+  Bridge[AgentDeck Local Bridge<br/>Node.js CLI / Tauri]
   Agents[Coding Agents<br/>Claude Code, Codex, OpenCode, Qwen, Pi, Aider]
   Repo[Local Repository + Git Worktrees]
   Providers[Model Providers<br/>via Cloudflare AI Gateway]
@@ -107,7 +107,7 @@ Humans approve important actions.
 ### 2.3 Monorepo target structure
 
 ```text
-openfusion/
+agentdeck/
 ├── apps/
 │   ├── web/                         # Next.js Mission Control UI
 │   ├── bridge/                      # Local bridge CLI / Tauri desktop
@@ -161,7 +161,7 @@ No package may depend directly on a concrete model provider except provider adap
 | 01 | Monorepo & Shared Packages | `apps/`, `packages/`, `workers/` structure | 00 |
 | 02 | Cloudflare Control Plane — D1/R2/Worker API | Bindings, migrations applied, REST BFF | 01 |
 | 03 | Durable Object Session Hub | Realtime WebSocket, event sequencing, replay | 02 |
-| 04 | Local OpenFusion Bridge | Pairing, agent detection, PTY, event streaming | 03 |
+| 04 | Local AgentDeck Bridge | Pairing, agent detection, PTY, event streaming | 03 |
 | 05 | Real Terminal & Jump-In Control | xterm.js, live PTY stream, terminal leases | 04 |
 | 06 | Agent Adapters & Event Normalization | Claude/Codex/OpenCode/Qwen/Pi adapters | 04, 05 |
 | 07 | Policy, Verification, Worktrees & Artifacts | Approval gates, verifiers, patches, R2 writes | 06 |
@@ -257,7 +257,7 @@ No risk logic, state transition, or event type is duplicated across packages.
 | Policy engine | Command approval, provider routing, privacy mode, protected paths | Centralize decisions, audit every outcome |
 | Observer / pub-sub | Durable Object WebSocket fanout | Decouple event producers from consumers |
 | Repository | D1 repositories | Decouple persistence from business logic |
-| Factory | `createOpenFusionRepositories()`, `createAgentSession()` | Encapsulate construction |
+| Factory | `createAgentDeckRepositories()`, `createAgentSession()` | Encapsulate construction |
 | Command | Browser control messages, bridge RPC commands | Encapsulate requests as objects |
 
 ---
@@ -297,7 +297,7 @@ No risk logic, state transition, or event type is duplicated across packages.
 | ADR-006 | Support MCP/ACP but do not depend on them exclusively | Standards are valuable, but existing CLIs and PTY workflows still matter |
 | ADR-007 | Monorepo with pnpm workspaces | Package isolation, shared contracts, independent deployment |
 | ADR-008 | shadcn/ui + Tailwind utilities for Phase 11 | Accessible, composable, industry standard; migrate from custom `of-*` classes |
-| ADR-009 | Pi as first-class adapter, not the platform | Pi is embeddable; OpenFusion remains the control plane |
+| ADR-009 | Pi as first-class adapter, not the platform | Pi is embeddable; AgentDeck remains the control plane |
 | ADR-010 | Vitest for unit/integration, Playwright for E2E | Fast, Vite-native, good Cloudflare Workers compatibility |
 
 ---

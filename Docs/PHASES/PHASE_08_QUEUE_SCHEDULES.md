@@ -19,7 +19,7 @@
 ## Target State
 
 ```text
-- Cloudflare Queue bound as OPENFUSION_QUEUE
+- Cloudflare Queue bound as AGENTDECK_QUEUE
 - Queue consumer worker processes queue items
 - Cloudflare Workflow orchestrates multi-step runs (dispatch -> execute -> verify -> report)
 - Cron Trigger fires scheduler worker on schedule
@@ -39,7 +39,7 @@ flowchart TB
   subgraph Cloudflare[Cloudflare Control Plane]
     Cron[Cron Trigger<br/>every 1 min]
     Sched[Scheduler Worker]
-    Q[Queue: OPENFUSION_QUEUE]
+    Q[Queue: AGENTDECK_QUEUE]
     WF[Workflow: RunWorkflow]
     DO[SessionHub DO]
     D1[(D1)]
@@ -97,13 +97,13 @@ stateDiagram-v2
   "queues": {
     "producers": [
       {
-        "binding": "OPENFUSION_QUEUE",
-        "queue": "openfusion-runs"
+        "binding": "AGENTDECK_QUEUE",
+        "queue": "agentdeck-runs"
       }
     ],
     "consumers": [
       {
-        "queue": "openfusion-runs",
+        "queue": "agentdeck-runs",
         "max_batch_size": 1,
         "max_concurrency: 5
       }
@@ -150,7 +150,7 @@ export async function scheduled(_event: ScheduledEvent, env: Env): Promise<void>
     });
 
     // Enqueue to Cloudflare Queue
-    await env.OPENFUSION_QUEUE.send({
+    await env.AGENTDECK_QUEUE.send({
       type: "queue.item",
       queueItemId,
       scheduledJobId: job.id,
@@ -182,7 +182,7 @@ export class RunWorkflow extends WorkflowEntrypoint<Env, Params> {
 
     // Step 1: Check machine availability
     const machine = await step.do("check-machine", async () => {
-      const repos = createOpenFusionRepositories(this.env.OPENFUSION_DB);
+      const repos = createAgentDeckRepositories(this.env.AGENTDECK_DB);
       const machines = await repos.machines.listOnline(workspaceId);
       if (machines.length === 0) {
         // Wait and retry
@@ -195,7 +195,7 @@ export class RunWorkflow extends WorkflowEntrypoint<Env, Params> {
     if (!machine) {
       // Mark as waiting-for-machine
       await step.do("mark-waiting", async () => {
-        const repos = createOpenFusionRepositories(this.env.OPENFUSION_DB);
+        const repos = createAgentDeckRepositories(this.env.AGENTDECK_DB);
         await repos.queue.updateStatus(queueItemId, "waiting-machine");
       });
       // Retry up to 3 times with 5-minute backoff
@@ -224,7 +224,7 @@ export class RunWorkflow extends WorkflowEntrypoint<Env, Params> {
       // Poll DO for run status, with 30-minute timeout
       const deadline = Date.now() + 30 * 60 * 1000;
       while (Date.now() < deadline) {
-        const repos = createOpenFusionRepositories(this.env.OPENFUSION_DB);
+        const repos = createAgentDeckRepositories(this.env.AGENTDECK_DB);
         const run = await repos.runs.findById(runId);
         if (run?.status === "completed" || run?.status === "failed") {
           return run;
@@ -237,7 +237,7 @@ export class RunWorkflow extends WorkflowEntrypoint<Env, Params> {
     // Step 4: Generate decision report
     if (result.status === "completed") {
       await step.do("generate-report", async () => {
-        const repos = createOpenFusionRepositories(this.env.OPENFUSION_DB);
+        const repos = createAgentDeckRepositories(this.env.AGENTDECK_DB);
         const events = await repos.events.listBySession(sessionId, { limit: 1000 });
         const artifacts = await repos.artifacts.listBySession(sessionId);
         const approvals = await repos.approvals.listByRun(runId);
@@ -258,7 +258,7 @@ export class RunWorkflow extends WorkflowEntrypoint<Env, Params> {
 
         // Write full report to R2
         const objectKey = `workspaces/${workspaceId}/reports/${report.id}.json`;
-        await this.env.OPENFUSION_ARTIFACTS.put(objectKey, JSON.stringify(report));
+        await this.env.AGENTDECK_ARTIFACTS.put(objectKey, JSON.stringify(report));
 
         return report;
       });
@@ -266,7 +266,7 @@ export class RunWorkflow extends WorkflowEntrypoint<Env, Params> {
 
     // Step 5: Update queue item status
     await step.do("update-queue-status", async () => {
-      const repos = createOpenFusionRepositories(this.env.OPENFUSION_DB);
+      const repos = createAgentDeckRepositories(this.env.AGENTDECK_DB);
       await repos.queue.updateStatus(queueItemId, result.status === "completed" ? "completed" : "failed");
     });
 
@@ -302,7 +302,7 @@ export async function queue(
       });
 
       // Store workflow ID for tracking
-      const repos = createOpenFusionRepositories(env.OPENFUSION_DB);
+      const repos = createAgentDeckRepositories(env.AGENTDECK_DB);
       await repos.queue.update(queueItemId, {
         status: "running",
         workflowId: instance.id,
@@ -371,7 +371,7 @@ export function shouldDispatch(
 
 ```ts
 export async function generateMorningReport(env: Env, workspaceId: string): Promise<string> {
-  const repos = createOpenFusionRepositories(env.OPENFUSION_DB);
+  const repos = createAgentDeckRepositories(env.AGENTDECK_DB);
 
   // Get all queue items from the last 24 hours
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -381,7 +381,7 @@ export async function generateMorningReport(env: Env, workspaceId: string): Prom
   const failed = queueItems.filter((q) => q.status === "failed");
   const pending = queueItems.filter((q) => q.status === "queued" || q.status === "waiting-machine");
 
-  const report = `# OpenFusion Morning Report — ${new Date().toLocaleDateString()}
+  const report = `# AgentDeck Morning Report — ${new Date().toLocaleDateString()}
 
 ## Summary
 - Completed: ${completed.length}
@@ -403,7 +403,7 @@ Check the Mission Control dashboard for any approvals waiting on your decision.
 
   // Write to R2
   const objectKey = `workspaces/${workspaceId}/queue/${new Date().toISOString().slice(0, 10)}/morning-summary.md`;
-  await env.OPENFUSION_ARTIFACTS.put(objectKey, report);
+  await env.AGENTDECK_ARTIFACTS.put(objectKey, report);
 
   return report;
 }
@@ -509,7 +509,7 @@ export function parseNaturalLanguageSchedule(input: string): { cron: string; tim
 ## Acceptance Criteria
 
 ```text
-[ ] Cloudflare Queue OPENFUSION_QUEUE is bound and consuming
+[ ] Cloudflare Queue AGENTDECK_QUEUE is bound and consuming
 [ ] RunWorkflow class is bound and can be started
 [ ] Cron Trigger fires every minute and checks for due schedules
 [ ] Scheduler creates queue items from due scheduled jobs

@@ -11,11 +11,11 @@
 ## Current State Before Phase 00
 
 - `npm run build` passes (includes TypeScript checking) — the only working quality gate.
-- `npm run lint` is broken: Next.js 16 removed `next lint`. Running it produces `Invalid project directory provided, no such directory: .../openfusion/lint`.
+- `npm run lint` is broken: Next.js 16 removed `next lint`. Running it produces `Invalid project directory provided, no such directory: .../agentdeck/lint`.
 - No test framework configured. No test files exist. No `npm test` script.
-- No runtime validation library (zod). All types are TypeScript-only; D1 input contracts in `src/types/openfusion-db.ts` are unvalidated at runtime.
+- No runtime validation library (zod). All types are TypeScript-only; D1 input contracts in `src/types/agentdeck-db.ts` are unvalidated at runtime.
 - No `.dev.vars.example` template (AGENTS.md claims one exists — it does not).
-- `useOpenFusionMock()` hook in `src/lib/mock-openfusion.ts:401` is dead code.
+- `useAgentDeckMock()` hook in `src/lib/mock-agentdeck.ts:401` is dead code.
 
 ---
 
@@ -47,11 +47,11 @@ flowchart LR
   end
 
   subgraph Existing Contracts
-    State[openfusion-state.ts]
-    Policy[openfusion-policy.ts]
-    DB[openfusion-db.ts]
-    Events[openfusion-events.ts]
-    Types[openfusion.ts / openfusion-db.ts]
+    State[agentdeck-state.ts]
+    Policy[agentdeck-policy.ts]
+    DB[agentdeck-db.ts]
+    Events[agentdeck-events.ts]
+    Types[agentdeck.ts / agentdeck-db.ts]
   end
 
   subgraph New
@@ -149,7 +149,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "lcov"],
       include: ["src/lib/**/*.ts", "src/types/**/*.ts"],
-      exclude: ["src/**/*.test.ts", "src/lib/mock-openfusion.ts"],
+      exclude: ["src/**/*.test.ts", "src/lib/mock-agentdeck.ts"],
     },
   },
 });
@@ -163,7 +163,7 @@ export default defineConfig({
 npm install zod
 ```
 
-**`src/lib/validators.ts`** — zod schemas mirroring the D1 input contracts in `src/types/openfusion-db.ts`:
+**`src/lib/validators.ts`** — zod schemas mirroring the D1 input contracts in `src/types/agentdeck-db.ts`:
 
 ```ts
 import { z } from "zod";
@@ -228,7 +228,7 @@ export const createApprovalInputSchema = z.object({
 });
 ```
 
-**Usage in repositories** — wrap input validation in `createOpenFusionRepositories()`:
+**Usage in repositories** — wrap input validation in `createAgentDeckRepositories()`:
 
 ```ts
 import { createSessionInputSchema } from "@/lib/validators";
@@ -243,7 +243,7 @@ const sessions = {
 
 ### 4. Unit tests for existing contracts
 
-**`src/lib/openfusion-state.test.ts`:**
+**`src/lib/agentdeck-state.test.ts`:**
 
 ```ts
 import { describe, it, expect } from "vitest";
@@ -253,7 +253,7 @@ import {
   transitionApprovalStatus,
   transitionTerminalLease,
   deriveRunProgress,
-} from "./openfusion-state";
+} from "./agentdeck-state";
 
 describe("run state machine", () => {
   it("allows draft -> running", () => {
@@ -317,11 +317,11 @@ describe("deriveRunProgress", () => {
 });
 ```
 
-**`src/lib/openfusion-policy.test.ts`:**
+**`src/lib/agentdeck-policy.test.ts`:**
 
 ```ts
 import { describe, it, expect } from "vitest";
-import { classifyCommandRisk, getPrivacyStorageDecision, requiresHumanApproval } from "./openfusion-policy";
+import { classifyCommandRisk, getPrivacyStorageDecision, requiresHumanApproval } from "./agentdeck-policy";
 
 describe("classifyCommandRisk", () => {
   it("denies git push", () => {
@@ -404,11 +404,11 @@ describe("requiresHumanApproval", () => {
 });
 ```
 
-**`src/lib/openfusion-db.test.ts`** — test repository methods against an in-memory D1 stub:
+**`src/lib/agentdeck-db.test.ts`** — test repository methods against an in-memory D1 stub:
 
 ```ts
 import { describe, it, expect, beforeEach } from "vitest";
-import { createOpenFusionRepositories } from "./openfusion-db";
+import { createAgentDeckRepositories } from "./agentdeck-db";
 
 // Minimal D1 stub for testing
 function createD1Stub(): D1Database {
@@ -419,7 +419,7 @@ function createD1Stub(): D1Database {
 
 describe("sessions repository", () => {
   it("creates and retrieves a session", async () => {
-    const db = createOpenFusionRepositories(createD1Stub());
+    const db = createAgentDeckRepositories(createD1Stub());
     await db.sessions.create({
       id: "sess_01", workspaceId: "ws_01", title: "Test",
       privacyMode: "metadata-only", createdBy: "user_01",
@@ -433,7 +433,7 @@ describe("sessions repository", () => {
 ### 5. Create `.dev.vars.example`
 
 ```
-# OpenFusion local development secrets
+# AgentDeck local development secrets
 # Copy to .dev.vars and fill in real values
 # .dev.vars is gitignored
 
@@ -443,12 +443,12 @@ CLOUDFLARE_ACCOUNT_ID=
 CLOUDFLARE_GATEWAY_ID=default
 
 # Bridge pairing secret (Phase 04)
-OPENFUSION_BRIDGE_TOKEN=
+AGENTDECK_BRIDGE_TOKEN=
 ```
 
 ### 6. Remove dead code
 
-Delete the unused `useOpenFusionMock()` hook from `src/lib/mock-openfusion.ts:401-410`.
+Delete the unused `useAgentDeckMock()` hook from `src/lib/mock-agentdeck.ts:401-410`.
 
 ---
 
@@ -474,12 +474,12 @@ Delete the unused `useOpenFusionMock()` hook from `src/lib/mock-openfusion.ts:40
 3. Update `package.json` scripts (add `typecheck`, fix `lint`, add `test`, `test:watch`, `test:e2e`)
 4. Update `eslint.config.mjs` to work with ESLint CLI directly
 5. Create `src/lib/validators.ts` with zod schemas
-6. Create `src/lib/openfusion-state.test.ts`
-7. Create `src/lib/openfusion-policy.test.ts`
-8. Create `src/lib/openfusion-db.test.ts` (with D1 stub)
-9. Create `src/types/openfusion-events.test.ts` (event envelope shape validation)
+6. Create `src/lib/agentdeck-state.test.ts`
+7. Create `src/lib/agentdeck-policy.test.ts`
+8. Create `src/lib/agentdeck-db.test.ts` (with D1 stub)
+9. Create `src/types/agentdeck-events.test.ts` (event envelope shape validation)
 10. Create `.dev.vars.example`
-11. Remove dead `useOpenFusionMock()` hook
+11. Remove dead `useAgentDeckMock()` hook
 12. Run `npm run typecheck && npm run lint && npm run test && npm run build` — all must pass
 13. Update `AGENTS.md` to reflect working `lint` and `test` scripts
 
@@ -509,7 +509,7 @@ Delete the unused `useOpenFusionMock()` hook from `src/lib/mock-openfusion.ts:40
 [x] npm run build passes (unchanged)
 [x] zod schemas exist for all D1 input contracts
 [x] .dev.vars.example exists in the workspace
-[x] Dead useOpenFusionMock() hook removed
+[x] Dead useAgentDeckMock() hook removed
 [x] AGENTS.md updated with working lint/test commands
 [x] All tests run in <5 seconds
 ```

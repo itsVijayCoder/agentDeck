@@ -8,7 +8,7 @@
 
 ## Current State
 
-- Event types exist in `@openfusion/core` (`OpenFusionEvent`, `BrowserControlMessage`, `BridgeMessage`) and now include Phase 03 bridge/runtime events: `machine.heartbeat`, `run.status`, and `run.resumed`.
+- Event types exist in `@agentdeck/core` (`AgentDeckEvent`, `BrowserControlMessage`, `BridgeMessage`) and now include Phase 03 bridge/runtime events: `machine.heartbeat`, `run.status`, and `run.resumed`.
 - D1 `event_index` table exists for metadata persistence. Large payload references use `object_key`; full payloads are not stored in D1 rows.
 - `SessionHub` exists in `apps/web/src/do/session-hub.ts` and is exported through `apps/web/worker.ts` for Cloudflare.
 - `wrangler.jsonc` binds `SESSION_HUB` with a SQLite Durable Object migration.
@@ -105,7 +105,7 @@ flowchart TB
 
 ```ts
 import { DurableObject } from "cloudflare:workers";
-import type { OpenFusionEvent, BrowserControlMessage, BridgeMessage, EventEnvelope } from "@openfusion/core";
+import type { AgentDeckEvent, BrowserControlMessage, BridgeMessage, EventEnvelope } from "@agentdeck/core";
 
 type ClientRole = "browser" | "bridge" | "observer";
 
@@ -229,7 +229,7 @@ export class SessionHub extends DurableObject<Env> {
         break;
       default:
         // Terminal, tool, message, approval, verifier, artifact events
-        await this.persistAndBroadcast(message as unknown as OpenFusionEvent, "bridge");
+        await this.persistAndBroadcast(message as unknown as AgentDeckEvent, "bridge");
     }
   }
 
@@ -248,19 +248,19 @@ export class SessionHub extends DurableObject<Env> {
     switch (message.type) {
       case "control.pause":
         await this.persistAndBroadcast(
-          { type: "run.paused", payload: message.payload } as OpenFusionEvent,
+          { type: "run.paused", payload: message.payload } as AgentDeckEvent,
           "browser"
         );
         break;
       case "control.resume":
         await this.persistAndBroadcast(
-          { type: "run.resumed", payload: message.payload } as OpenFusionEvent,
+          { type: "run.resumed", payload: message.payload } as AgentDeckEvent,
           "browser"
         );
         break;
       case "control.cancel":
         await this.persistAndBroadcast(
-          { type: "run.cancelled", payload: message.payload } as OpenFusionEvent,
+          { type: "run.cancelled", payload: message.payload } as AgentDeckEvent,
           "browser"
         );
         break;
@@ -268,7 +268,7 @@ export class SessionHub extends DurableObject<Env> {
         // Approval decision is also persisted as an event
         await this.persistAndBroadcast(
           { type: message.payload.decision === "approved" ? "approval.approved" : "approval.rejected",
-            payload: message.payload } as OpenFusionEvent,
+            payload: message.payload } as AgentDeckEvent,
           "browser"
         );
         break;
@@ -282,7 +282,7 @@ export class SessionHub extends DurableObject<Env> {
   // --- Core: sequence, persist, broadcast ---
 
   private async persistAndBroadcast(
-    event: OpenFusionEvent,
+    event: AgentDeckEvent,
     source: "browser" | "bridge"
   ): Promise<void> {
     this.seq++;
@@ -315,7 +315,7 @@ export class SessionHub extends DurableObject<Env> {
   }
 
   private async persistToD1(envelope: EventEnvelope): Promise<void> {
-    const repos = createOpenFusionRepositories(this.env.OPENFUSION_DB);
+    const repos = createAgentDeckRepositories(this.env.AGENTDECK_DB);
     await repos.events.append({
       id: envelope.id,
       workspaceId: envelope.workspaceId,
@@ -368,11 +368,11 @@ export class SessionHub extends DurableObject<Env> {
     return this.ctx.storage.sql.exec("SELECT session_id FROM session_meta").one().session_id;
   }
 
-  private getRunId(event: OpenFusionEvent): string | undefined {
+  private getRunId(event: AgentDeckEvent): string | undefined {
     return (event as any).runId;
   }
 
-  private getVisibility(event: OpenFusionEvent): "local-only" | "metadata" | "full" {
+  private getVisibility(event: AgentDeckEvent): "local-only" | "metadata" | "full" {
     const type = event.type;
     if (type.startsWith("terminal.")) return "local-only";
     if (type.startsWith("message.")) return "metadata";
@@ -421,7 +421,7 @@ private async ensureInitialized(sessionId: string): Promise<void> {
   const initialized = await this.ctx.storage.get("initialized");
   if (initialized) return;
 
-  const repos = createOpenFusionRepositories(this.env.OPENFUSION_DB);
+  const repos = createAgentDeckRepositories(this.env.AGENTDECK_DB);
   const session = await repos.sessions.findById(sessionId);
   if (!session) throw new Error("Session not found");
 
@@ -440,7 +440,7 @@ private async ensureInitialized(sessionId: string): Promise<void> {
 
 ```ts
 import { useEffect, useRef, useCallback, useState } from "react";
-import type { EventEnvelope, BrowserControlMessage } from "@openfusion/core";
+import type { EventEnvelope, BrowserControlMessage } from "@agentdeck/core";
 
 export function useSessionWebSocket(sessionId: string | null) {
   const [events, setEvents] = useState<EventEnvelope[]>([]);
@@ -519,7 +519,7 @@ sequenceDiagram
 - **SRP:** DO does one thing: coordinate event flow for one session. It does not execute commands, call providers, or make policy decisions.
 - **OCP:** New event types are handled by the default case in `handleBridgeMessage`. No modification needed for new event categories.
 - **LSP:** Any `BrowserControlMessage` or `BridgeMessage` can be processed. The DO does not depend on specific event subtypes.
-- **DIP:** DO depends on `OpenFusionEvent` and `EventEnvelope` abstractions (from `@openfusion/core`), not on concrete agent or bridge implementations.
+- **DIP:** DO depends on `AgentDeckEvent` and `EventEnvelope` abstractions (from `@agentdeck/core`), not on concrete agent or bridge implementations.
 - **DRY:** Event sequencing, persistence, and broadcast happen in one place (`persistAndBroadcast`). No duplication across event types.
 
 ---
@@ -541,7 +541,7 @@ Browser -> DO (BrowserControlMessage):
   message.follow_up      -> forwarded to bridge only
   approval.decide        -> forwarded to bridge + approval event
 
-Bridge -> DO (BridgeMessage or OpenFusionEvent):
+Bridge -> DO (BridgeMessage or AgentDeckEvent):
   machine.heartbeat      -> persisted + broadcast
   agent.detected         -> persisted + broadcast
   run.status             -> persisted + broadcast

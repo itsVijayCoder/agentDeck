@@ -1,18 +1,18 @@
-# OpenFusion Product Explainer
+# AgentDeck Product Explainer
 
-**Product idea:** OpenFusion is **mission control for AI coding agents**.
+**Product idea:** AgentDeck is **mission control for AI coding agents**.
 
-You give an agent a coding task. It runs in a real terminal you can watch and jump into. OpenFusion gives live feedback, approval gates, build queues for overnight work, scheduled jobs, diff review, tests, and final reports. A human stays in the loop the whole way.
+You give an agent a coding task. It runs in a real terminal you can watch and jump into. AgentDeck gives live feedback, approval gates, build queues for overnight work, scheduled jobs, diff review, tests, and final reports. A human stays in the loop the whole way.
 
-OpenFusion is **not auto-merge** and **not a black box**. It is your command centre for **Claude Code, Codex CLI, OpenCode, Pi, Qwen Code, custom local agents, and future agent harnesses**.
+AgentDeck is **not auto-merge** and **not a black box**. It is your command centre for **Claude Code, Codex CLI, OpenCode, Pi, Qwen Code, custom local agents, and future agent harnesses**.
 
-> **One-line pitch:** OpenFusion is GitHub Actions + real terminal + AI coding agents + human approval.
+> **One-line pitch:** AgentDeck is GitHub Actions + real terminal + AI coding agents + human approval.
 
-> **Sharper positioning:** Cursor is where you code with AI. OpenFusion is where you manage AI agents doing coding work.
+> **Sharper positioning:** Cursor is where you code with AI. AgentDeck is where you manage AI agents doing coding work.
 
 ---
 
-## 1. Why OpenFusion exists
+## 1. Why AgentDeck exists
 
 AI coding agents are powerful, but they create a new problem:
 
@@ -25,7 +25,7 @@ AI coding agents are powerful, but they create a new problem:
 
 Developers and teams need a **control plane** for this work.
 
-OpenFusion solves that by giving every AI coding run:
+AgentDeck solves that by giving every AI coding run:
 
 - a visible terminal,
 - a structured event timeline,
@@ -67,14 +67,14 @@ flowchart LR
     A[Original Idea<br/>Multi-model answer synthesis] --> B[Problem Found<br/>Coding agents do real work, not just answers]
     B --> C[Better Direction<br/>Mission control for AI coding agents]
     C --> D[Core Value<br/>Visibility + Control + Verification]
-    D --> E[Final Product<br/>OpenFusion Command Centre]
+    D --> E[Final Product<br/>AgentDeck Command Centre]
 ```
 
 ---
 
-## 3. What OpenFusion is and is not
+## 3. What AgentDeck is and is not
 
-| OpenFusion is | OpenFusion is not |
+| AgentDeck is | AgentDeck is not |
 |---|---|
 | Mission control for AI coding agents | A simple chatbot |
 | A real terminal supervisor | A hidden autonomous black box |
@@ -89,7 +89,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    U[Developer gives task] --> OF[OpenFusion Mission Control]
+    U[Developer gives task] --> OF[AgentDeck Mission Control]
     OF --> R[Router selects agent / harness]
     R --> A1[Claude Code]
     R --> A2[Codex CLI]
@@ -124,7 +124,7 @@ Add tests.
 Do not touch the payment provider integration unless needed.
 ```
 
-OpenFusion converts this into structured task metadata:
+AgentDeck converts this into structured task metadata:
 
 ```txt
 Task type: bug fix
@@ -136,7 +136,7 @@ Preferred agents: Claude Code, Codex CLI, Pi, OpenCode
 Budget: cheap-first, premium fallback only if needed
 ```
 
-### Step 2: OpenFusion chooses a path
+### Step 2: AgentDeck chooses a path
 
 ```txt
 Small bug       → one agent
@@ -149,14 +149,14 @@ Risky work      → approval-gated execution
 
 ### Step 3: Agent runs in a real terminal
 
-The OpenFusion Local Bridge starts the selected agent in a controlled terminal session.
+The AgentDeck Local Bridge starts the selected agent in a controlled terminal session.
 
 ```txt
-OpenFusion UI
+AgentDeck UI
   ↓
 Cloudflare Session Hub
   ↓
-OpenFusion Local Bridge
+AgentDeck Local Bridge
   ↓
 Real PTY terminal
   ↓
@@ -177,9 +177,9 @@ The user can:
 - queue follow-up work
 ```
 
-### Step 5: OpenFusion verifies the result
+### Step 5: AgentDeck verifies the result
 
-OpenFusion runs:
+AgentDeck runs:
 
 ```txt
 - tests
@@ -193,7 +193,7 @@ OpenFusion runs:
 
 ### Step 6: Human reviews final report
 
-OpenFusion gives a final review packet:
+AgentDeck gives a final review packet:
 
 ```txt
 Files changed
@@ -225,7 +225,7 @@ flowchart LR
     DO --> CRON[Cron Triggers<br/>scheduled jobs]
     DO --> AIG[AI Gateway<br/>model routing + logs + costs + DLP]
 
-    DO <--> LB[OpenFusion Local Bridge]
+    DO <--> LB[AgentDeck Local Bridge]
 
     LB --> PTY[PTY Terminal Runner]
     LB --> SDK[SDK Runner]
@@ -249,7 +249,7 @@ flowchart LR
 
 ## 7. Layered architecture
 
-OpenFusion should be separated into four major layers.
+AgentDeck should be separated into four major layers.
 
 ```mermaid
 flowchart TB
@@ -331,7 +331,7 @@ Cloudflare AI Gateway
 
 ```mermaid
 flowchart LR
-    R[OpenFusion Router] --> P[Provider Adapter Interface]
+    R[AgentDeck Router] --> P[Provider Adapter Interface]
 
     P --> OAI[OpenAI]
     P --> ANT[Anthropic]
@@ -562,7 +562,7 @@ sequenceDiagram
     Hub->>Bridge: Start agent run
     Bridge->>Agent: Launch terminal / SDK session
     Agent-->>Bridge: stdout, stderr, tool events, message deltas
-    Bridge-->>Hub: normalized OpenFusion events
+    Bridge-->>Hub: normalized AgentDeck events
     Hub-->>UI: live stream
 
     User->>UI: Jump in / steer / approve
@@ -620,7 +620,7 @@ flowchart LR
 
 ## 14. Human-in-the-loop control
 
-OpenFusion is designed around human supervision.
+AgentDeck is designed around human supervision.
 
 ### Human actions
 
@@ -664,7 +664,7 @@ stateDiagram-v2
 
 ## 15. Build queue and overnight work
 
-OpenFusion should support long-running jobs that can run while the user is away.
+AgentDeck should support long-running jobs that can run while the user is away.
 
 ### Example
 
@@ -743,9 +743,9 @@ flowchart LR
 
 ## 17. Pi integration
 
-Pi is valuable because it can act as a customizable harness inside OpenFusion.
+Pi is valuable because it can act as a customizable harness inside AgentDeck.
 
-OpenFusion should use Pi in three ways:
+AgentDeck should use Pi in three ways:
 
 ```txt
 1. Pi SDK mode
@@ -762,7 +762,7 @@ OpenFusion should use Pi in three ways:
 
 ```mermaid
 flowchart TB
-    OF[OpenFusion Harness Adapter] --> PIAD[Pi Adapter]
+    OF[AgentDeck Harness Adapter] --> PIAD[Pi Adapter]
 
     PIAD --> SDK[Pi SDK Mode]
     PIAD --> RPC[Pi RPC Mode]
@@ -774,7 +774,7 @@ flowchart TB
     JSON --> EVENTS[Line-delimited event stream]
     PTY --> TERM[Real terminal<br/>jump-in control]
 
-    STRUCT --> NORM[OpenFusion Event Normalizer]
+    STRUCT --> NORM[AgentDeck Event Normalizer]
     ISO --> NORM
     EVENTS --> NORM
     TERM --> NORM
@@ -786,7 +786,7 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-    OFAI[OpenFusion AI Layer] --> DIRECT[Direct Provider Adapters]
+    OFAI[AgentDeck AI Layer] --> DIRECT[Direct Provider Adapters]
     OFAI --> PIAI[Pi AI Provider Bridge]
     OFAI --> AIGW[Cloudflare AI Gateway]
 
@@ -804,14 +804,14 @@ flowchart LR
 
 ### Pi boundary rule
 
-Pi should be a **first-class harness inside OpenFusion**, not the whole product.
+Pi should be a **first-class harness inside AgentDeck**, not the whole product.
 
 ```txt
-OpenFusion = mission control plane
+AgentDeck = mission control plane
 Pi = customizable agent harness inside the plane
 ```
 
-OpenFusion still owns:
+AgentDeck still owns:
 
 ```txt
 - UI
@@ -1090,7 +1090,7 @@ Use Claude patch, but copy Pi's simpler validation helper.
 
 ## 23. Security model
 
-OpenFusion must be secure by design.
+AgentDeck must be secure by design.
 
 ### Security gates
 
@@ -1169,7 +1169,7 @@ reports/{runId}/final-report.md
 
 ## 25. Final product summary
 
-OpenFusion is the command centre where developers supervise AI coding agents doing real work.
+AgentDeck is the command centre where developers supervise AI coding agents doing real work.
 
 It combines:
 
@@ -1203,7 +1203,7 @@ flowchart LR
 ## 26. Best tagline options
 
 ```txt
-OpenFusion: Mission control for AI coding agents.
+AgentDeck: Mission control for AI coding agents.
 ```
 
 ```txt

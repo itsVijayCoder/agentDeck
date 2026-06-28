@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { classifyCommandRisk, getPrivacyStorageDecision } from "@openfusion/policy";
-import { deriveRunProgress, transitionApprovalStatus, transitionTerminalLease } from "@openfusion/core";
+import { classifyCommandRisk, getPrivacyStorageDecision } from "@agentdeck/policy";
+import { deriveRunProgress, transitionApprovalStatus, transitionTerminalLease } from "@agentdeck/core";
 import {
 	activeRun,
 	agentInstallations,
@@ -12,7 +12,7 @@ import {
 	queueItems,
 	scheduledJobs,
 	workspaceSummary,
-} from "@/lib/mock-openfusion";
+} from "@/lib/mock-agentdeck";
 import type {
 	AgentGraphNode,
 	AgentInstallation,
@@ -26,7 +26,7 @@ import type {
 	TerminalTab,
 	TerminalTabStatus,
 	VerificationResult,
-} from "@openfusion/core";
+} from "@agentdeck/core";
 
 const statusLabels: Record<GraphNodeStatus, string> = {
 	complete: "Complete",
@@ -125,11 +125,11 @@ function LeftNavigation({
 	onSelectNav: (navId: string) => void;
 }) {
 	return (
-		<aside className="of-nav" aria-label="OpenFusion navigation">
+		<aside className="of-nav" aria-label="AgentDeck navigation">
 			<div className="of-brand">
 				<div className="of-brand-mark">OF</div>
 				<div>
-					<strong>OpenFusion</strong>
+					<strong>AgentDeck</strong>
 					<span>Mission Control</span>
 				</div>
 			</div>

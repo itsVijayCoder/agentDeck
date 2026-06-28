@@ -1,4 +1,4 @@
-# OpenFusion local development secrets
+# AgentDeck local development secrets
 # Copy to .dev.vars and fill in real values.
 # .dev.vars is gitignored.
 
@@ -8,4 +8,4 @@ CLOUDFLARE_ACCOUNT_ID=
 CLOUDFLARE_GATEWAY_ID=default
 
 # Bridge pairing secret (Phase 04)
-OPENFUSION_BRIDGE_TOKEN=
+AGENTDECK_BRIDGE_TOKEN=

@@ -1,4 +1,4 @@
-import type { PrivacyMode, RiskLevel } from "@openfusion/core";
+import type { PrivacyMode, RiskLevel } from "@agentdeck/core";
 
 export type PolicyDecision = {
 	decision: "allow" | "approval" | "deny";

@@ -1,4 +1,4 @@
-import { parseJsonColumn } from "@openfusion/db";
+import { parseJsonColumn } from "@agentdeck/db";
 
 import { requireWorkspaceRow } from "@/lib/api/access";
 import { jsonResponse, withApiErrors } from "@/lib/api/errors";

@@ -1,10 +1,10 @@
-# OpenFusion Mission Control — Implementation Guide
+# AgentDeck Mission Control — Implementation Guide
 
-**Positioning:** OpenFusion is mission control for AI coding agents. You give Claude Code, Codex, OpenCode, Qwen Code, Pi, or future agents a task. The agent runs in a real terminal you can watch, pause, resume, and jump into. OpenFusion gives live feedback, a build queue for overnight work, scheduled jobs, deterministic verification, human approval gates, and transparent decision reports. It is **not auto-merge** and **not a black box**.
+**Positioning:** AgentDeck is mission control for AI coding agents. You give Claude Code, Codex, OpenCode, Qwen Code, Pi, or future agents a task. The agent runs in a real terminal you can watch, pause, resume, and jump into. AgentDeck gives live feedback, a build queue for overnight work, scheduled jobs, deterministic verification, human approval gates, and transparent decision reports. It is **not auto-merge** and **not a black box**.
 
 **Prepared:** 2026-06-27  
 **Updated:** 2026-06-27 — added detailed Pi SDK/RPC/JSON/PTY integration plan.  
-**Primary stack:** Cloudflare Workers, Durable Objects, D1, R2, Queues, Workflows, Cron Triggers, AI Gateway, optional Cloudflare Sandbox, Next.js App Router, shadcn/ui, Tailwind CSS, TanStack Query, Zustand, xterm.js, React Flow, Monaco/diff viewer, Motion, local OpenFusion Bridge.
+**Primary stack:** Cloudflare Workers, Durable Objects, D1, R2, Queues, Workflows, Cron Triggers, AI Gateway, optional Cloudflare Sandbox, Next.js App Router, shadcn/ui, Tailwind CSS, TanStack Query, Zustand, xterm.js, React Flow, Monaco/diff viewer, Motion, local AgentDeck Bridge.
 
 > **Core architectural decision:** Cloudflare coordinates. The local bridge executes. The browser observes and intervenes. The human approves important actions.
 
@@ -14,7 +14,7 @@
 
 1. [Executive summary](#1-executive-summary)
 2. [R&D interpretation from Tau/Pi-style architecture](#2-rd-interpretation-from-taupi-style-architecture)
-3. [OpenFusion layer model](#3-openfusion-layer-model)
+3. [AgentDeck layer model](#3-agentdeck-layer-model)
 4. [High-level design](#4-high-level-design)
 5. [Low-level design](#5-low-level-design)
 6. [End-to-end run lifecycle](#6-end-to-end-run-lifecycle)
@@ -23,7 +23,7 @@
 9. [Coding / execution layer](#9-coding--execution-layer)
 10. [TUI and Mission Control UI layer](#10-tui-and-mission-control-ui-layer)
 11. [Cloudflare control plane](#11-cloudflare-control-plane)
-12. [Local OpenFusion Bridge](#12-local-openfusion-bridge)
+12. [Local AgentDeck Bridge](#12-local-agentdeck-bridge)
 13. [Agent detection and adapters](#13-agent-detection-and-adapters)
 13A. [Pi SDK integration details](#13a-pi-sdk-integration-details)
 14. [Real terminal streaming and jump-in control](#14-real-terminal-streaming-and-jump-in-control)
@@ -53,7 +53,7 @@
 
 ## 1. Executive summary
 
-OpenFusion should be built as a **local-first AI coding-agent control plane**. The product should not be positioned as “many low-cost models always beating premium models.” The more credible and defensible product is:
+AgentDeck should be built as a **local-first AI coding-agent control plane**. The product should not be positioned as “many low-cost models always beating premium models.” The more credible and defensible product is:
 
 > **A transparent command center that runs coding agents in real terminals, streams their work, lets humans intervene, queues long-running jobs, verifies results, and keeps a complete audit trail.**
 
@@ -62,8 +62,8 @@ The product has five major planes:
 | Plane | Main responsibility | Recommended implementation |
 |---|---|---|
 | **AI layer** | Unified model/provider access, streaming deltas, cost tracking, fallback, provider policy | Provider adapters, Cloudflare AI Gateway, optional Pi AI bridge / LiteLLM-compatible abstraction |
-| **Agent Harness layer** | Agent loop, sessions, tool calls, state, messages, approval gates, event normalization | OpenFusion Harness SDK, per-agent adapters, state machines |
-| **Coding / execution layer** | Repo access, PTY, shell commands, worktrees, tests, builds, diffs, patches | OpenFusion Bridge, node-pty/pty layer, Git/worktree manager, verifier |
+| **Agent Harness layer** | Agent loop, sessions, tool calls, state, messages, approval gates, event normalization | AgentDeck Harness SDK, per-agent adapters, state machines |
+| **Coding / execution layer** | Repo access, PTY, shell commands, worktrees, tests, builds, diffs, patches | AgentDeck Bridge, node-pty/pty layer, Git/worktree manager, verifier |
 | **TUI / Mission Control UI layer** | Display streaming deltas, terminal panes, timeline, graph, approvals, reports | Next.js, shadcn/ui, xterm.js, React Flow, Zustand, TanStack Query |
 | **Cloud control plane** | Auth, sessions, realtime hub, queue, schedules, metadata, artifacts, team audit | Cloudflare Workers, Durable Objects, D1, R2, Queues, Workflows, Cron, AI Gateway |
 
@@ -94,7 +94,7 @@ Direct video transcript fetch was not available in the browsing environment beca
 1. Your provided breakdown.
 2. Public metadata for the Tau and Pi architecture videos.
 3. Official Pi docs and GitHub documentation.
-4. Production architecture requirements for OpenFusion.
+4. Production architecture requirements for AgentDeck.
 
 ### 2.2 Key architectural primitives extracted
 
@@ -137,41 +137,41 @@ Coding
 
 ### 2.3 Pi architecture signals to adopt
 
-Pi’s public documentation gives several important design patterns that OpenFusion should adopt.
+Pi’s public documentation gives several important design patterns that AgentDeck should adopt.
 
-| Pi concept | Why it matters | OpenFusion adaptation |
+| Pi concept | Why it matters | AgentDeck adaptation |
 |---|---|---|
-| Minimal terminal coding harness | Keeps core small and extensible | Keep OpenFusion Bridge + Harness SDK modular, not monolithic |
+| Minimal terminal coding harness | Keeps core small and extensible | Keep AgentDeck Bridge + Harness SDK modular, not monolithic |
 | Interactive, JSON, RPC, SDK modes | Supports human TUI and programmatic integration | Provide browser UI, JSONL event stream, local RPC, and SDK APIs |
 | Message queue while agent works | Enables steering/follow-up without killing the run | Add “Steer now” and “Queue follow-up” in Mission Control |
 | Tree-structured sessions | Enables branching from prior messages | Store session graph/tree, not only linear chat |
-| JSON event stream | Makes TUI and UI rendering deterministic | Normalize all harnesses into OpenFusion events |
+| JSON event stream | Makes TUI and UI rendering deterministic | Normalize all harnesses into AgentDeck events |
 | Context compaction | Long sessions need summaries | Add compaction service with full raw history retained in R2 |
 | Provider abstraction | Allows switching models mid-session | Use AI Gateway/provider adapters and per-agent config |
-| Tools: read/write/edit/bash | Coding agents need controlled actions | OpenFusion tool policy wraps risky tool actions |
-| Trust/project settings | Prevent untrusted project resources from executing | OpenFusion workspace trust and project policy gates |
+| Tools: read/write/edit/bash | Coding agents need controlled actions | AgentDeck tool policy wraps risky tool actions |
+| Trust/project settings | Prevent untrusted project resources from executing | AgentDeck workspace trust and project policy gates |
 
-### 2.4 How OpenFusion differs from Pi/Tau
+### 2.4 How AgentDeck differs from Pi/Tau
 
-OpenFusion is **not just another coding agent**. It is the control layer above multiple agents.
+AgentDeck is **not just another coding agent**. It is the control layer above multiple agents.
 
 ```text
 Pi/Tau/OpenCode/Claude Code/Codex = individual agent/harness products
-OpenFusion = mission control for those agents + queue + schedule + terminal bridge + audit + policy + team UI
+AgentDeck = mission control for those agents + queue + schedule + terminal bridge + audit + policy + team UI
 ```
 
-OpenFusion should not reimplement every agent immediately. It should:
+AgentDeck should not reimplement every agent immediately. It should:
 
 1. Wrap existing agents.
 2. Normalize their events.
 3. Run them inside controlled terminals.
 4. Provide human-in-the-loop UI.
 5. Add scheduling, queues, verification, and reports.
-6. Later expose its own OpenFusion-native harness.
+6. Later expose its own AgentDeck-native harness.
 
 ---
 
-## 3. OpenFusion layer model
+## 3. AgentDeck layer model
 
 ### 3.1 The four product layers
 
@@ -256,9 +256,9 @@ Agents run inside PTY/worktree/sandbox boundaries.
 ```mermaid
 flowchart TB
   Dev[Developer]
-  Browser[OpenFusion Web UI]
+  Browser[AgentDeck Web UI]
   CF[Cloudflare Control Plane]
-  Bridge[OpenFusion Local Bridge]
+  Bridge[AgentDeck Local Bridge]
   Agent1[Claude Code]
   Agent2[Codex CLI]
   Agent3[OpenCode]
@@ -311,7 +311,7 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-  Bridge[OpenFusion Bridge]
+  Bridge[AgentDeck Bridge]
   Pairing[Pairing/Auth Manager]
   Detector[Agent Detector]
   PTY[PTY Manager]
@@ -461,15 +461,15 @@ export type Run = {
 
 | Service/package | Responsibility | Location |
 |---|---|---|
-| `@openfusion/core` | Domain types, event types, state machines | Shared package |
-| `@openfusion/ai` | Provider abstraction, streaming parser, router | Worker + bridge |
-| `@openfusion/harness` | Harness adapters and event normalizer | Bridge + optional worker |
-| `@openfusion/bridge-protocol` | WS/RPC protocol types | Shared package |
-| `@openfusion/policy` | Command, provider, privacy, path policies | Bridge + Worker |
-| `@openfusion/redaction` | Secret redaction | Bridge first, Worker second |
-| `@openfusion/verifier` | Test/build/lint detection and execution | Bridge + sandbox |
-| `@openfusion/db` | D1 repositories and migrations | Worker |
-| `@openfusion/ui` | UI components and design tokens | Web app |
+| `@agentdeck/core` | Domain types, event types, state machines | Shared package |
+| `@agentdeck/ai` | Provider abstraction, streaming parser, router | Worker + bridge |
+| `@agentdeck/harness` | Harness adapters and event normalizer | Bridge + optional worker |
+| `@agentdeck/bridge-protocol` | WS/RPC protocol types | Shared package |
+| `@agentdeck/policy` | Command, provider, privacy, path policies | Bridge + Worker |
+| `@agentdeck/redaction` | Secret redaction | Bridge first, Worker second |
+| `@agentdeck/verifier` | Test/build/lint detection and execution | Bridge + sandbox |
+| `@agentdeck/db` | D1 repositories and migrations | Worker |
+| `@agentdeck/ui` | UI components and design tokens | Web app |
 
 ### 5.3 Dependency rule
 
@@ -566,7 +566,7 @@ sequenceDiagram
 
 ## 7. AI layer
 
-The AI layer unifies provider access and converts provider-specific streams into OpenFusion events.
+The AI layer unifies provider access and converts provider-specific streams into AgentDeck events.
 
 ### 7.1 Responsibilities
 
@@ -808,7 +808,7 @@ export type UserQueuedMessage = {
 
 ## 9. Coding / execution layer
 
-The coding layer is where OpenFusion becomes trustworthy. It connects the harness to real files, terminal commands, tests, builds, and diffs.
+The coding layer is where AgentDeck becomes trustworthy. It connects the harness to real files, terminal commands, tests, builds, and diffs.
 
 ### 9.1 Responsibilities
 
@@ -829,7 +829,7 @@ The coding layer is where OpenFusion becomes trustworthy. It connects the harnes
 Never let overnight queue jobs mutate the developer’s active working tree by default.
 
 ```text
-openfusion-worktrees/
+agentdeck-worktrees/
   repo-name/
     run_<runId>/
       full checkout/worktree
@@ -921,7 +921,7 @@ TUI display receives:
 - run state update
 ```
 
-OpenFusion browser UI is a web TUI plus dashboard.
+AgentDeck browser UI is a web TUI plus dashboard.
 
 ```ts
 export type UiRenderableEvent =
@@ -1022,7 +1022,7 @@ hover/selection state
 
 ### 11.1 Component mapping
 
-| Cloudflare service | Use in OpenFusion | Why |
+| Cloudflare service | Use in AgentDeck | Why |
 |---|---|---|
 | Workers | API/BFF, auth handlers, event ingestion, Next.js deployment | Edge app logic and API endpoints |
 | Durable Objects | Session hub, WebSocket fanout, live state, active terminal state | Stateful coordination for each live session |
@@ -1051,7 +1051,7 @@ export class SessionHub extends DurableObject<Env> {
   }
 
   async webSocketMessage(ws: WebSocket, raw: string | ArrayBuffer) {
-    const event = JSON.parse(String(raw)) as OpenFusionEvent
+    const event = JSON.parse(String(raw)) as AgentDeckEvent
     const sequenced = { ...event, seq: ++this.seq }
     await this.persistSmallEvent(sequenced)
     this.broadcast(sequenced)
@@ -1081,7 +1081,7 @@ export class SessionHub extends DurableObject<Env> {
 
 ---
 
-## 12. Local OpenFusion Bridge
+## 12. Local AgentDeck Bridge
 
 ### 12.1 Why the bridge is mandatory
 
@@ -1094,8 +1094,8 @@ Language: TypeScript/Node.js
 PTY: node-pty or equivalent
 Packaging: npm global CLI first, Tauri desktop later
 Transport: secure WebSocket to SessionHub
-Config: ~/.openfusion/config.json
-State: ~/.openfusion/state.db or JSONL files
+Config: ~/.agentdeck/config.json
+State: ~/.agentdeck/state.db or JSONL files
 Logs: local JSONL + optional cloud sync to R2
 ```
 
@@ -1215,13 +1215,13 @@ export type ProbeResult = {
 | Codex CLI | `codex` | PTY + config profile | Good terminal-native agent; supports profile/provider config |
 | OpenCode | `opencode` | PTY + ACP where available | Open-source terminal/IDE/desktop agent |
 | Qwen Code | `qwen` | PTY | Good open-source terminal coding option |
-| Pi | `pi` | SDK + RPC + JSON event stream + PTY | First-class OpenFusion harness adapter; excellent reference for events, queue, session tree |
+| Pi | `pi` | SDK + RPC + JSON event stream + PTY | First-class AgentDeck harness adapter; excellent reference for events, queue, session tree |
 | Aider | `aider` | PTY | Useful baseline for patch-driven coding |
 | ACP agents | dynamic | JSON-RPC stdio | Future standardized agent interface |
 
 ### 13.4 Adapter normalization
 
-Each adapter must map native events to OpenFusion events:
+Each adapter must map native events to AgentDeck events:
 
 ```text
 Native stdout/stderr       → terminal.stdout/stderr
@@ -1238,13 +1238,13 @@ Process exit               → run.process_exit
 
 ## 13A. Pi SDK integration details
 
-Pi should be a **first-class OpenFusion harness adapter**, not the whole OpenFusion platform. OpenFusion remains the mission-control plane. Pi becomes one of the best embedded harness engines inside that plane.
+Pi should be a **first-class AgentDeck harness adapter**, not the whole AgentDeck platform. AgentDeck remains the mission-control plane. Pi becomes one of the best embedded harness engines inside that plane.
 
 Recommended decision:
 
 ```text
 Use Pi as:
-✅ a native SDK harness for OpenFusion-managed agent runs
+✅ a native SDK harness for AgentDeck-managed agent runs
 ✅ an RPC subprocess harness when process isolation matters
 ✅ a JSON event-stream harness for lightweight one-shot/headless runs
 ✅ a PTY terminal harness when the user wants to watch and jump into the real Pi TUI
@@ -1252,26 +1252,26 @@ Use Pi as:
 ✅ a reference architecture for queue_update, message delta, tool execution, sessions, and TUI display
 
 Do not use Pi as:
-❌ the only OpenFusion architecture
+❌ the only AgentDeck architecture
 ❌ the only security boundary
 ❌ the replacement for Claude Code, Codex, OpenCode, Qwen Code, or future adapters
 ❌ the persistence/audit system for team workflows
 ❌ the product UI layer
 ```
 
-### 13A.1 Why Pi fits OpenFusion
+### 13A.1 Why Pi fits AgentDeck
 
 Pi maps strongly to the architecture you described:
 
-| Your concept | Pi primitive | OpenFusion use |
+| Your concept | Pi primitive | AgentDeck use |
 |---|---|---|
-| AI layer unifies LLM providers | `@earendil-works/pi-ai` and Pi provider config | Optional provider bridge; still route through OpenFusion policy and Cloudflare AI Gateway when needed |
-| Streams events to consumers | SDK `session.subscribe(...)`, JSON event stream, RPC event output | Normalize Pi events into `OpenFusionEvent` and broadcast to browser/DO/R2 |
-| Harness agent loop | `@earendil-works/pi-agent-core` and coding-agent runtime | Use for OpenFusion-native agent runs |
-| Stateful harness/session | Pi `AgentSession`, `SessionManager`, session files/tree | Map Pi session to OpenFusion `runs`, `messages`, and `artifacts` |
+| AI layer unifies LLM providers | `@earendil-works/pi-ai` and Pi provider config | Optional provider bridge; still route through AgentDeck policy and Cloudflare AI Gateway when needed |
+| Streams events to consumers | SDK `session.subscribe(...)`, JSON event stream, RPC event output | Normalize Pi events into `AgentDeckEvent` and broadcast to browser/DO/R2 |
+| Harness agent loop | `@earendil-works/pi-agent-core` and coding-agent runtime | Use for AgentDeck-native agent runs |
+| Stateful harness/session | Pi `AgentSession`, `SessionManager`, session files/tree | Map Pi session to AgentDeck `runs`, `messages`, and `artifacts` |
 | User interactive messages | `prompt`, `steer`, `followUp`, queue updates | Map Jump-In/Steer/Follow-up UI controls to Pi session methods or RPC commands |
-| Tools | built-ins and `defineTool()` custom tools | Register OpenFusion approval, verifier, artifact, schedule, and policy tools |
-| TUI display | Pi interactive mode and `@earendil-works/pi-tui` | Use Pi PTY mode for authentic terminal; optionally reuse TUI ideas for OpenFusion UI |
+| Tools | built-ins and `defineTool()` custom tools | Register AgentDeck approval, verifier, artifact, schedule, and policy tools |
+| TUI display | Pi interactive mode and `@earendil-works/pi-tui` | Use Pi PTY mode for authentic terminal; optionally reuse TUI ideas for AgentDeck UI |
 | Delta/end messages | `message_update`, `message_end` | Render token deltas live and persist final messages |
 | Tool lifecycle | `tool_execution_start/update/end` | Render tool activity cards, command risk badges, and verification logs |
 
@@ -1284,7 +1284,7 @@ Important source facts to track in the engineering notes:
 - Pi supports RPC over stdin/stdout JSONL for headless/subprocess integrations.
 - Pi supports JSON event stream mode where events are output as JSON lines.
 - Pi has built-in Cloudflare AI Gateway provider support.
-- Pi does not provide a built-in filesystem/process/network/credential permission system; OpenFusion must provide policy/sandboxing.
+- Pi does not provide a built-in filesystem/process/network/credential permission system; AgentDeck must provide policy/sandboxing.
 ```
 
 Source links:
@@ -1304,13 +1304,13 @@ https://developers.cloudflare.com/ai-gateway/integrations/coding-agents/pi/
 flowchart TD
   UI[Mission Control UI]
   DO[Session Durable Object]
-  B[OpenFusion Local Bridge]
+  B[AgentDeck Local Bridge]
   PA[Pi Adapter]
   SDK[Pi SDK Mode]
   RPC[Pi RPC Mode]
   JSON[Pi JSON Event Mode]
   PTY[Pi PTY Interactive Mode]
-  Policy[OpenFusion Policy Engine]
+  Policy[AgentDeck Policy Engine]
   Repo[Workspace / Git Worktree]
   Verifier[Verifier: build/test/lint/typecheck]
   R2[R2 logs/artifacts]
@@ -1341,7 +1341,7 @@ flowchart TD
 Design rule:
 
 ```text
-OpenFusion owns:
+AgentDeck owns:
 - session IDs
 - run IDs
 - permissions
@@ -1364,11 +1364,11 @@ Pi owns, within a run:
 
 ### 13A.3 Pi adapter modes
 
-OpenFusion should implement one `PiAgentAdapter` with four execution modes.
+AgentDeck should implement one `PiAgentAdapter` with four execution modes.
 
 | Mode | How it runs | Best for | Tradeoff |
 |---|---|---|---|
-| `sdk` | Import `@earendil-works/pi-coding-agent` inside OpenFusion Bridge Node process | Deep integration, structured events, custom tools, tests, OpenFusion-native agents | Same-process risk; requires Node bridge runtime |
+| `sdk` | Import `@earendil-works/pi-coding-agent` inside AgentDeck Bridge Node process | Deep integration, structured events, custom tools, tests, AgentDeck-native agents | Same-process risk; requires Node bridge runtime |
 | `rpc` | Spawn `pi --mode rpc --no-session` and speak JSONL over stdin/stdout | Process isolation, non-Node bridge, stable protocol boundary | Slightly more protocol code; less direct state access |
 | `json` | Run `pi --mode json "prompt"` and parse JSONL events | Simple one-shot queued jobs and scripts | Less interactive control after launch |
 | `pty` | Spawn `pi` in a real pseudo-terminal | Watchable terminal, authentic Pi TUI, Jump In / Jump Out | Harder to parse structured state unless combined with logs/events |
@@ -1384,11 +1384,11 @@ export function selectPiMode(input: {
   requiresProcessIsolation: boolean;
   bridgeRuntime: "node" | "rust" | "tauri" | "go";
   isOneShotQueueJob: boolean;
-  needsCustomOpenFusionTools: boolean;
+  needsCustomAgentDeckTools: boolean;
 }): PiRunMode {
   if (input.requiresRealTerminal || input.requiresUserJumpIn) return "pty";
   if (input.requiresProcessIsolation || input.bridgeRuntime !== "node") return "rpc";
-  if (input.isOneShotQueueJob && !input.needsCustomOpenFusionTools) return "json";
+  if (input.isOneShotQueueJob && !input.needsCustomAgentDeckTools) return "json";
   return "sdk";
 }
 ```
@@ -1397,11 +1397,11 @@ Product behavior:
 
 ```text
 Interactive visible run       → Pi PTY mode
-Structured OpenFusion run     → Pi SDK mode
+Structured AgentDeck run     → Pi SDK mode
 Bridge not written in Node    → Pi RPC mode
 Overnight simple queued job   → Pi JSON or RPC mode
 Enterprise process boundary   → Pi RPC inside sandbox/container
-Custom OpenFusion tools       → Pi SDK mode first, RPC mode second
+Custom AgentDeck tools       → Pi SDK mode first, RPC mode second
 ```
 
 ### 13A.4 Pi Adapter LLD
@@ -1419,11 +1419,11 @@ export type PiAdapterConfig = {
   noTools?: "all" | "builtin";
   excludeTools?: string[];
   privacyMode: "local-only" | "metadata-only" | "full-sync";
-  providerMode: "pi-native" | "cloudflare-ai-gateway" | "openfusion-provider" | "local-model";
+  providerMode: "pi-native" | "cloudflare-ai-gateway" | "agentdeck-provider" | "local-model";
 };
 
 export type PiSessionHandle = {
-  openfusionRunId: string;
+  agentdeckRunId: string;
   piSessionId?: string;
   mode: PiRunMode;
   cwd: string;
@@ -1455,8 +1455,8 @@ packages/bridge/src/agents/pi/
   pi.rpc-runner.ts           # JSONL subprocess mode
   pi.json-runner.ts          # one-shot event stream mode
   pi.pty-runner.ts           # terminal/TUI mode via node-pty
-  pi.events.ts               # Pi event → OpenFusion event mapper
-  pi.tools.ts                # OpenFusion custom tools for Pi SDK mode
+  pi.events.ts               # Pi event → AgentDeck event mapper
+  pi.tools.ts                # AgentDeck custom tools for Pi SDK mode
   pi.provider.ts             # Pi provider/AIGateway config helpers
   pi.security.ts             # command/path/env policy wrappers
   pi.types.ts                # shared types
@@ -1536,13 +1536,13 @@ Status: Detected
 Modes: SDK, RPC, JSON Events, Real Terminal
 Provider: Native / Cloudflare AI Gateway / Local
 Auth: Config present, not inspected
-Risk boundary: OpenFusion policy required
-Recommended for: Custom OpenFusion-native coding flows, visible Pi terminal runs, provider-flexible runs
+Risk boundary: AgentDeck policy required
+Recommended for: Custom AgentDeck-native coding flows, visible Pi terminal runs, provider-flexible runs
 ```
 
 ### 13A.6 Pi SDK mode implementation
 
-Use SDK mode when the bridge is Node/TypeScript and we want direct state access, custom OpenFusion tools, and structured events.
+Use SDK mode when the bridge is Node/TypeScript and we want direct state access, custom AgentDeck tools, and structured events.
 
 ```ts
 import {
@@ -1565,9 +1565,9 @@ export async function runPiSdkTask(input: {
   const authStorage = AuthStorage.create();
   const modelRegistry = ModelRegistry.create(authStorage);
 
-  const approvalTool = createOpenFusionApprovalTool(input.policy, input.sink);
-  const verifierTool = createOpenFusionVerifierTool(input.cwd, input.sink);
-  const artifactTool = createOpenFusionArtifactTool(input.runId, input.sink);
+  const approvalTool = createAgentDeckApprovalTool(input.policy, input.sink);
+  const verifierTool = createAgentDeckVerifierTool(input.cwd, input.sink);
+  const artifactTool = createAgentDeckArtifactTool(input.runId, input.sink);
 
   const { session } = await createAgentSession({
     cwd: input.cwd,
@@ -1578,7 +1578,7 @@ export async function runPiSdkTask(input: {
   });
 
   const unsubscribe = session.subscribe((event) => {
-    for (const ofEvent of mapPiEventToOpenFusion(event, input.runId)) {
+    for (const ofEvent of mapPiEventToAgentDeck(event, input.runId)) {
       input.sink.emit(ofEvent);
     }
   });
@@ -1600,10 +1600,10 @@ SDK mode behavior:
 
 ```text
 - The bridge subscribes to Pi session events.
-- Every Pi event is normalized to OpenFusion events.
+- Every Pi event is normalized to AgentDeck events.
 - The UI never depends directly on Pi event names.
-- Pi custom tools call OpenFusion policy/verifier/artifact APIs.
-- OpenFusion stores metadata in D1 and full event/log streams in R2.
+- Pi custom tools call AgentDeck policy/verifier/artifact APIs.
+- AgentDeck stores metadata in D1 and full event/log streams in R2.
 - Hidden thinking deltas must not be shown by default. Show only safe summaries/debug labels.
 ```
 
@@ -1676,14 +1676,14 @@ export class PiRpcRunner {
 
 RPC control mapping:
 
-| OpenFusion control event | Pi RPC command |
+| AgentDeck control event | Pi RPC command |
 |---|---|
 | `agent.prompt` | `{ type: "prompt", message }` |
 | `agent.steer` | `{ type: "steer", message }` |
 | `agent.follow_up` | `{ type: "prompt", message, streamingBehavior: "followUp" }` |
 | `agent.set_model` | RPC model command if supported, otherwise restart/fork session |
 | `agent.cancel` | process signal + run state update |
-| `agent.pause` | OpenFusion-side pause gate; if needed send interrupt in PTY mode |
+| `agent.pause` | AgentDeck-side pause gate; if needed send interrupt in PTY mode |
 
 ### 13A.8 Pi JSON event stream mode
 
@@ -1763,11 +1763,11 @@ Jump-in behavior in Pi PTY mode:
 
 ```text
 1. User clicks “Jump In”.
-2. OpenFusion creates a terminal lease.
+2. AgentDeck creates a terminal lease.
 3. Bridge routes keyboard input from browser/xterm.js to Pi PTY stdin.
 4. Human can type normal Pi editor input, slash commands, shell commands, model changes, etc.
 5. Human clicks “Release”.
-6. OpenFusion returns terminal to watch/agent-control state.
+6. AgentDeck returns terminal to watch/agent-control state.
 7. All human input is recorded as human-terminal-input audit events.
 ```
 
@@ -1780,10 +1780,10 @@ Important UI distinction:
 
 ### 13A.10 Pi event normalization
 
-Pi event names should never leak into the rest of OpenFusion. Convert them immediately.
+Pi event names should never leak into the rest of AgentDeck. Convert them immediately.
 
 ```ts
-export function mapPiEventToOpenFusion(event: any, runId: string): OpenFusionEvent[] {
+export function mapPiEventToAgentDeck(event: any, runId: string): AgentDeckEvent[] {
   switch (event.type) {
     case "session":
       return [{ type: "agent.session.started", runId, nativeSessionId: event.id, cwd: event.cwd }];
@@ -1871,7 +1871,7 @@ export function mapPiEventToOpenFusion(event: any, runId: string): OpenFusionEve
 }
 ```
 
-OpenFusion UI rendering rules:
+AgentDeck UI rendering rules:
 
 ```text
 message_update/text_delta        → streaming assistant text
@@ -1887,9 +1887,9 @@ agent_end                        → final report generation begins
 
 ### 13A.11 Pi message queue and human steering
 
-Pi's `steer` and `followUp` semantics map directly to OpenFusion’s human-in-the-loop controls.
+Pi's `steer` and `followUp` semantics map directly to AgentDeck’s human-in-the-loop controls.
 
-OpenFusion controls:
+AgentDeck controls:
 
 ```text
 Steer now
@@ -1925,21 +1925,21 @@ Jump into terminal
 Take live keyboard control of the real terminal. Your input will be audited.
 ```
 
-### 13A.12 Pi custom OpenFusion tools
+### 13A.12 Pi custom AgentDeck tools
 
-When using SDK mode, register custom tools that keep humans in the loop and route important actions through OpenFusion policy.
+When using SDK mode, register custom tools that keep humans in the loop and route important actions through AgentDeck policy.
 
 Recommended custom tools:
 
 | Tool | Purpose | Approval required |
 |---|---|---|
-| `openfusion_request_approval` | Ask human to approve a risky command/action | Always |
-| `openfusion_run_verifier` | Run detected build/test/lint/typecheck command | Based on command risk |
-| `openfusion_create_artifact` | Store patch, report, log, or generated file in R2 | No, unless sensitive |
-| `openfusion_show_diff` | Ask UI to open diff drawer for human review | No |
-| `openfusion_schedule_followup` | Create scheduled/queued follow-up job | User confirmation |
-| `openfusion_select_worktree` | Request isolated worktree for a candidate | No |
-| `openfusion_report_status` | Emit structured progress/status | No |
+| `agentdeck_request_approval` | Ask human to approve a risky command/action | Always |
+| `agentdeck_run_verifier` | Run detected build/test/lint/typecheck command | Based on command risk |
+| `agentdeck_create_artifact` | Store patch, report, log, or generated file in R2 | No, unless sensitive |
+| `agentdeck_show_diff` | Ask UI to open diff drawer for human review | No |
+| `agentdeck_schedule_followup` | Create scheduled/queued follow-up job | User confirmation |
+| `agentdeck_select_worktree` | Request isolated worktree for a candidate | No |
+| `agentdeck_report_status` | Emit structured progress/status | No |
 
 Example custom tool:
 
@@ -1947,9 +1947,9 @@ Example custom tool:
 import { Type } from "typebox";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 
-export function createOpenFusionApprovalTool(policy: PolicyEngine, sink: EventSink) {
+export function createAgentDeckApprovalTool(policy: PolicyEngine, sink: EventSink) {
   return defineTool({
-    name: "openfusion_request_approval",
+    name: "agentdeck_request_approval",
     label: "Request human approval",
     description: "Ask the human operator to approve or reject a risky action before continuing.",
     parameters: Type.Object({
@@ -1993,12 +1993,12 @@ Critical safety rule:
 
 ```text
 The Pi custom approval tool is useful, but it is not the only protection.
-The bridge must still intercept risky shell/process/file operations at the OpenFusion policy layer.
+The bridge must still intercept risky shell/process/file operations at the AgentDeck policy layer.
 ```
 
 ### 13A.13 Pi provider integration and Cloudflare AI Gateway
 
-OpenFusion should expose three Pi provider modes.
+AgentDeck should expose three Pi provider modes.
 
 ```text
 1. Pi-native provider mode
@@ -2009,8 +2009,8 @@ OpenFusion should expose three Pi provider modes.
    Pi provider is `cloudflare-ai-gateway`.
    Good for observability, DLP, cost tracking, rate limits, caching, retries, and governance.
 
-3. OpenFusion-managed provider mode
-   OpenFusion calls providers directly and uses Pi SDK/harness only where appropriate.
+3. AgentDeck-managed provider mode
+   AgentDeck calls providers directly and uses Pi SDK/harness only where appropriate.
    Good for enterprise policy, centralized secrets, and custom routing.
 ```
 
@@ -2024,11 +2024,11 @@ export CLOUDFLARE_GATEWAY_ID="default"
 pi --provider cloudflare-ai-gateway --model "<model-id>"
 ```
 
-OpenFusion provider policy object:
+AgentDeck provider policy object:
 
 ```ts
 export type PiProviderPolicy = {
-  mode: "pi-native" | "cloudflare-ai-gateway" | "openfusion-managed" | "local-only";
+  mode: "pi-native" | "cloudflare-ai-gateway" | "agentdeck-managed" | "local-only";
   allowedProviders: string[];
   allowedModels: string[];
   requireGatewayForHostedModels: boolean;
@@ -2048,9 +2048,9 @@ When response-body DLP is enabled at AI Gateway, streaming may be buffered befor
 
 ### 13A.14 Pi security and sandboxing
 
-Pi itself should not be treated as the security boundary. OpenFusion must enforce permissions around it.
+Pi itself should not be treated as the security boundary. AgentDeck must enforce permissions around it.
 
-Required OpenFusion guardrails around Pi:
+Required AgentDeck guardrails around Pi:
 
 ```text
 - Pair machine explicitly before any run.
@@ -2077,12 +2077,12 @@ Risk matrix:
 | PTY ambiguity | user vs agent input unclear | terminal lease and audit events |
 | Same-process SDK risk | Pi SDK shares bridge process | use RPC/sandbox mode for enterprise/high-risk runs |
 
-### 13A.15 Pi session tree and OpenFusion candidates
+### 13A.15 Pi session tree and AgentDeck candidates
 
-Pi’s session-tree idea should become an OpenFusion candidate/branch model.
+Pi’s session-tree idea should become an AgentDeck candidate/branch model.
 
 ```text
-OpenFusion Session
+AgentDeck Session
   ├── Run A: Claude Code candidate
   ├── Run B: Codex candidate
   ├── Run C: Pi candidate
@@ -2138,7 +2138,7 @@ Queue mode recommendations:
 | Simple scheduled audit | JSON | Easy one-shot prompt + event parsing |
 | Human-observed queue item | PTY | Real terminal opens when user watches |
 | Enterprise sandbox job | RPC in sandbox/container | Process boundary |
-| Custom OpenFusion-native workflow | SDK | Custom tools and tight integration |
+| Custom AgentDeck-native workflow | SDK | Custom tools and tight integration |
 
 Build queue run lifecycle with Pi:
 
@@ -2157,7 +2157,7 @@ sequenceDiagram
   B->>P: create Pi session
   P->>PI: prompt task
   PI->>P: message/tool/queue events
-  P->>DO: normalized OpenFusion events
+  P->>DO: normalized AgentDeck events
   alt risky action
     P->>DO: approval.requested
     DO->>U: approval card
@@ -2196,7 +2196,7 @@ Provider
 - Native Pi auth
 - Cloudflare AI Gateway
 - Local models
-- OpenFusion-managed
+- AgentDeck-managed
 
 Actions
 - Open Pi terminal
@@ -2265,7 +2265,7 @@ Phase 3 — Pi SDK harness:
 [ ] Add `@earendil-works/pi-coding-agent` dependency to bridge package.
 [ ] Create SDK runner.
 [ ] Subscribe to events.
-[ ] Register OpenFusion custom tools.
+[ ] Register AgentDeck custom tools.
 [ ] Map session state into D1.
 [ ] Add verifier integration after agent end.
 ```
@@ -2307,14 +2307,14 @@ Phase 6 — Enterprise hardening:
 
 ```text
 [ ] User can see Pi in Agent Inventory with correct detection status.
-[ ] User can run a Pi task from OpenFusion.
+[ ] User can run a Pi task from AgentDeck.
 [ ] Pi emits deltas that appear live in Mission Control.
 [ ] Pi tool calls appear as tool cards.
 [ ] Pi final message appears as an end message/report entry.
 [ ] User can steer a Pi run while it is active.
 [ ] User can queue a Pi follow-up after the run finishes.
 [ ] User can run Pi in a real terminal and jump into it.
-[ ] Risky Pi actions require OpenFusion approval.
+[ ] Risky Pi actions require AgentDeck approval.
 [ ] Pi logs and events are redacted before cloud sync.
 [ ] Pi can route through Cloudflare AI Gateway.
 [ ] A Pi run can be queued overnight.
@@ -2325,9 +2325,9 @@ Phase 6 — Enterprise hardening:
 
 ### 13A.20 Final Pi recommendation
 
-OpenFusion should position Pi like this:
+AgentDeck should position Pi like this:
 
-> Pi is the most embeddable/customizable harness inside OpenFusion. Claude Code, Codex, and OpenCode are strong external agents; Pi is also a toolkit we can deeply integrate. OpenFusion remains the command center that coordinates every agent, keeps the human in the loop, stores audit trails, enforces policy, and presents the premium Mission Control UI.
+> Pi is the most embeddable/customizable harness inside AgentDeck. Claude Code, Codex, and OpenCode are strong external agents; Pi is also a toolkit we can deeply integrate. AgentDeck remains the command center that coordinates every agent, keeps the human in the loop, stores audit trails, enforces policy, and presents the premium Mission Control UI.
 
 This gives you speed and flexibility without locking the product to one agent runtime.
 
@@ -2685,7 +2685,7 @@ export type DecisionReport = {
 
 ### 18.1 Why event-sourcing
 
-OpenFusion needs event-sourcing because it must support:
+AgentDeck needs event-sourcing because it must support:
 
 ```text
 - Live terminal streaming.
@@ -2698,7 +2698,7 @@ OpenFusion needs event-sourcing because it must support:
 - Reconstructing what happened overnight.
 ```
 
-### 18.2 OpenFusion event envelope
+### 18.2 AgentDeck event envelope
 
 ```ts
 export type EventEnvelope<T = unknown> = {
@@ -3299,7 +3299,7 @@ Replay link
 
 ### 24.1 Product design thesis
 
-OpenFusion should feel like a mix of:
+AgentDeck should feel like a mix of:
 
 ```text
 - Mission control / security operations center
@@ -3402,10 +3402,10 @@ Use this prompt in Cursor, v0, Lovable, Bolt, Claude Code, Codex, OpenCode, or a
 
 ```text
 You are a principal product designer, senior frontend architect, and senior full-stack engineer.
-Build a premium, production-grade UI for a product called OpenFusion.
+Build a premium, production-grade UI for a product called AgentDeck.
 
 Product definition:
-OpenFusion is mission control for AI coding agents. A developer gives Claude Code, Codex CLI, OpenCode, Qwen Code, Pi, or future agents a task. The agent runs in a real terminal the developer can watch, pause, resume, and jump into. OpenFusion supports live feedback, build queues for overnight work, scheduled jobs, human approvals, deterministic verification, decision reports, and multi-agent comparison. It is not auto-merge and not a black box. A human stays in the loop the whole way.
+AgentDeck is mission control for AI coding agents. A developer gives Claude Code, Codex CLI, OpenCode, Qwen Code, Pi, or future agents a task. The agent runs in a real terminal the developer can watch, pause, resume, and jump into. AgentDeck supports live feedback, build queues for overnight work, scheduled jobs, human approvals, deterministic verification, decision reports, and multi-agent comparison. It is not auto-merge and not a black box. A human stays in the loop the whole way.
 
 Tech stack:
 - Next.js App Router
@@ -3424,7 +3424,7 @@ Design direction:
 Create a dark, premium, interactive command center. It should feel like Linear + Vercel + Warp terminal + GitHub Actions + a security operations center. Avoid generic SaaS cards. Avoid childish neon. Use obsidian/graphite surfaces, subtle radial gradients, 1px borders, glass panels, tasteful glows, strong hierarchy, crisp typography, and authentic terminal details.
 
 Brand:
-- Name: OpenFusion
+- Name: AgentDeck
 - Tagline: Mission control for AI coding agents
 - Tone: technical, elegant, trustworthy, human-controlled
 - Core promise: Watch agents work. Jump in anytime. Review before merge.
@@ -3515,7 +3515,7 @@ Policies screen:
 Machine pairing empty state:
 - Premium centered card.
 - Explain that a local bridge is required to detect and run terminal agents.
-- Show one command mock: npx openfusion bridge pair <code>.
+- Show one command mock: npx agentdeck bridge pair <code>.
 - Show privacy promise.
 
 Required components:
@@ -3582,9 +3582,9 @@ Implementation constraints:
 - Do not require auth.
 - Keep all components modular.
 - Use TypeScript types for all domain objects.
-- Put components under /components/openfusion.
-- Put mock data under /lib/mock-openfusion.ts.
-- Put types under /types/openfusion.ts.
+- Put components under /components/agentdeck.
+- Put mock data under /lib/mock-agentdeck.ts.
+- Put types under /types/agentdeck.ts.
 
 Deliver a polished UI that could be shown to investors, early beta users, and senior engineers.
 ```
@@ -3691,7 +3691,7 @@ Queue/Workflow monitors consume state updates.
 ## 27. Monorepo and package structure
 
 ```text
-openfusion/
+agentdeck/
 ├── apps/
 │   ├── web/                         # Next.js Mission Control UI
 │   ├── bridge/                      # Local bridge CLI/desktop app
@@ -3940,9 +3940,9 @@ Unsafe command block rate
 ```text
 Single agent baseline
 Single premium frontier model
-OpenFusion one-agent + verification
-OpenFusion multi-agent + verification
-OpenFusion multi-agent + judge + synthesis
+AgentDeck one-agent + verification
+AgentDeck multi-agent + verification
+AgentDeck multi-agent + judge + synthesis
 ```
 
 ### 30.4 Honest product claim
@@ -3950,13 +3950,13 @@ OpenFusion multi-agent + judge + synthesis
 Preferred claim:
 
 ```text
-OpenFusion reduces cost and increases trust by routing coding work through local/low-cost agents first, verifying results, and escalating only when needed.
+AgentDeck reduces cost and increases trust by routing coding work through local/low-cost agents first, verifying results, and escalating only when needed.
 ```
 
 Avoid unproven claim:
 
 ```text
-OpenFusion always beats premium frontier models.
+AgentDeck always beats premium frontier models.
 ```
 
 ---
@@ -3981,7 +3981,7 @@ OpenFusion always beats premium frontier models.
 
 ### ADR-001: Local bridge is required
 
-**Decision:** Build OpenFusion Bridge for local detection and execution.
+**Decision:** Build AgentDeck Bridge for local detection and execution.
 
 **Reason:** Cloudflare can coordinate but cannot discover or run tools installed on a user’s machine.
 
@@ -4165,8 +4165,8 @@ OpenFusion always beats premium frontier models.
 
 Use this as the public product message:
 
-> **OpenFusion is mission control for AI coding agents. Give Claude Code, Codex, OpenCode, Qwen Code, Pi, and future agents a task, watch them work in real terminals, jump in whenever needed, queue overnight builds, schedule recurring jobs, verify results, and approve every important action. No auto-merge. No black box. Human-controlled agentic development.**
+> **AgentDeck is mission control for AI coding agents. Give Claude Code, Codex, OpenCode, Qwen Code, Pi, and future agents a task, watch them work in real terminals, jump in whenever needed, queue overnight builds, schedule recurring jobs, verify results, and approve every important action. No auto-merge. No black box. Human-controlled agentic development.**
 
 Use this as the engineering thesis:
 
-> **Models think. Harnesses act. Terminals reveal. Humans decide. OpenFusion coordinates the whole system.**
+> **Models think. Harnesses act. Terminals reveal. Humans decide. AgentDeck coordinates the whole system.**

@@ -1,23 +1,23 @@
 {
-  "name": "openfusion",
+  "name": "agentdeck",
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@11.9.0",
   "scripts": {
-    "dev": "pnpm --filter @openfusion/web dev",
-    "build": "pnpm --filter @openfusion/web build",
-    "start": "pnpm --filter @openfusion/web start",
+    "dev": "pnpm --filter @agentdeck/web dev",
+    "build": "pnpm --filter @agentdeck/web build",
+    "start": "pnpm --filter @agentdeck/web start",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "lint:fix": "pnpm -r lint:fix",
     "test": "pnpm -r test",
-    "test:watch": "pnpm --filter @openfusion/web test:watch",
-    "test:e2e": "pnpm --filter @openfusion/web test:e2e",
+    "test:watch": "pnpm --filter @agentdeck/web test:watch",
+    "test:e2e": "pnpm --filter @agentdeck/web test:e2e",
     "build:packages": "pnpm -r --filter './packages/*' build",
-    "deploy": "pnpm --filter @openfusion/web deploy",
-    "upload": "pnpm --filter @openfusion/web upload",
-    "preview": "pnpm --filter @openfusion/web preview",
-    "cf-typegen": "pnpm --filter @openfusion/web cf-typegen"
+    "deploy": "pnpm --filter @agentdeck/web deploy",
+    "upload": "pnpm --filter @agentdeck/web upload",
+    "preview": "pnpm --filter @agentdeck/web preview",
+    "cf-typegen": "pnpm --filter @agentdeck/web cf-typegen"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

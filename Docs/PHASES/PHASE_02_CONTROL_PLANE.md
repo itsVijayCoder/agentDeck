@@ -2,16 +2,16 @@
 
 **Objective:** Wire real Cloudflare D1 and R2 bindings, apply migrations, and build the Worker API/BFF with REST endpoints for sessions, approvals, agents, queue, schedules, reports, and policies. This phase makes the typed D1 repositories actually talk to a real database.
 
-**Prerequisites:** Phase 01 (monorepo with `@openfusion/db` package).
+**Prerequisites:** Phase 01 (monorepo with `@agentdeck/db` package).
 
 ---
 
 ## Current State
 
-- D1 schema exists (`packages/db/migrations/0001_openfusion_core.sql`) — 12 tables, 17 indexes.
-- Typed D1 repositories exist (`@openfusion/db`) — repository facades for workspaces, machines, agent installations, sessions, runs, events, approvals, queue items, schedules, artifacts, reports, and policies.
-- D1 database `openfusion-control` exists and is bound as `OPENFUSION_DB` (`d5243135-2e7c-48d7-8e45-82470791e1eb`).
-- R2 bucket `openfusion-artifacts` exists and is bound as `OPENFUSION_ARTIFACTS`.
+- D1 schema exists (`packages/db/migrations/0001_agentdeck_core.sql`) — 12 tables, 17 indexes.
+- Typed D1 repositories exist (`@agentdeck/db`) — repository facades for workspaces, machines, agent installations, sessions, runs, events, approvals, queue items, schedules, artifacts, reports, and policies.
+- D1 database `agentdeck-control` exists and is bound as `AGENTDECK_DB` (`d5243135-2e7c-48d7-8e45-82470791e1eb`).
+- R2 bucket `agentdeck-artifacts` exists and is bound as `AGENTDECK_ARTIFACTS`.
 - Next.js Worker API/BFF routes exist in `apps/web/src/app/api/`.
 - Cookie-based signed session auth and signed bridge pairing codes exist.
 
@@ -20,8 +20,8 @@
 ## Target State
 
 ```text
-- D1 database "openfusion-control" created and bound as OPENFUSION_DB
-- R2 bucket "openfusion-artifacts" created and bound as OPENFUSION_ARTIFACTS
+- D1 database "agentdeck-control" created and bound as AGENTDECK_DB
+- R2 bucket "agentdeck-artifacts" created and bound as AGENTDECK_ARTIFACTS
 - Migrations applied (local + remote)
 - Worker API/BFF with REST endpoints for all CRUD operations
 - Auth middleware (cookie-based session)
@@ -38,9 +38,9 @@ flowchart TB
   Browser[Browser UI]
   API[Worker API / BFF<br/>apps/web/src/app/api/]
   Auth[Auth Middleware]
-  Repos[createOpenFusionRepositories]
-  D1[(D1: openfusion-control)]
-  R2[(R2: openfusion-artifacts)]
+  Repos[createAgentDeckRepositories]
+  D1[(D1: agentdeck-control)]
+  R2[(R2: agentdeck-artifacts)]
 
   Browser -->|HTTP REST| API
   API --> Auth
@@ -65,17 +65,17 @@ flowchart TB
 
 ```bash
 # Create D1 database
-wrangler d1 create openfusion-control
+wrangler d1 create agentdeck-control
 # Note the database_id from output
 
 # Create R2 bucket
-wrangler r2 bucket create openfusion-artifacts
+wrangler r2 bucket create agentdeck-artifacts
 
 # Apply migrations locally
-wrangler d1 migrations apply openfusion-control --local
+wrangler d1 migrations apply agentdeck-control --local
 
 # Apply migrations to remote
-wrangler d1 migrations apply openfusion-control --remote
+wrangler d1 migrations apply agentdeck-control --remote
 ```
 
 ### 2. Update `wrangler.jsonc` with bindings
@@ -84,16 +84,16 @@ wrangler d1 migrations apply openfusion-control --remote
 {
   "d1_databases": [
     {
-      "binding": "OPENFUSION_DB",
-      "database_name": "openfusion-control",
+      "binding": "AGENTDECK_DB",
+      "database_name": "agentdeck-control",
       "database_id": "<cloudflare-d1-database-id>",
       "migrations_dir": "../../packages/db/migrations"
     }
   ],
   "r2_buckets": [
     {
-      "binding": "OPENFUSION_ARTIFACTS",
-      "bucket_name": "openfusion-artifacts"
+      "binding": "AGENTDECK_ARTIFACTS",
+      "bucket_name": "agentdeck-artifacts"
     }
   ]
 }
@@ -105,7 +105,7 @@ After updating, regenerate types:
 cd apps/web && npm run cf-typegen
 ```
 
-This adds `OPENFUSION_DB: D1Database` and `OPENFUSION_ARTIFACTS: R2Bucket` to `CloudflareEnv`.
+This adds `AGENTDECK_DB: D1Database` and `AGENTDECK_ARTIFACTS: R2Bucket` to `CloudflareEnv`.
 
 ### 3. Cloudflare context helper
 
@@ -113,21 +113,21 @@ This adds `OPENFUSION_DB: D1Database` and `OPENFUSION_ARTIFACTS: R2Bucket` to `C
 
 ```ts
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { createOpenFusionRepositories, type OpenFusionRepositories } from "@openfusion/db";
+import { createAgentDeckRepositories, type AgentDeckRepositories } from "@agentdeck/db";
 
 export type ApiEnv = {
-  OPENFUSION_DB: D1Database;
-  OPENFUSION_ARTIFACTS: R2Bucket;
+  AGENTDECK_DB: D1Database;
+  AGENTDECK_ARTIFACTS: R2Bucket;
 };
 
-export async function getRepositories(): Promise<OpenFusionRepositories> {
+export async function getRepositories(): Promise<AgentDeckRepositories> {
   const { env } = await getCloudflareContext();
-  return createOpenFusionRepositories(env.OPENFUSION_DB);
+  return createAgentDeckRepositories(env.AGENTDECK_DB);
 }
 
 export async function getR2(): Promise<R2Bucket> {
   const { env } = await getCloudflareContext();
-  return env.OPENFUSION_ARTIFACTS;
+  return env.AGENTDECK_ARTIFACTS;
 }
 ```
 
@@ -140,7 +140,7 @@ import { cookies } from "next/headers";
 import { createHmac, randomBytes } from "crypto";
 
 const SESSION_COOKIE = "of_session";
-const SESSION_SECRET = process.env.OPENFUSION_SESSION_SECRET ?? "dev-secret-change-me";
+const SESSION_SECRET = process.env.AGENTDECK_SESSION_SECRET ?? "dev-secret-change-me";
 
 export type SessionUser = {
   workspaceId: string;
@@ -244,8 +244,8 @@ apps/web/src/app/api/
 import { NextRequest, NextResponse } from "next/server";
 import { getRepositories } from "@/lib/cloudflare-context";
 import { requireSession } from "@/lib/auth";
-import { createSessionInputSchema } from "@openfusion/db";
-import { transitionRunStatus } from "@openfusion/core";
+import { createSessionInputSchema } from "@agentdeck/db";
+import { transitionRunStatus } from "@agentdeck/core";
 
 export async function POST(request: NextRequest) {
   const user = await requireSession();
@@ -292,7 +292,7 @@ export async function GET() {
 import { NextRequest, NextResponse } from "next/server";
 import { getRepositories } from "@/lib/cloudflare-context";
 import { requireSession } from "@/lib/auth";
-import { transitionApprovalStatus } from "@openfusion/core";
+import { transitionApprovalStatus } from "@agentdeck/core";
 
 export async function POST(
   request: NextRequest,
@@ -401,10 +401,10 @@ export async function GET(
 **`packages/db/src/seed.ts`:**
 
 ```ts
-import { createOpenFusionRepositories } from "./repositories";
+import { createAgentDeckRepositories } from "./repositories";
 
 export async function seedWorkspace(db: D1Database) {
-  const repos = createOpenFusionRepositories(db);
+  const repos = createAgentDeckRepositories(db);
   await repos.workspaces.create({
     id: "ws_01",
     name: "Default Workspace",
@@ -414,7 +414,7 @@ export async function seedWorkspace(db: D1Database) {
 }
 ```
 
-Run locally: `wrangler d1 execute openfusion-control --local --command="$(node seed.js)"`
+Run locally: `wrangler d1 execute agentdeck-control --local --command="$(node seed.js)"`
 
 ---
 
@@ -422,7 +422,7 @@ Run locally: `wrangler d1 execute openfusion-control --local --command="$(node s
 
 | Pattern | Application |
 |---|---|
-| **Repository** | `createOpenFusionRepositories()` is the single database boundary. Route handlers never write raw SQL. |
+| **Repository** | `createAgentDeckRepositories()` is the single database boundary. Route handlers never write raw SQL. |
 | **Facade** | `getRepositories()` and `getR2()` hide the Cloudflare context retrieval. Route handlers call one function. |
 | **Middleware / Chain of Responsibility** | `requireSession()` runs before every protected handler. Returns 401 or passes through. |
 | **DTO** | Route handlers accept HTTP JSON, validate with zod, map to repository input contracts. The wire shape never leaks into the repository layer. |
@@ -431,7 +431,7 @@ Run locally: `wrangler d1 execute openfusion-control --local --command="$(node s
 
 - **SRP:** Each route handler does one thing: parse request, validate, call repository, format response. No business logic in routes.
 - **OCP:** New endpoints are added as new route files. Existing routes are not modified to add new resources.
-- **DIP:** Route handlers depend on `OpenFusionRepositories` interface, not on `D1Database` directly. The Cloudflare context is injected.
+- **DIP:** Route handlers depend on `AgentDeckRepositories` interface, not on `D1Database` directly. The Cloudflare context is injected.
 - **DRY:** `getRepositories()`, `getR2()`, `requireSession()` are written once and reused by every route. No `getCloudflareContext()` call in route handlers.
 
 ---
@@ -488,7 +488,7 @@ Run locally: `wrangler d1 execute openfusion-control --local --command="$(node s
 
 ## Data Model / Schema Changes
 
-No schema changes in this phase. The existing 12-table schema in `0001_openfusion_core.sql` is sufficient. R2 object keys follow the layout documented in `Docs/DATABASE_SCHEMA.md`:
+No schema changes in this phase. The existing 12-table schema in `0001_agentdeck_core.sql` is sufficient. R2 object keys follow the layout documented in `Docs/DATABASE_SCHEMA.md`:
 
 ```text
 workspaces/{workspaceId}/sessions/{sessionId}/events/{runId}.jsonl.zst
@@ -514,7 +514,7 @@ workspaces/{workspaceId}/reports/{reportId}.json
 ```ts
 import { describe, it, expect, beforeAll } from "vitest";
 import { GET, POST } from "./route";
-import { createD1Stub } from "@openfusion/db";
+import { createD1Stub } from "@agentdeck/db";
 
 describe("POST /api/sessions", () => {
   it("creates a session and returns 201", async () => {
@@ -534,11 +534,11 @@ describe("POST /api/sessions", () => {
 
 ## Implementation Steps
 
-1. Create D1 database: `wrangler d1 create openfusion-control`
-2. Create R2 bucket: `wrangler r2 bucket create openfusion-artifacts`
+1. Create D1 database: `wrangler d1 create agentdeck-control`
+2. Create R2 bucket: `wrangler r2 bucket create agentdeck-artifacts`
 3. Update `apps/web/wrangler.jsonc` with D1 + R2 bindings
 4. Run `npm run cf-typegen` to regenerate `CloudflareEnv` types
-5. Apply migrations: `wrangler d1 migrations apply openfusion-control --local`
+5. Apply migrations: `wrangler d1 migrations apply agentdeck-control --local`
 6. Create `apps/web/src/lib/cloudflare-context.ts`
 7. Create `apps/web/src/lib/auth.ts`
 8. Create all API route files (sessions, approvals, queue, schedules, reports, policies, machines, workspaces, artifacts)
@@ -553,11 +553,11 @@ describe("POST /api/sessions", () => {
 ## Acceptance Criteria
 
 ```text
-[x] D1 database "openfusion-control" created and bound as OPENFUSION_DB
-[x] R2 bucket "openfusion-artifacts" created and bound as OPENFUSION_ARTIFACTS
+[x] D1 database "agentdeck-control" created and bound as AGENTDECK_DB
+[x] R2 bucket "agentdeck-artifacts" created and bound as AGENTDECK_ARTIFACTS
 [x] Migrations applied locally (wrangler d1 migrations apply --local)
 [x] Migrations applied remotely (wrangler d1 migrations apply --remote)
-[x] cloudflare-env.d.ts includes OPENFUSION_DB and OPENFUSION_ARTIFACTS
+[x] cloudflare-env.d.ts includes AGENTDECK_DB and AGENTDECK_ARTIFACTS
 [x] All 30+ REST endpoints are implemented
 [x] Auth middleware blocks unauthenticated requests with 401
 [x] zod validation rejects malformed input with 400

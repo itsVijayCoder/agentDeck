@@ -18,8 +18,8 @@ import type {
 	UpsertMachineInput,
 	UpsertPolicyRuleInput,
 	UpsertScheduledJobInput,
-} from "./types/openfusion-db";
-import type { OpenFusionEventType } from "@openfusion/core";
+} from "./types/agentdeck-db";
+import type { AgentDeckEventType } from "@agentdeck/core";
 
 const nonBlankStringSchema = z.string().refine((value) => value.trim().length > 0, {
 	message: "Expected a non-blank string",
@@ -81,7 +81,7 @@ export const eventSourceSchema = z.enum([
 ]);
 export const eventVisibilitySchema = z.enum(["local-only", "metadata", "full"]);
 
-export const openFusionEventTypes = [
+export const agentDeckEventTypes = [
 	"session.created",
 	"session.started",
 	"session.paused",
@@ -148,9 +148,9 @@ export const openFusionEventTypes = [
 	"synthesis.started",
 	"synthesis.completed",
 	"report.created",
-] as const satisfies readonly [OpenFusionEventType, ...OpenFusionEventType[]];
+] as const satisfies readonly [AgentDeckEventType, ...AgentDeckEventType[]];
 
-export const openFusionEventTypeSchema = z.enum(openFusionEventTypes);
+export const agentDeckEventTypeSchema = z.enum(agentDeckEventTypes);
 
 export const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 	z.union([z.string(), z.number().finite(), z.boolean(), z.null(), z.array(jsonValueSchema), z.record(z.string(), jsonValueSchema)]),
@@ -158,7 +158,7 @@ export const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 
 export const jsonRecordSchema: z.ZodType<JsonRecord> = z.record(z.string(), jsonValueSchema);
 
-export const openFusionEventSchema = z
+export const agentDeckEventSchema = z
 	.object({
 		createdAt: nonBlankStringSchema,
 		hash: nonBlankStringSchema.optional(),
@@ -169,7 +169,7 @@ export const openFusionEventSchema = z
 		sessionId: nonBlankStringSchema,
 		source: eventSourceSchema,
 		traceId: nonBlankStringSchema.optional(),
-		type: openFusionEventTypeSchema,
+		type: agentDeckEventTypeSchema,
 		visibility: eventVisibilitySchema,
 		workspaceId: nonBlankStringSchema,
 	})
@@ -268,7 +268,7 @@ export const updateRunStatusInputSchema = z
 
 export const persistEventInputSchema = z
 	.object({
-		event: openFusionEventSchema,
+		event: agentDeckEventSchema,
 		objectKey: optionalNullableNonBlankStringSchema,
 	})
 	.strict();

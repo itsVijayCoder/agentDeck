@@ -1,4 +1,4 @@
-import type { BrowserControlMessage, BridgeMessage, EventEnvelope } from "@openfusion/core";
+import type { BrowserControlMessage, BridgeMessage, EventEnvelope } from "@agentdeck/core";
 
 export const SESSION_HUB_CLIENT_ROLES = ["browser", "bridge", "observer"] as const;
 export type SessionHubClientRole = (typeof SESSION_HUB_CLIENT_ROLES)[number];

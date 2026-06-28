@@ -1,18 +1,18 @@
 import { DurableObject } from "cloudflare:workers";
-import { transitionApprovalStatus } from "@openfusion/core";
-import type { EventEnvelope, EventVisibility, OpenFusionEvent, PrivacyMode } from "@openfusion/core";
+import { transitionApprovalStatus } from "@agentdeck/core";
+import type { EventEnvelope, EventVisibility, AgentDeckEvent, PrivacyMode } from "@agentdeck/core";
 import {
 	SESSION_HUB_RECENT_EVENT_LIMIT,
 	type SessionHubClientRole,
 	type SessionHubErrorCode,
 	type SessionHubServerMessage,
 	isSessionHubClientRole,
-} from "@openfusion/bridge-protocol";
+} from "@agentdeck/bridge-protocol";
 import {
-	createOpenFusionRepositories,
-	openFusionEventSchema,
-	type OpenFusionRepositories,
-} from "@openfusion/db";
+	createAgentDeckRepositories,
+	agentDeckEventSchema,
+	type AgentDeckRepositories,
+} from "@agentdeck/db";
 
 import {
 	SESSION_HUB_HEADERS,
@@ -25,8 +25,8 @@ import {
 } from "./session-hub-protocol";
 
 type SessionHubEnv = CloudflareEnv & {
-	OPENFUSION_ARTIFACTS: R2Bucket;
-	OPENFUSION_DB: D1Database;
+	AGENTDECK_ARTIFACTS: R2Bucket;
+	AGENTDECK_DB: D1Database;
 };
 
 type AuthorizedClient = {
@@ -122,7 +122,7 @@ export class SessionHub extends DurableObject<SessionHubEnv> {
 		const client = readClientAttachment(ws);
 		if (!client) {
 			this.sendError(ws, "UNAUTHORIZED", "WebSocket client metadata is missing.");
-			ws.close(1008, "Missing OpenFusion client metadata.");
+			ws.close(1008, "Missing AgentDeck client metadata.");
 			return;
 		}
 
@@ -240,7 +240,7 @@ export class SessionHub extends DurableObject<SessionHubEnv> {
 	private async handleBridgeMessage(ws: WebSocket, message: unknown): Promise<void> {
 		const drafts = bridgeMessageToEventDrafts(message);
 		if (!drafts) {
-			this.sendError(ws, "BAD_MESSAGE", "Bridge message does not match the OpenFusion protocol.");
+			this.sendError(ws, "BAD_MESSAGE", "Bridge message does not match the AgentDeck protocol.");
 			return;
 		}
 
@@ -252,7 +252,7 @@ export class SessionHub extends DurableObject<SessionHubEnv> {
 	private async handleBrowserMessage(ws: WebSocket, client: ClientAttachment, message: unknown): Promise<void> {
 		const control = parseBrowserControlMessage(message);
 		if (!control) {
-			this.sendError(ws, "BAD_MESSAGE", "Browser control message does not match the OpenFusion protocol.");
+			this.sendError(ws, "BAD_MESSAGE", "Browser control message does not match the AgentDeck protocol.");
 			return;
 		}
 
@@ -297,9 +297,9 @@ export class SessionHub extends DurableObject<SessionHubEnv> {
 		const meta = this.requireSessionMeta();
 		const visibility = draft.visibility ?? visibilityForEvent(draft.type, meta.privacy_mode);
 		const validationEnvelope = createEnvelope({ draft, meta, seq: 0, visibility });
-		const validation = openFusionEventSchema.safeParse(validationEnvelope);
+		const validation = agentDeckEventSchema.safeParse(validationEnvelope);
 		if (!validation.success) {
-			throw new SessionHubHttpError(400, "VALIDATION_ERROR", "Event envelope failed OpenFusion validation.");
+			throw new SessionHubHttpError(400, "VALIDATION_ERROR", "Event envelope failed AgentDeck validation.");
 		}
 
 		const seq = this.reserveNextSeq();
@@ -328,14 +328,14 @@ export class SessionHub extends DurableObject<SessionHubEnv> {
 		const objectKey = shouldStorePayloadInR2({
 			payloadBytes,
 			privacyMode,
-			type: envelope.type as OpenFusionEvent["type"],
+			type: envelope.type as AgentDeckEvent["type"],
 		})
 			? buildPayloadObjectKey(envelope)
 			: null;
 		const hash = await sha256Hex(payloadJson);
 
 		if (objectKey) {
-			await this.env.OPENFUSION_ARTIFACTS.put(objectKey, payloadJson, {
+			await this.env.AGENTDECK_ARTIFACTS.put(objectKey, payloadJson, {
 				customMetadata: {
 					eventId: envelope.id,
 					sessionId: envelope.sessionId,
@@ -348,7 +348,7 @@ export class SessionHub extends DurableObject<SessionHubEnv> {
 		}
 
 		await this.getRepositories().events.append({
-			event: { ...envelope, hash } as OpenFusionEvent,
+			event: { ...envelope, hash } as AgentDeckEvent,
 			objectKey,
 		});
 	}
@@ -442,8 +442,8 @@ export class SessionHub extends DurableObject<SessionHubEnv> {
 		return meta;
 	}
 
-	private getRepositories(): OpenFusionRepositories {
-		return createOpenFusionRepositories(this.env.OPENFUSION_DB);
+	private getRepositories(): AgentDeckRepositories {
+		return createAgentDeckRepositories(this.env.AGENTDECK_DB);
 	}
 }
 

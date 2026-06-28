@@ -15,7 +15,7 @@ The repo is a flat Next.js app:
 ```text
 src/
   app/                    # Next.js App Router
-  components/openfusion/  # UI
+  components/agentdeck/  # UI
   lib/                    # state, policy, db, mock
   types/                  # domain types, db types, event types
 infra/migrations/         # D1 schema
@@ -28,7 +28,7 @@ No `apps/`, `packages/`, or `workers/` directories exist. All contracts live inl
 ## Target State
 
 ```text
-openfusion/
+agentdeck/
 ├── apps/
 │   └── web/                         # Next.js Mission Control UI (moved from root)
 ├── packages/
@@ -45,7 +45,7 @@ openfusion/
 └── pnpm-workspace.yaml
 ```
 
-Each package is independently buildable, testable, and versionable. The `@/*` alias is replaced by package imports (`@openfusion/core`, `@openfusion/db`, etc.).
+Each package is independently buildable, testable, and versionable. The `@/*` alias is replaced by package imports (`@agentdeck/core`, `@agentdeck/db`, etc.).
 
 ---
 
@@ -58,10 +58,10 @@ flowchart TB
   end
 
   subgraph packages
-    Core["@openfusion/core<br/>types + events + state"]
-    DB["@openfusion/db<br/>migrations + repositories"]
-    Policy["@openfusion/policy<br/>risk + privacy"]
-    Config["@openfusion/config<br/>tsconfig + eslint"]
+    Core["@agentdeck/core<br/>types + events + state"]
+    DB["@agentdeck/db<br/>migrations + repositories"]
+    Policy["@agentdeck/policy<br/>risk + privacy"]
+    Config["@agentdeck/config<br/>tsconfig + eslint"]
   end
 
   subgraph infra
@@ -80,14 +80,14 @@ flowchart TB
 ### Dependency rule (enforced)
 
 ```text
-@openfusion/core      depends on nothing (pure types + pure functions)
-@openfusion/policy    depends on @openfusion/core
-@openfusion/db        depends on @openfusion/core
-@openfusion/config    depends on nothing (build tooling)
-apps/web              depends on @openfusion/core, @openfusion/db, @openfusion/policy, @openfusion/config
+@agentdeck/core      depends on nothing (pure types + pure functions)
+@agentdeck/policy    depends on @agentdeck/core
+@agentdeck/db        depends on @agentdeck/core
+@agentdeck/config    depends on nothing (build tooling)
+apps/web              depends on @agentdeck/core, @agentdeck/db, @agentdeck/policy, @agentdeck/config
 ```
 
-No circular dependencies. No package depends on `apps/web`. `@openfusion/core` is the leaf — it must not import from any other package.
+No circular dependencies. No package depends on `apps/web`. `@agentdeck/core` is the leaf — it must not import from any other package.
 
 ---
 
@@ -108,11 +108,11 @@ packages:
 
 ```jsonc
 {
-  "name": "openfusion",
+  "name": "agentdeck",
   "private": true,
   "scripts": {
-    "dev": "pnpm --filter @openfusion/web dev",
-    "build": "pnpm --filter @openfusion/web build",
+    "dev": "pnpm --filter @agentdeck/web dev",
+    "build": "pnpm --filter @agentdeck/web build",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
@@ -124,13 +124,13 @@ packages:
 }
 ```
 
-### 2. `@openfusion/config` — shared build presets
+### 2. `@agentdeck/config` — shared build presets
 
 **`packages/config/package.json`:**
 
 ```jsonc
 {
-  "name": "@openfusion/config",
+  "name": "@agentdeck/config",
   "private": true,
   "files": ["tsconfig", "eslint"]
 }
@@ -158,13 +158,13 @@ packages:
 
 **`packages/config/tsconfig/react.json`:** extends base, adds `jsx: "react-jsx"`, `lib: ["ES2022", "DOM", "DOM.Iterable"]`.
 
-### 3. `@openfusion/core` — domain types, events, state machines
+### 3. `@agentdeck/core` — domain types, events, state machines
 
 **`packages/core/package.json`:**
 
 ```jsonc
 {
-  "name": "@openfusion/core",
+  "name": "@agentdeck/core",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -182,28 +182,28 @@ packages:
 **`packages/core/src/index.ts`:**
 
 ```ts
-export * from "./types/openfusion";
-export * from "./types/openfusion-events";
-export * from "./state/openfusion-state";
+export * from "./types/agentdeck";
+export * from "./types/agentdeck-events";
+export * from "./state/agentdeck-state";
 ```
 
 **File mapping (move from flat repo):**
 
 ```text
-src/types/openfusion.ts          -> packages/core/src/types/openfusion.ts
-src/types/openfusion-events.ts   -> packages/core/src/types/openfusion-events.ts
-src/lib/openfusion-state.ts      -> packages/core/src/state/openfusion-state.ts
-src/lib/openfusion-state.test.ts -> packages/core/src/state/openfusion-state.test.ts
-src/types/openfusion-events.test.ts -> packages/core/src/types/openfusion-events.test.ts
+src/types/agentdeck.ts          -> packages/core/src/types/agentdeck.ts
+src/types/agentdeck-events.ts   -> packages/core/src/types/agentdeck-events.ts
+src/lib/agentdeck-state.ts      -> packages/core/src/state/agentdeck-state.ts
+src/lib/agentdeck-state.test.ts -> packages/core/src/state/agentdeck-state.test.ts
+src/types/agentdeck-events.test.ts -> packages/core/src/types/agentdeck-events.test.ts
 ```
 
-### 4. `@openfusion/policy` — command risk + privacy
+### 4. `@agentdeck/policy` — command risk + privacy
 
 **`packages/policy/package.json`:**
 
 ```jsonc
 {
-  "name": "@openfusion/policy",
+  "name": "@agentdeck/policy",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -215,7 +215,7 @@ src/types/openfusion-events.test.ts -> packages/core/src/types/openfusion-events
     "test": "vitest run"
   },
   "dependencies": {
-    "@openfusion/core": "workspace:*"
+    "@agentdeck/core": "workspace:*"
   }
 }
 ```
@@ -223,8 +223,8 @@ src/types/openfusion-events.test.ts -> packages/core/src/types/openfusion-events
 **File mapping:**
 
 ```text
-src/lib/openfusion-policy.ts          -> packages/policy/src/classify-command-risk.ts
-src/lib/openfusion-policy.test.ts     -> packages/policy/src/classify-command-risk.test.ts
+src/lib/agentdeck-policy.ts          -> packages/policy/src/classify-command-risk.ts
+src/lib/agentdeck-policy.test.ts     -> packages/policy/src/classify-command-risk.test.ts
 ```
 
 **`packages/policy/src/index.ts`:**
@@ -234,13 +234,13 @@ export { classifyCommandRisk, getPrivacyStorageDecision, requiresHumanApproval }
 export type { PolicyDecision, PrivacyStorageDecision } from "./classify-command-risk";
 ```
 
-### 5. `@openfusion/db` — D1 migrations + repositories
+### 5. `@agentdeck/db` — D1 migrations + repositories
 
 **`packages/db/package.json`:**
 
 ```jsonc
 {
-  "name": "@openfusion/db",
+  "name": "@agentdeck/db",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -252,7 +252,7 @@ export type { PolicyDecision, PrivacyStorageDecision } from "./classify-command-
     "test": "vitest run"
   },
   "dependencies": {
-    "@openfusion/core": "workspace:*",
+    "@agentdeck/core": "workspace:*",
     "zod": "^3.x"
   }
 }
@@ -261,19 +261,19 @@ export type { PolicyDecision, PrivacyStorageDecision } from "./classify-command-
 **File mapping:**
 
 ```text
-src/types/openfusion-db.ts        -> packages/db/src/types/openfusion-db.ts
-src/lib/openfusion-db.ts          -> packages/db/src/repositories.ts
-src/lib/openfusion-db.test.ts     -> packages/db/src/repositories.test.ts
+src/types/agentdeck-db.ts        -> packages/db/src/types/agentdeck-db.ts
+src/lib/agentdeck-db.ts          -> packages/db/src/repositories.ts
+src/lib/agentdeck-db.test.ts     -> packages/db/src/repositories.test.ts
 src/lib/validators.ts             -> packages/db/src/validators.ts
-infra/migrations/0001_openfusion_core.sql -> packages/db/migrations/0001_openfusion_core.sql
+infra/migrations/0001_agentdeck_core.sql -> packages/db/migrations/0001_agentdeck_core.sql
 ```
 
 **`packages/db/src/index.ts`:**
 
 ```ts
-export { createOpenFusionRepositories } from "./repositories";
-export type { OpenFusionRepositories } from "./repositories";
-export * from "./types/openfusion-db";
+export { createAgentDeckRepositories } from "./repositories";
+export type { AgentDeckRepositories } from "./repositories";
+export * from "./types/agentdeck-db";
 export * from "./validators";
 ```
 
@@ -283,7 +283,7 @@ export * from "./validators";
 
 ```jsonc
 {
-  "name": "@openfusion/web",
+  "name": "@agentdeck/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -296,9 +296,9 @@ export * from "./validators";
     "cf-typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts"
   },
   "dependencies": {
-    "@openfusion/core": "workspace:*",
-    "@openfusion/db": "workspace:*",
-    "@openfusion/policy": "workspace:*",
+    "@agentdeck/core": "workspace:*",
+    "@agentdeck/db": "workspace:*",
+    "@agentdeck/policy": "workspace:*",
     "@opennextjs/cloudflare": "^1.19.9",
     "next": "16.2.6",
     "react": "^19.1.7",
@@ -311,14 +311,14 @@ export * from "./validators";
 
 ```text
 src/app/                    -> apps/web/src/app/
-src/components/openfusion/  -> apps/web/src/components/openfusion/
-src/lib/mock-openfusion.ts  -> apps/web/src/lib/mock-openfusion.ts
+src/components/agentdeck/  -> apps/web/src/components/agentdeck/
+src/lib/mock-agentdeck.ts  -> apps/web/src/lib/mock-agentdeck.ts
 next.config.ts              -> apps/web/next.config.ts
 open-next.config.ts         -> apps/web/open-next.config.ts
 wrangler.jsonc              -> apps/web/wrangler.jsonc
 cloudflare-env.d.ts         -> apps/web/cloudflare-env.d.ts
 postcss.config.mjs          -> apps/web/postcss.config.mjs
-tsconfig.json               -> apps/web/tsconfig.json (updated to extend @openfusion/config)
+tsconfig.json               -> apps/web/tsconfig.json (updated to extend @agentdeck/config)
 eslint.config.mjs           -> apps/web/eslint.config.mjs
 ```
 
@@ -326,7 +326,7 @@ eslint.config.mjs           -> apps/web/eslint.config.mjs
 
 ```jsonc
 {
-  "extends": "@openfusion/config/tsconfig/react.json",
+  "extends": "@agentdeck/config/tsconfig/react.json",
   "compilerOptions": {
     "paths": {
       "@/*": ["./src/*"]
@@ -342,19 +342,19 @@ After moving files, update all imports:
 
 ```text
 # Before (flat repo)
-import { classifyCommandRisk } from "@/lib/openfusion-policy";
-import { transitionRunStatus } from "@/lib/openfusion-state";
-import type { ActiveRun } from "@/types/openfusion";
-import { createOpenFusionRepositories } from "@/lib/openfusion-db";
+import { classifyCommandRisk } from "@/lib/agentdeck-policy";
+import { transitionRunStatus } from "@/lib/agentdeck-state";
+import type { ActiveRun } from "@/types/agentdeck";
+import { createAgentDeckRepositories } from "@/lib/agentdeck-db";
 
 # After (monorepo)
-import { classifyCommandRisk } from "@openfusion/policy";
-import { transitionRunStatus } from "@openfusion/core";
-import type { ActiveRun } from "@openfusion/core";
-import { createOpenFusionRepositories } from "@openfusion/db";
+import { classifyCommandRisk } from "@agentdeck/policy";
+import { transitionRunStatus } from "@agentdeck/core";
+import type { ActiveRun } from "@agentdeck/core";
+import { createAgentDeckRepositories } from "@agentdeck/db";
 ```
 
-The `@/*` alias remains for app-local imports (`@/lib/mock-openfusion`, `@/components/openfusion/*`).
+The `@/*` alias remains for app-local imports (`@/lib/mock-agentdeck`, `@/components/agentdeck/*`).
 
 ### 8. Keep `infra/migrations/` at root for wrangler
 
@@ -363,8 +363,8 @@ The `migrations_dir` in `wrangler.jsonc` should point to the package:
 ```jsonc
 {
   "d1_databases": [{
-    "binding": "OPENFUSION_DB",
-    "database_name": "openfusion-control",
+    "binding": "AGENTDECK_DB",
+    "database_name": "agentdeck-control",
     "database_id": "<id>",
     "migrations_dir": "../../packages/db/migrations"
   }]
@@ -380,15 +380,15 @@ Or keep a symlink at `infra/migrations` -> `packages/db/migrations` for CLI comp
 | Pattern | Application |
 |---|---|
 | **Package by feature** | Each package groups related code by domain concern (core, policy, db), not by technical layer. |
-| **Facade** | Each package exports a single `index.ts` barrel that hides internal file structure. Consumers import from `@openfusion/core`, not `@openfusion/core/src/state/openfusion-state`. |
+| **Facade** | Each package exports a single `index.ts` barrel that hides internal file structure. Consumers import from `@agentdeck/core`, not `@agentdeck/core/src/state/agentdeck-state`. |
 | **Dependency inversion** | Packages depend on abstractions (interfaces in `core`), not on concrete implementations. `db` depends on `core` types, not on `core` implementation. |
 
 ## SOLID / DRY Compliance
 
 - **SRP:** Each package has exactly one responsibility. `core` = contracts. `policy` = decisions. `db` = persistence. No package mixes concerns.
-- **OCP:** New packages can be added without modifying existing ones. New adapters (Phase 06) will add `@openfusion/harness` without touching `core` or `db`.
-- **DIP:** `apps/web` depends on `@openfusion/core` (abstraction), not on `@openfusion/db` implementation details. The db package's internal SQL is hidden behind the repository interface.
-- **DRY:** Domain types exist once in `@openfusion/core`. State machines exist once in `@openfusion/core`. Risk classification exists once in `@openfusion/policy`. No duplication across apps/workers.
+- **OCP:** New packages can be added without modifying existing ones. New adapters (Phase 06) will add `@agentdeck/harness` without touching `core` or `db`.
+- **DIP:** `apps/web` depends on `@agentdeck/core` (abstraction), not on `@agentdeck/db` implementation details. The db package's internal SQL is hidden behind the repository interface.
+- **DRY:** Domain types exist once in `@agentdeck/core`. State machines exist once in `@agentdeck/core`. Risk classification exists once in `@agentdeck/policy`. No duplication across apps/workers.
 
 ---
 
@@ -402,8 +402,8 @@ Or keep a symlink at `infra/migrations` -> `packages/db/migrations` for CLI comp
 6. Create `packages/policy/` — move policy classifier + tests
 7. Create `packages/db/` — move db types + repositories + validators + migration + tests
 8. Create `apps/web/` — move Next.js app, config files, mock data, components
-9. Update all imports from `@/lib/*` and `@/types/*` to `@openfusion/*` package imports
-10. Update `apps/web/tsconfig.json` to extend `@openfusion/config`
+9. Update all imports from `@/lib/*` and `@/types/*` to `@agentdeck/*` package imports
+10. Update `apps/web/tsconfig.json` to extend `@agentdeck/config`
 11. Update `apps/web/wrangler.jsonc` paths (migrations_dir, assets directory)
 12. Run `pnpm install` to link workspace packages
 13. Run `pnpm typecheck && pnpm lint && pnpm test && pnpm build` — all must pass
@@ -436,9 +436,9 @@ Or keep a symlink at `infra/migrations` -> `packages/db/migrations` for CLI comp
 [x] pnpm -r lint passes (all packages)
 [x] pnpm -r test passes (all packages, same coverage as Phase 00)
 [x] pnpm build passes (Next.js app builds)
-[x] No import in apps/web references @/lib/openfusion-state or @/lib/openfusion-policy
-[x] All imports use @openfusion/core, @openfusion/policy, @openfusion/db
-[x] @openfusion/core has zero dependencies on other @openfusion/* packages
+[x] No import in apps/web references @/lib/agentdeck-state or @/lib/agentdeck-policy
+[x] All imports use @agentdeck/core, @agentdeck/policy, @agentdeck/db
+[x] @agentdeck/core has zero dependencies on other @agentdeck/* packages
 [x] AGENTS.md updated with monorepo structure
 ```
 

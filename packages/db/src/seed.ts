@@ -1,4 +1,4 @@
-import { createOpenFusionRepositories, type QueryableD1 } from "./repositories";
+import { createAgentDeckRepositories, type QueryableD1 } from "./repositories";
 
 export const defaultWorkspaceSeed = {
 	defaultBranch: "main",
@@ -9,7 +9,7 @@ export const defaultWorkspaceSeed = {
 } as const;
 
 export async function seedWorkspace(db: QueryableD1, workspaceId = defaultWorkspaceSeed.id): Promise<void> {
-	const repositories = createOpenFusionRepositories(db);
+	const repositories = createAgentDeckRepositories(db);
 	const existingWorkspace = await repositories.workspaces.findById(workspaceId);
 
 	if (!existingWorkspace) {
@@ -38,7 +38,7 @@ export async function seedWorkspace(db: QueryableD1, workspaceId = defaultWorksp
 		enabled: true,
 		id: `${workspaceId}_policy_no_autopublish`,
 		matcher: { commandIncludesAny: ["git push", "git merge", "npm publish", "pnpm deploy"] },
-		reason: "OpenFusion requires explicit human approval before publishing or changing remote state.",
+		reason: "AgentDeck requires explicit human approval before publishing or changing remote state.",
 		risk: "critical",
 		workspaceId,
 	});

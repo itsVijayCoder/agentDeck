@@ -1,4 +1,4 @@
-# Phase 04 — Local OpenFusion Bridge
+# Phase 04 — Local AgentDeck Bridge
 
 **Objective:** Build the local Node.js bridge CLI that pairs with the cloud control plane, detects installed coding agents, spawns PTY processes, enforces command policy, redacts secrets, and streams events to the SessionHub Durable Object over WebSocket.
 
@@ -10,7 +10,7 @@
 
 - No bridge code exists. No `apps/bridge/` directory.
 - No agent detection, no PTY, no `node-pty`, no `ws` dependency.
-- The policy classifier (`@openfusion/policy`) and state machines (`@openfusion/core`) exist but nothing executes them at runtime.
+- The policy classifier (`@agentdeck/policy`) and state machines (`@agentdeck/core`) exist but nothing executes them at runtime.
 - The `wrangler.jsonc` has no bridge-related bindings.
 
 ---
@@ -26,8 +26,8 @@
 - Bridge redacts secrets before sending events to cloud
 - Bridge streams events to SessionHub DO over WebSocket
 - Bridge handles reconnection with backoff
-- Config: ~/.openfusion/config.json
-- State: ~/.openfusion/state.db (SQLite or JSONL)
+- Config: ~/.agentdeck/config.json
+- State: ~/.agentdeck/state.db (SQLite or JSONL)
 ```
 
 ---
@@ -36,7 +36,7 @@
 
 ```mermaid
 flowchart TB
-  subgraph Bridge[OpenFusion Bridge - Node.js CLI]
+  subgraph Bridge[AgentDeck Bridge - Node.js CLI]
     Main[main.ts<br/>Entry point + CLI]
     Pairing[auth/pairing.ts<br/>Cloud pairing]
     Detector[agents/detector.ts<br/>Agent discovery]
@@ -99,7 +99,7 @@ apps/bridge/
     main.ts                        # CLI entry point (commander)
     auth/
       pairing.ts                   # Pairing code flow
-      token-store.ts               # Token persistence (~/.openfusion/config.json)
+      token-store.ts               # Token persistence (~/.agentdeck/config.json)
     agents/
       detector.ts                  # PATH discovery + version probing
       types.ts                     # ProbeResult, AgentAdapter interface
@@ -113,7 +113,7 @@ apps/bridge/
       pty-manager.ts               # node-pty wrapper
       terminal-session.ts          # One PTY session per run
     policy/
-      policy-engine.ts             # Wraps @openfusion/policy
+      policy-engine.ts             # Wraps @agentdeck/policy
       approval-gate.ts             # Blocks until approval event from DO
     repo/
       git.ts                       # simple-git wrapper
@@ -139,12 +139,12 @@ apps/bridge/
 
 ```jsonc
 {
-  "name": "@openfusion/bridge",
+  "name": "@agentdeck/bridge",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "bin": {
-    "openfusion-bridge": "./dist/main.js"
+    "agentdeck-bridge": "./dist/main.js"
   },
   "scripts": {
     "dev": "tsx src/main.ts",
@@ -154,8 +154,8 @@ apps/bridge/
     "test": "vitest run"
   },
   "dependencies": {
-    "@openfusion/core": "workspace:*",
-    "@openfusion/policy": "workspace:*",
+    "@agentdeck/core": "workspace:*",
+    "@agentdeck/policy": "workspace:*",
     "node-pty": "^1.0.0",
     "ws": "^8.18.0",
     "simple-git": "^3.27.0",
@@ -180,13 +180,13 @@ import { loadConfig, saveConfig } from "./config.js";
 const program = new Command();
 
 program
-  .name("openfusion-bridge")
-  .description("OpenFusion local bridge — detects agents, runs terminals, streams events")
+  .name("agentdeck-bridge")
+  .description("AgentDeck local bridge — detects agents, runs terminals, streams events")
   .version("0.1.0");
 
 program
   .command("pair <code>")
-  .description("Pair this machine with the OpenFusion cloud")
+  .description("Pair this machine with the AgentDeck cloud")
   .action(async (code: string) => {
     const config = await pairWithCloud(code);
     await saveConfig(config);
@@ -215,7 +215,7 @@ program
   .action(async () => {
     const config = await loadConfig();
     if (!config.machineId) {
-      console.error("Not paired. Run: openfusion-bridge pair <code>");
+      console.error("Not paired. Run: agentdeck-bridge pair <code>");
       process.exit(1);
     }
     await startBridge(config);
@@ -242,7 +242,7 @@ export type BridgeConfig = {
 };
 
 export async function pairWithCloud(code: string): Promise<BridgeConfig> {
-  const cloudUrl = process.env.OPENFUSION_CLOUD_URL ?? "http://localhost:3000";
+  const cloudUrl = process.env.AGENTDECK_CLOUD_URL ?? "http://localhost:3000";
 
   const response = await fetch(`${cloudUrl}/api/machines/complete-pairing`, {
     method: "POST",
@@ -437,7 +437,7 @@ export class PtyManager {
 **`src/policy/policy-engine.ts`:**
 
 ```ts
-import { classifyCommandRisk, getPrivacyStorageDecision, type PolicyDecision } from "@openfusion/policy";
+import { classifyCommandRisk, getPrivacyStorageDecision, type PolicyDecision } from "@agentdeck/policy";
 
 export type PolicyGateResult = {
   allowed: boolean;
@@ -525,16 +525,16 @@ export function countRedactions(original: string, redacted: string): number {
 **`src/stream/event-sink.ts`:**
 
 ```ts
-import type { OpenFusionEvent } from "@openfusion/core";
+import type { AgentDeckEvent } from "@agentdeck/core";
 import { redact } from "../redaction/secrets.js";
 
 export interface EventSink {
-  emit(event: OpenFusionEvent): void;
+  emit(event: AgentDeckEvent): void;
   flush(): Promise<void>;
 }
 
 export class CloudEventSink implements EventSink {
-  private buffer: OpenFusionEvent[] = [];
+  private buffer: AgentDeckEvent[] = [];
   private readonly maxBufferSize = 50;
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -543,7 +543,7 @@ export class CloudEventSink implements EventSink {
     private readonly privacyMode: "local-only" | "metadata-only" | "full-sync"
   ) {}
 
-  emit(event: OpenFusionEvent): void {
+  emit(event: AgentDeckEvent): void {
     // Apply privacy mode
     if (this.privacyMode === "local-only" && this.isSensitive(event)) {
       return; // Don't sync to cloud
@@ -574,11 +574,11 @@ export class CloudEventSink implements EventSink {
     this.send(JSON.stringify({ type: "event.batch", events: batch }));
   }
 
-  private isSensitive(event: OpenFusionEvent): boolean {
+  private isSensitive(event: AgentDeckEvent): boolean {
     return event.type.startsWith("terminal.") && this.privacyMode === "local-only";
   }
 
-  private redactEvent(event: OpenFusionEvent): OpenFusionEvent {
+  private redactEvent(event: AgentDeckEvent): AgentDeckEvent {
     if (this.privacyMode === "full-sync") return event;
     // Redact terminal output and message content
     const payload = event.payload as any;
@@ -698,7 +698,7 @@ export async function createWorktree(
   branchName: string
 ): Promise<string> {
   const git = simpleGit(repoPath);
-  const worktreeBase = join(repoPath, "..", "openfusion-worktrees", basename(repoPath));
+  const worktreeBase = join(repoPath, "..", "agentdeck-worktrees", basename(repoPath));
   const worktreePath = join(worktreeBase, `run_${runId}`);
 
   await mkdir(worktreePath, { recursive: true });
@@ -737,8 +737,8 @@ export async function generateDiff(worktreePath: string): Promise<string> {
 - **OCP:** New agent adapters are added as new files implementing the adapter interface. No existing file is modified.
 - **LSP:** Any `PtySession` can be used interchangeably. Any `EventSink` implementation (cloud, local file, test mock) can replace another.
 - **ISP:** `EventSink` interface is minimal: `emit()` + `flush()`. Consumers don't depend on WebSocket internals.
-- **DIP:** `PolicyEngine` depends on `@openfusion/policy` abstractions, not on bridge-specific logic. `CloudEventSink` depends on a `send` function, not on `WebSocket` directly.
-- **DRY:** Risk classification is in `@openfusion/policy` (one place). Secret patterns are in `secrets.ts` (one place). Agent detection logic is in `detector.ts` (one place).
+- **DIP:** `PolicyEngine` depends on `@agentdeck/policy` abstractions, not on bridge-specific logic. `CloudEventSink` depends on a `send` function, not on `WebSocket` directly.
+- **DRY:** Risk classification is in `@agentdeck/policy` (one place). Secret patterns are in `secrets.ts` (one place). Agent detection logic is in `detector.ts` (one place).
 
 ---
 
@@ -753,8 +753,8 @@ export async function generateDiff(worktreePath: string): Promise<string> {
 | Unit | Worktree creation/cleanup (mock `simple-git`) | vitest |
 | Integration | PTY spawn + data capture | vitest (requires node-pty native) |
 | Integration | WebSocket connect/disconnect/reconnect | vitest + ws server |
-| E2E | `openfusion-bridge pair <code>` -> config saved | vitest + mock server |
-| E2E | `openfusion-bridge probe` -> agents detected | vitest (on machine with agents) |
+| E2E | `agentdeck-bridge pair <code>` -> config saved | vitest + mock server |
+| E2E | `agentdeck-bridge probe` -> agents detected | vitest (on machine with agents) |
 
 ---
 
@@ -762,13 +762,13 @@ export async function generateDiff(worktreePath: string): Promise<string> {
 
 1. Create `apps/bridge/` with `package.json`, `tsconfig.json`
 2. Install dependencies: `node-pty`, `ws`, `simple-git`, `execa`, `commander`
-3. Create `src/config.ts` — load/save `~/.openfusion/config.json`
+3. Create `src/config.ts` — load/save `~/.agentdeck/config.json`
 4. Create `src/auth/pairing.ts` — pairing code flow
 5. Create `src/auth/token-store.ts` — token persistence
 6. Create `src/agents/detector.ts` — PATH discovery + version probing
 7. Create `src/agents/types.ts` — `ProbeResult`, `AgentAdapter` interface
 8. Create `src/pty/pty-manager.ts` — node-pty wrapper
-9. Create `src/policy/policy-engine.ts` — wraps `@openfusion/policy`
+9. Create `src/policy/policy-engine.ts` — wraps `@agentdeck/policy`
 10. Create `src/redaction/secrets.ts` — secret pattern matching
 11. Create `src/stream/event-sink.ts` — buffered event stream with redaction
 12. Create `src/stream/websocket-client.ts` — reconnecting WS to DO
@@ -776,7 +776,7 @@ export async function generateDiff(worktreePath: string): Promise<string> {
 14. Create `src/main.ts` — CLI entry point
 15. Write unit tests for all modules
 16. Run `pnpm typecheck && pnpm lint && pnpm test`
-17. Test manually: `openfusion-bridge pair <code>`, `openfusion-bridge probe`, `openfusion-bridge start`
+17. Test manually: `agentdeck-bridge pair <code>`, `agentdeck-bridge probe`, `agentdeck-bridge start`
 
 ---
 
@@ -784,17 +784,17 @@ export async function generateDiff(worktreePath: string): Promise<string> {
 
 ```text
 [ ] apps/bridge/ exists as a Node.js CLI app
-[ ] openfusion-bridge pair <code> pairs with cloud and saves config
-[ ] openfusion-bridge probe detects installed agents (claude, codex, etc.)
-[ ] openfusion-bridge start connects to SessionHub DO via WebSocket
+[ ] agentdeck-bridge pair <code> pairs with cloud and saves config
+[ ] agentdeck-bridge probe detects installed agents (claude, codex, etc.)
+[ ] agentdeck-bridge start connects to SessionHub DO via WebSocket
 [ ] Bridge sends machine.heartbeat every 30 seconds
 [ ] Bridge sends agent.detected events on startup
-[ ] Policy engine evaluates commands using @openfusion/policy
+[ ] Policy engine evaluates commands using @agentdeck/policy
 [ ] Secret redaction scrubs API keys, tokens, JWTs, private keys before cloud sync
 [ ] Event sink buffers and batches events for efficiency
 [ ] WebSocket reconnects with exponential backoff on disconnect
 [ ] Git worktree creation and cleanup works
-[ ] Config persists to ~/.openfusion/config.json
+[ ] Config persists to ~/.agentdeck/config.json
 [ ] Unit tests pass with >80% coverage
 [ ] pnpm build passes for all packages
 ```

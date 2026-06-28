@@ -41,16 +41,16 @@ importers:
 
   apps/web:
     dependencies:
-      '@openfusion/bridge-protocol':
+      '@agentdeck/bridge-protocol':
         specifier: workspace:*
         version: link:../../packages/bridge-protocol
-      '@openfusion/core':
+      '@agentdeck/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@openfusion/db':
+      '@agentdeck/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@openfusion/policy':
+      '@agentdeck/policy':
         specifier: workspace:*
         version: link:../../packages/policy
       '@opennextjs/cloudflare':
@@ -69,7 +69,7 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
-      '@openfusion/config':
+      '@agentdeck/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@playwright/test':
@@ -105,11 +105,11 @@ importers:
 
   packages/bridge-protocol:
     dependencies:
-      '@openfusion/core':
+      '@agentdeck/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
-      '@openfusion/config':
+      '@agentdeck/config':
         specifier: workspace:*
         version: link:../config
       eslint:
@@ -152,19 +152,19 @@ importers:
 
   packages/db:
     dependencies:
-      '@openfusion/core':
+      '@agentdeck/core':
         specifier: workspace:*
         version: link:../core
       zod:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
+      '@agentdeck/config':
+        specifier: workspace:*
+        version: link:../config
       '@cloudflare/workers-types':
         specifier: ^4.20260628.0
         version: 4.20260628.1
-      '@openfusion/config':
-        specifier: workspace:*
-        version: link:../config
       '@vitest/coverage-v8':
         specifier: ^4.1.9
         version: 4.1.9(vitest@4.1.9)
@@ -183,11 +183,11 @@ importers:
 
   packages/policy:
     dependencies:
-      '@openfusion/core':
+      '@agentdeck/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
-      '@openfusion/config':
+      '@agentdeck/config':
         specifier: workspace:*
         version: link:../config
       '@vitest/coverage-v8':
@@ -205,7 +205,7 @@ importers:
 
   packages/ui:
     devDependencies:
-      '@openfusion/config':
+      '@agentdeck/config':
         specifier: workspace:*
         version: link:../config
       eslint:

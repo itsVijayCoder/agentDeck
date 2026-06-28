@@ -1,6 +1,6 @@
-import type { RunStatus } from "@openfusion/core";
-import { transitionRunStatus } from "@openfusion/core";
-import type { JsonValue, OpenFusionRepositories, SessionRow } from "@openfusion/db";
+import type { RunStatus } from "@agentdeck/core";
+import { transitionRunStatus } from "@agentdeck/core";
+import type { JsonValue, AgentDeckRepositories, SessionRow } from "@agentdeck/db";
 
 import { requireWorkspaceRow } from "@/lib/api/access";
 import { appendApiEvent, visibilityForPrivacyMode } from "@/lib/api/events";
@@ -8,7 +8,7 @@ import { conflict, notFound } from "@/lib/api/errors";
 import type { SessionUser } from "@/lib/auth";
 
 export async function transitionSessionStatus(
-	repositories: OpenFusionRepositories,
+	repositories: AgentDeckRepositories,
 	user: SessionUser,
 	sessionId: string,
 	nextStatus: RunStatus,

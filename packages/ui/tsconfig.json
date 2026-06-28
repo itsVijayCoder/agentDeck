@@ -1,5 +1,5 @@
 {
-  "extends": "@openfusion/config/tsconfig/react.json",
+  "extends": "@agentdeck/config/tsconfig/react.json",
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",

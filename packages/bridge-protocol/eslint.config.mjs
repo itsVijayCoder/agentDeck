@@ -1,3 +1,3 @@
-import config from "@openfusion/config/eslint/library";
+import config from "@agentdeck/config/eslint/library";
 
 export default config;

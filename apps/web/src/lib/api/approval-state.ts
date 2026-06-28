@@ -1,6 +1,6 @@
-import type { ApprovalStatus } from "@openfusion/core";
-import { transitionApprovalStatus } from "@openfusion/core";
-import type { ApprovalRow, JsonValue, OpenFusionRepositories } from "@openfusion/db";
+import type { ApprovalStatus } from "@agentdeck/core";
+import { transitionApprovalStatus } from "@agentdeck/core";
+import type { ApprovalRow, JsonValue, AgentDeckRepositories } from "@agentdeck/db";
 
 import { requireWorkspaceRow } from "@/lib/api/access";
 import { appendApiEvent } from "@/lib/api/events";
@@ -8,7 +8,7 @@ import { conflict, notFound } from "@/lib/api/errors";
 import type { SessionUser } from "@/lib/auth";
 
 export async function decideApproval(
-	repositories: OpenFusionRepositories,
+	repositories: AgentDeckRepositories,
 	user: SessionUser,
 	approvalId: string,
 	status: Extract<ApprovalStatus, "approved" | "rejected">,

@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-	title: "OpenFusion Mission Control",
+	title: "AgentDeck Mission Control",
 	description: "Human-controlled mission control for AI coding agents.",
 };
 

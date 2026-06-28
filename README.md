@@ -1,8 +1,8 @@
-# OpenFusion
+# AgentDeck
 
-OpenFusion is mission control for AI coding agents. It coordinates Claude Code, Codex CLI, OpenCode, Qwen Code, Pi, Aider, ACP agents, and future tools through visible terminal runs, human approval gates, deterministic verification, build queues, scheduled jobs, and decision reports.
+AgentDeck is mission control for AI coding agents. It coordinates Claude Code, Codex CLI, OpenCode, Qwen Code, Pi, Aider, ACP agents, and future tools through visible terminal runs, human approval gates, deterministic verification, build queues, scheduled jobs, and decision reports.
 
-OpenFusion is not auto-merge and not a black box.
+AgentDeck is not auto-merge and not a black box.
 
 ```text
 Watch agents work. Jump in anytime. Review before merge.
@@ -14,7 +14,7 @@ This repository currently contains the first product milestone:
 
 - Architecture blueprint derived from `Docs/IMPLEMENTATION_GUIDE_WITH_PI.md`.
 - pnpm monorepo with shared `core`, `policy`, `db`, and `config` packages.
-- Type-safe OpenFusion domain model and realistic mock data.
+- Type-safe AgentDeck domain model and realistic mock data.
 - D1 schema migration plus typed repository contracts for the control-plane metadata layer.
 - Worker API/BFF routes for workspaces, machines, sessions, approvals, queue, schedules, reports, policies, and artifacts.
 - Durable Object SessionHub for live WebSocket fanout, event sequencing, replay cache, and D1/R2 event persistence boundaries.
@@ -32,7 +32,7 @@ Browser UI
 Cloudflare Control Plane
   Coordinate sessions, events, queues, schedules, metadata, artifacts, and audit.
 
-Local OpenFusion Bridge
+Local AgentDeck Bridge
   Detect agents, create worktrees, run PTYs, enforce policy, redact secrets, verify output.
 
 Agent Adapters
@@ -64,7 +64,7 @@ Planned:
 
 - Queues and Workflows for background runs
 - Cron Triggers for schedules
-- Local Node/Tauri OpenFusion Bridge
+- Local Node/Tauri AgentDeck Bridge
 
 ## Development
 

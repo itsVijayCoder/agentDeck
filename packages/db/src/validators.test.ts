@@ -12,8 +12,8 @@ import {
 	decideApprovalInputSchema,
 	jsonRecordSchema,
 	jsonValueSchema,
-	openFusionEventSchema,
-	openFusionEventTypes,
+	agentDeckEventSchema,
+	agentDeckEventTypes,
 	parsePersistEventInput,
 	persistEventInputSchema,
 	updateQueueItemInputSchema,
@@ -23,7 +23,7 @@ import {
 	upsertPolicyRuleInputSchema,
 	upsertScheduledJobInputSchema,
 } from "./validators";
-import type { OpenFusionEvent } from "@openfusion/core";
+import type { AgentDeckEvent } from "@agentdeck/core";
 
 const now = "2026-06-28T00:00:00.000Z";
 const sha256 = "a".repeat(64);
@@ -34,7 +34,7 @@ type SchemaCase = {
 	schema: z.ZodType<unknown>;
 };
 
-const sampleEvent: OpenFusionEvent = {
+const sampleEvent: AgentDeckEvent = {
 	createdAt: now,
 	id: "evt_01",
 	payload: { title: "Foundation", privacyMode: "metadata-only" },
@@ -52,9 +52,9 @@ const validSchemaCases: SchemaCase[] = [
 			createdAt: now,
 			defaultBranch: "main",
 			id: "ws_01",
-			name: "OpenFusion",
+			name: "AgentDeck",
 			privacyMode: "metadata-only",
-			repositoryUrl: "https://github.com/example/openfusion",
+			repositoryUrl: "https://github.com/example/agentdeck",
 			updatedAt: now,
 		},
 		name: "CreateWorkspaceInput",
@@ -248,7 +248,7 @@ describe("D1 input validators", () => {
 	});
 
 	it("rejects unknown keys at the repository boundary", () => {
-		expect(createWorkspaceInputSchema.safeParse({ id: "ws_01", name: "OpenFusion", privacyMode: "metadata-only", workspaceId: "extra" }).success).toBe(false);
+		expect(createWorkspaceInputSchema.safeParse({ id: "ws_01", name: "AgentDeck", privacyMode: "metadata-only", workspaceId: "extra" }).success).toBe(false);
 	});
 
 	it("rejects invalid enum values and bounded numbers", () => {
@@ -257,7 +257,7 @@ describe("D1 input validators", () => {
 	});
 
 	it("rejects invalid ISO timestamps", () => {
-		expect(createWorkspaceInputSchema.safeParse({ createdAt: "June 28", id: "ws_01", name: "OpenFusion", privacyMode: "metadata-only" }).success).toBe(false);
+		expect(createWorkspaceInputSchema.safeParse({ createdAt: "June 28", id: "ws_01", name: "AgentDeck", privacyMode: "metadata-only" }).success).toBe(false);
 	});
 
 	it("rejects invalid artifact hashes", () => {
@@ -293,7 +293,7 @@ describe("JSON validators", () => {
 
 describe("event envelope validation", () => {
 	it("accepts event envelopes from every protocol category", () => {
-		const representatives: OpenFusionEvent[] = [
+		const representatives: AgentDeckEvent[] = [
 			sampleEvent,
 			{ ...sampleEvent, id: "evt_machine", payload: { machineId: "machine_01", bridgeVersion: "0.1.0" }, type: "machine.online" },
 			{ ...sampleEvent, id: "evt_agent", payload: { agentKind: "codex", command: "codex" }, type: "agent.detected" },
@@ -312,18 +312,18 @@ describe("event envelope validation", () => {
 		];
 
 		for (const event of representatives) {
-			expect(openFusionEventSchema.safeParse(event).success).toBe(true);
+			expect(agentDeckEventSchema.safeParse(event).success).toBe(true);
 		}
 	});
 
 	it("rejects malformed event envelopes", () => {
-		expect(openFusionEventSchema.safeParse({ ...sampleEvent, seq: -1 }).success).toBe(false);
-		expect(openFusionEventSchema.safeParse({ ...sampleEvent, source: "unknown" }).success).toBe(false);
-		expect(openFusionEventSchema.safeParse({ ...sampleEvent, type: "run.unknown" }).success).toBe(false);
+		expect(agentDeckEventSchema.safeParse({ ...sampleEvent, seq: -1 }).success).toBe(false);
+		expect(agentDeckEventSchema.safeParse({ ...sampleEvent, source: "unknown" }).success).toBe(false);
+		expect(agentDeckEventSchema.safeParse({ ...sampleEvent, type: "run.unknown" }).success).toBe(false);
 	});
 
 	it("parses persisted event input into the typed repository contract", () => {
 		expect(parsePersistEventInput({ event: sampleEvent })).toEqual({ event: sampleEvent });
-		expect(openFusionEventTypes).toContain("report.created");
+		expect(agentDeckEventTypes).toContain("report.created");
 	});
 });

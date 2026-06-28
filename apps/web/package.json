@@ -1,5 +1,5 @@
 {
-  "name": "@openfusion/web",
+  "name": "@agentdeck/web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -19,10 +19,10 @@
     "cf-typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts"
   },
   "dependencies": {
-    "@openfusion/core": "workspace:*",
-    "@openfusion/bridge-protocol": "workspace:*",
-    "@openfusion/db": "workspace:*",
-    "@openfusion/policy": "workspace:*",
+    "@agentdeck/core": "workspace:*",
+    "@agentdeck/bridge-protocol": "workspace:*",
+    "@agentdeck/db": "workspace:*",
+    "@agentdeck/policy": "workspace:*",
     "@opennextjs/cloudflare": "^1.19.9",
     "next": "16.2.6",
     "react": "^19.1.7",
@@ -30,7 +30,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@openfusion/config": "workspace:*",
+    "@agentdeck/config": "workspace:*",
     "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20.19.43",

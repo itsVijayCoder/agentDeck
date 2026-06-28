@@ -8,7 +8,7 @@
  */
 {
 	"$schema": "../../node_modules/wrangler/config-schema.json",
-	"name": "openfusion",
+	"name": "agentdeck",
 	"main": "worker.ts",
 	"compatibility_date": "2026-06-27",
 	"compatibility_flags": [
@@ -29,7 +29,7 @@
 			// Self-reference service binding, the service name must match the worker name
 			// see https://opennext.js.org/cloudflare/caching
 			"binding": "WORKER_SELF_REFERENCE",
-			"service": "openfusion"
+			"service": "agentdeck"
 		}
 	],
 	"observability": {
@@ -38,16 +38,16 @@
 	"upload_source_maps": true,
 	"d1_databases": [
 		{
-			"binding": "OPENFUSION_DB",
-			"database_name": "openfusion-control",
-			"database_id": "d5243135-2e7c-48d7-8e45-82470791e1eb",
+			"binding": "AGENTDECK_DB",
+			"database_name": "agentdeck-control",
+			"database_id": "949305b5-e273-4618-9f61-364ff3bb2bf6",
 			"migrations_dir": "../../packages/db/migrations"
 		}
 	],
 	"r2_buckets": [
 		{
-			"binding": "OPENFUSION_ARTIFACTS",
-			"bucket_name": "openfusion-artifacts"
+			"binding": "AGENTDECK_ARTIFACTS",
+			"bucket_name": "agentdeck-artifacts"
 		}
 	],
 	"durable_objects": {

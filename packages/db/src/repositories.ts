@@ -28,8 +28,8 @@ import type {
 	UpsertPolicyRuleInput,
 	UpsertScheduledJobInput,
 	WorkspaceRow,
-} from "./types/openfusion-db";
-import type { ApprovalStatus, RunStatus } from "@openfusion/core";
+} from "./types/agentdeck-db";
+import type { ApprovalStatus, RunStatus } from "@agentdeck/core";
 import {
 	createApprovalInputSchema,
 	createArtifactInputSchema,
@@ -51,14 +51,14 @@ import {
 type BindValue = string | number | null;
 export type QueryableD1 = Pick<D1Database, "prepare">;
 
-export class OpenFusionDatabaseError extends Error {
+export class AgentDeckDatabaseError extends Error {
 	constructor(message: string, options?: { cause?: unknown }) {
 		super(message, options);
-		this.name = "OpenFusionDatabaseError";
+		this.name = "AgentDeckDatabaseError";
 	}
 }
 
-export type OpenFusionRepositories = ReturnType<typeof createOpenFusionRepositories>;
+export type AgentDeckRepositories = ReturnType<typeof createAgentDeckRepositories>;
 
 export function toSqlBoolean(value: boolean): SqliteBoolean {
 	return value ? 1 : 0;
@@ -76,7 +76,7 @@ export function parseNullableJsonColumn<T extends JsonValue>(value: string | nul
 	return value === null ? null : parseJsonColumn<T>(value);
 }
 
-export function createOpenFusionRepositories(db: QueryableD1) {
+export function createAgentDeckRepositories(db: QueryableD1) {
 	return {
 		workspaces: {
 			create: (input: CreateWorkspaceInput) => createWorkspace(db, createWorkspaceInputSchema.parse(input)),
@@ -726,13 +726,13 @@ async function runStatement(db: QueryableD1, sql: string, values: BindValue[]): 
 	try {
 		const result = await db.prepare(sql).bind(...values).run();
 		if (!result.success) {
-			throw new OpenFusionDatabaseError("D1 statement failed");
+			throw new AgentDeckDatabaseError("D1 statement failed");
 		}
 	} catch (cause) {
-		if (cause instanceof OpenFusionDatabaseError) {
+		if (cause instanceof AgentDeckDatabaseError) {
 			throw cause;
 		}
-		throw new OpenFusionDatabaseError("D1 statement failed", { cause });
+		throw new AgentDeckDatabaseError("D1 statement failed", { cause });
 	}
 }
 
@@ -740,7 +740,7 @@ async function firstRow<T>(db: QueryableD1, sql: string, values: BindValue[]): P
 	try {
 		return await db.prepare(sql).bind(...values).first<T>();
 	} catch (cause) {
-		throw new OpenFusionDatabaseError("D1 read failed", { cause });
+		throw new AgentDeckDatabaseError("D1 read failed", { cause });
 	}
 }
 
@@ -749,13 +749,13 @@ async function allRows<T>(db: QueryableD1, sql: string, values: BindValue[]): Pr
 		const result = await db.prepare(sql).bind(...values).all<T>();
 		return result.results;
 	} catch (cause) {
-		throw new OpenFusionDatabaseError("D1 list query failed", { cause });
+		throw new AgentDeckDatabaseError("D1 list query failed", { cause });
 	}
 }
 
 function requireRow<T>(row: T | null, label: string): T {
 	if (!row) {
-		throw new OpenFusionDatabaseError(`${label} was not found after write`);
+		throw new AgentDeckDatabaseError(`${label} was not found after write`);
 	}
 	return row;
 }

@@ -1,4 +1,4 @@
--- OpenFusion control-plane schema for Cloudflare D1.
+-- AgentDeck control-plane schema for Cloudflare D1.
 -- D1 stores queryable metadata and R2 object references; large logs and artifacts stay in R2.
 
 PRAGMA foreign_keys = ON;

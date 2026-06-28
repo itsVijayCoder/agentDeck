@@ -1,5 +1,5 @@
 {
-  "name": "@openfusion/ui",
+  "name": "@agentdeck/ui",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -20,7 +20,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "devDependencies": {
-    "@openfusion/config": "workspace:*",
+    "@agentdeck/config": "workspace:*",
     "eslint": "^9",
     "typescript": "^5.7.4",
     "vitest": "^4.1.9"

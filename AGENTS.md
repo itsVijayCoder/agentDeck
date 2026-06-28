@@ -4,7 +4,7 @@ Guidance for AI coding agents working in this repository.
 
 ## Current State
 
-This repo is a **pnpm monorepo** for OpenFusion Mission Control. It has typed domain models, event contracts, state machines, a policy classifier, D1 persistence contracts, runtime validators, Worker API routes, a Durable Object session hub, mock data, and the production dashboard UI.
+This repo is a **pnpm monorepo** for AgentDeck Mission Control. It has typed domain models, event contracts, state machines, a policy classifier, D1 persistence contracts, runtime validators, Worker API routes, a Durable Object session hub, mock data, and the production dashboard UI.
 
 There is still no local bridge, Queue consumer, Workflow, or real agent execution yet. The R2 path exists for artifacts and large SessionHub event payloads, but bridge-side redaction/upload workflows are still planned.
 
@@ -40,9 +40,9 @@ apps/
   web/                                  Next.js/OpenNext Mission Control app
     src/app/                            App Router shell, fonts, metadata, global CSS
     src/app/api/                        Worker API/BFF routes, including SessionHub WebSocket gate
-    src/components/openfusion/          Dashboard UI
+    src/components/agentdeck/          Dashboard UI
     src/do/                             SessionHub Durable Object + protocol helpers
-    src/lib/mock-openfusion.ts          App-local mock data
+    src/lib/mock-agentdeck.ts          App-local mock data
     e2e/phase-00.spec.ts                Playwright wiring smoke test
     wrangler.jsonc                      Cloudflare deploy config
     cloudflare-env.d.ts                 Generated Cloudflare env types
@@ -60,13 +60,13 @@ infra/migrations/
 ### Key conventions
 
 - **Path alias**: `@/*` maps to `apps/web/src/*` and is only for app-local imports. Shared imports must use package facades.
-- **Types are the contract.** `@openfusion/core` owns domain and event types. Add shared types there before app-local shapes.
-- **State machines are authoritative.** `@openfusion/core` exports legal transitions for `RunStatus`, `ApprovalStatus`, and `TerminalLeaseMode`. Use `transitionRunStatus()`, `transitionApprovalStatus()`, `transitionTerminalLease()` — do not invent new transitions or bypass these.
-- **Policy classifier is authoritative.** `@openfusion/policy` exports `classifyCommandRisk()` and privacy storage decisions. Reuse it; do not duplicate risk logic.
-- **D1 repositories are the database boundary.** `@openfusion/db` exposes `createOpenFusionRepositories()`. Use it in future Worker/API code instead of writing ad hoc queries in handlers.
-- **Runtime validators guard D1 inputs.** `@openfusion/db` exports zod validators for repository/API boundaries. Do not duplicate ad hoc validation in handlers.
-- **Mock data stays in `apps/web/src/lib/mock-openfusion.ts`.** Do not inline mock data in components. Do not introduce real provider calls, real fetch, or real auth into the mock UI.
-- **Dependency rule**: `@openfusion/core` depends on no other `@openfusion/*` package. `@openfusion/policy` and `@openfusion/db` may depend on `@openfusion/core`. Apps may depend on packages; packages must not depend on apps.
+- **Types are the contract.** `@agentdeck/core` owns domain and event types. Add shared types there before app-local shapes.
+- **State machines are authoritative.** `@agentdeck/core` exports legal transitions for `RunStatus`, `ApprovalStatus`, and `TerminalLeaseMode`. Use `transitionRunStatus()`, `transitionApprovalStatus()`, `transitionTerminalLease()` — do not invent new transitions or bypass these.
+- **Policy classifier is authoritative.** `@agentdeck/policy` exports `classifyCommandRisk()` and privacy storage decisions. Reuse it; do not duplicate risk logic.
+- **D1 repositories are the database boundary.** `@agentdeck/db` exposes `createAgentDeckRepositories()`. Use it in future Worker/API code instead of writing ad hoc queries in handlers.
+- **Runtime validators guard D1 inputs.** `@agentdeck/db` exports zod validators for repository/API boundaries. Do not duplicate ad hoc validation in handlers.
+- **Mock data stays in `apps/web/src/lib/mock-agentdeck.ts`.** Do not inline mock data in components. Do not introduce real provider calls, real fetch, or real auth into the mock UI.
+- **Dependency rule**: `@agentdeck/core` depends on no other `@agentdeck/*` package. `@agentdeck/policy` and `@agentdeck/db` may depend on `@agentdeck/core`. Apps may depend on packages; packages must not depend on apps.
 
 ## CSS and Styling
 
@@ -108,7 +108,7 @@ chore: update project metadata
 - Deployment target is Cloudflare Workers via `@opennextjs/cloudflare`.
 - `apps/web/wrangler.jsonc` is the deploy config. `compatibility_date` is pinned to `2026-06-27`.
 - `apps/web/cloudflare-env.d.ts` is **generated** by `pnpm cf-typegen`. Do not edit it by hand. Regenerate after changing `apps/web/wrangler.jsonc` bindings.
-- D1 migration history lives in `packages/db/migrations`. Add a real `OPENFUSION_DB` binding with `migrations_dir: "../../packages/db/migrations"` after a D1 database is created.
+- D1 migration history lives in `packages/db/migrations`. Add a real `AGENTDECK_DB` binding with `migrations_dir: "../../packages/db/migrations"` after a D1 database is created.
 - `apps/web/next.config.ts` calls `initOpenNextCloudflareForDev()` to enable `getCloudflareContext()` in `pnpm dev`.
 - `.dev.vars` holds local secrets for dev (gitignored). `.dev.vars.example` and `apps/web/.dev.vars.example` are templates.
 

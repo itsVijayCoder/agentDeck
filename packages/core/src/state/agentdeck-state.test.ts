@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ApprovalStatus, RunStatus, TerminalLeaseMode } from "../types/openfusion";
+import type { ApprovalStatus, RunStatus, TerminalLeaseMode } from "../types/agentdeck";
 import {
 	activeRunStatuses,
 	canDecideApproval,
@@ -13,7 +13,7 @@ import {
 	transitionApprovalStatus,
 	transitionRunStatus,
 	transitionTerminalLease,
-} from "./openfusion-state";
+} from "./agentdeck-state";
 
 const runStatuses: RunStatus[] = [
 	"draft",

@@ -1,6 +1,6 @@
 # Code of Conduct
 
-OpenFusion uses a simple contributor standard: be respectful, direct, and constructive.
+AgentDeck uses a simple contributor standard: be respectful, direct, and constructive.
 
 ## Expected Behavior
 

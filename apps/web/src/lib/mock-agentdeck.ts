@@ -7,7 +7,7 @@ import type {
 	QueueItem,
 	ScheduledJob,
 	WorkspaceSummary,
-} from "@openfusion/core";
+} from "@agentdeck/core";
 
 export const navigationItems: NavigationItem[] = [
 	{ id: "mission", label: "Mission" },
@@ -23,7 +23,7 @@ export const navigationItems: NavigationItem[] = [
 export const workspaceSummary: WorkspaceSummary = {
 	id: "wrk_astx",
 	name: "AsthriX",
-	repo: "openfusion",
+	repo: "agentdeck",
 	branch: "main",
 	privacyMode: "metadata-only",
 	machineCount: 2,
@@ -103,7 +103,7 @@ export const activeRun: ActiveRun = {
 	title: "Fix flaky auth refresh test",
 	task: "Stabilize auth refresh retry behavior and prove the fix with deterministic tests.",
 	status: "running",
-	worktreeLabel: "openfusion-worktrees/run_auth_refresh",
+	worktreeLabel: "agentdeck-worktrees/run_auth_refresh",
 	branchName: "agent/auth-refresh-flake",
 	agentControlLabel: "Agent has control. You can jump in at any time.",
 	confidence: 0.82,
@@ -285,7 +285,7 @@ export const queueItems: QueueItem[] = [
 	{
 		id: "queue_billing",
 		task: "Refactor billing service",
-		repo: "openfusion",
+		repo: "agentdeck",
 		branch: "main",
 		agent: "Claude Code",
 		priority: "high",
@@ -297,7 +297,7 @@ export const queueItems: QueueItem[] = [
 	{
 		id: "queue_api_tests",
 		task: "Generate missing API tests",
-		repo: "openfusion",
+		repo: "agentdeck",
 		branch: "main",
 		agent: "Codex",
 		priority: "normal",
@@ -309,7 +309,7 @@ export const queueItems: QueueItem[] = [
 	{
 		id: "queue_tanstack",
 		task: "Upgrade TanStack Query usage",
-		repo: "openfusion",
+		repo: "agentdeck",
 		branch: "feature/ui-data",
 		agent: "Pi",
 		priority: "normal",
@@ -386,7 +386,7 @@ export const policyRules: PolicyRule[] = [
 		id: "policy_push",
 		action: "Git push, merge, deploy, or publish",
 		defaultDecision: "deny",
-		reason: "OpenFusion is human-controlled and never auto-merges by default.",
+		reason: "AgentDeck is human-controlled and never auto-merges by default.",
 		risk: "critical",
 	},
 	{

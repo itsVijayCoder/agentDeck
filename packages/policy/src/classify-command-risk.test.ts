@@ -4,7 +4,7 @@ import { classifyCommandRisk, getPrivacyStorageDecision, requiresHumanApproval }
 
 describe("classifyCommandRisk", () => {
 	it.each([
-		["rm -rf /tmp/openfusion", "deny", "critical"],
+		["rm -rf /tmp/agentdeck", "deny", "critical"],
 		["sudo apt update", "deny", "critical"],
 		["git push origin main", "deny", "critical"],
 		["gh pr merge 123", "deny", "critical"],
@@ -53,7 +53,7 @@ describe("classifyCommandRisk", () => {
 		["git diff", "allow", "low"],
 		["git log --oneline", "allow", "low"],
 		["git show HEAD", "allow", "low"],
-		["rg OpenFusion", "allow", "low"],
+		["rg AgentDeck", "allow", "low"],
 		["ls -la", "allow", "low"],
 	] as const)("allows low-risk command: %s", (command, decision, risk) => {
 		expect(classifyCommandRisk(command)).toMatchObject({ decision, risk });

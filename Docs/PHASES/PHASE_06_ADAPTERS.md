@@ -1,6 +1,6 @@
 # Phase 06 — Agent Adapters & Event Normalization
 
-**Objective:** Build adapter implementations for each coding agent (Claude Code, Codex, OpenCode, Qwen Code, Pi, Aider, ACP) that normalize native agent events into the OpenFusion event model. Each adapter implements the `HarnessAdapter` interface and maps agent-specific output to `OpenFusionEvent` types.
+**Objective:** Build adapter implementations for each coding agent (Claude Code, Codex, OpenCode, Qwen Code, Pi, Aider, ACP) that normalize native agent events into the AgentDeck event model. Each adapter implements the `HarnessAdapter` interface and maps agent-specific output to `AgentDeckEvent` types.
 
 **Prerequisites:** Phase 04 (bridge with PTY + event sink), Phase 05 (terminal streaming).
 
@@ -9,7 +9,7 @@
 ## Current State
 
 - Agent detection exists in the bridge (`detector.ts`) — can find agents on PATH.
-- No adapter implementations exist. No agent has been run through OpenFusion.
+- No adapter implementations exist. No agent has been run through AgentDeck.
 - The `HarnessAdapter` interface is defined in the implementation guide but not yet in code.
 - No event normalization logic exists. Native agent event names would leak directly into the UI.
 
@@ -18,9 +18,9 @@
 ## Target State
 
 ```text
-- HarnessAdapter interface defined in @openfusion/harness package
+- HarnessAdapter interface defined in @agentdeck/harness package
 - 7 adapter implementations: Claude Code, Codex, OpenCode, Qwen, Pi (4 modes), Aider, ACP
-- Each adapter normalizes native events to OpenFusionEvent
+- Each adapter normalizes native events to AgentDeckEvent
 - Pi adapter supports 4 modes: SDK, RPC, JSON, PTY
 - Steering and follow-up messages work for all interactive adapters
 - Agent events render as structured cards in the UI (not raw terminal text)
@@ -33,7 +33,7 @@
 
 ```mermaid
 flowchart TB
-  subgraph Bridge[OpenFusion Bridge]
+  subgraph Bridge[AgentDeck Bridge]
     Registry[Adapter Registry]
     PA[Pi Adapter]
     CC[Claude Code Adapter]
@@ -102,20 +102,20 @@ Process exit               → terminal.closed
 
 ## Low-Level Design
 
-### 1. `@openfusion/harness` package
+### 1. `@agentdeck/harness` package
 
 **`packages/harness/package.json`:**
 
 ```jsonc
 {
-  "name": "@openfusion/harness",
+  "name": "@agentdeck/harness",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "dependencies": {
-    "@openfusion/core": "workspace:*"
+    "@agentdeck/core": "workspace:*"
   }
 }
 ```
@@ -125,7 +125,7 @@ Process exit               → terminal.closed
 **`packages/harness/src/types.ts`:**
 
 ```ts
-import type { OpenFusionEvent } from "@openfusion/core";
+import type { AgentDeckEvent } from "@agentdeck/core";
 
 export type AgentKind = "claude-code" | "codex" | "opencode" | "qwen-code" | "pi" | "aider" | "acp" | "custom";
 
@@ -174,7 +174,7 @@ export type ApprovalDecision = {
 };
 
 export type EventSink = {
-  emit(event: OpenFusionEvent): void;
+  emit(event: AgentDeckEvent): void;
   flush(): Promise<void>;
 };
 
@@ -245,7 +245,7 @@ import type {
   HarnessAdapter, HarnessSessionHandle, HarnessSessionContext,
   ProbeResult, HarnessTask, EventSink, UserSteeringMessage,
   TerminalInput, ApprovalDecision,
-} from "@openfusion/harness";
+} from "@agentdeck/harness";
 import type { PtyManager } from "../pty/pty-manager.js";
 import { redact } from "../redaction/secrets.js";
 
@@ -307,7 +307,7 @@ class ClaudeCodeSession implements HarnessSessionHandle {
 
     this.pty = this.ptyManager.spawn("claude", args, {
       cwd: this.ctx.worktreePath ?? this.ctx.cwd,
-      env: { ...process.env, CLAUDE_CODE_ENTRYPOINT: "openfusion" },
+      env: { ...process.env, CLAUDE_CODE_ENTRYPOINT: "agentdeck" },
     });
 
     this.pty.onData((data: string) => {
@@ -386,7 +386,7 @@ import { join } from "path";
 import { access, constants } from "fs/promises";
 import type {
   HarnessAdapter, HarnessSessionHandle, HarnessSessionContext, ProbeResult,
-} from "@openfusion/harness";
+} from "@agentdeck/harness";
 import type { PtyManager } from "../../pty/pty-manager.js";
 import { PiSdkRunner } from "./pi.sdk-runner.js";
 import { PiRpcRunner } from "./pi.rpc-runner.js";
@@ -438,7 +438,7 @@ export class PiAdapter implements HarnessAdapter {
       requiresProcessIsolation: false,
       bridgeRuntime: "node",
       isOneShotQueueJob: false,
-      needsCustomOpenFusionTools: true,
+      needsCustomAgentDeckTools: true,
     });
 
     return new PiSession(this.ptyManager, ctx, mode);
@@ -513,11 +513,11 @@ export function selectPiMode(input: {
   requiresProcessIsolation: boolean;
   bridgeRuntime: "node" | "rust" | "tauri" | "go";
   isOneShotQueueJob: boolean;
-  needsCustomOpenFusionTools: boolean;
+  needsCustomAgentDeckTools: boolean;
 }): PiRunMode {
   if (input.requiresRealTerminal || input.requiresUserJumpIn) return "pty";
   if (input.requiresProcessIsolation || input.bridgeRuntime !== "node") return "rpc";
-  if (input.isOneShotQueueJob && !input.needsCustomOpenFusionTools) return "json";
+  if (input.isOneShotQueueJob && !input.needsCustomAgentDeckTools) return "json";
   return "sdk";
 }
 ```
@@ -527,10 +527,10 @@ export function selectPiMode(input: {
 **`apps/bridge/src/agents/pi/pi.events.ts`:**
 
 ```ts
-import type { OpenFusionEvent } from "@openfusion/core";
+import type { AgentDeckEvent } from "@agentdeck/core";
 import { redact, redactStructured } from "../../redaction/secrets.js";
 
-export function mapPiEventToOpenFusion(event: any, runId: string): OpenFusionEvent[] {
+export function mapPiEventToAgentDeck(event: any, runId: string): AgentDeckEvent[] {
   switch (event.type) {
     case "session":
       return [{ type: "agent.session.started", runId, payload: { nativeSessionId: event.id, cwd: event.cwd } } as any];
@@ -623,8 +623,8 @@ export function mapPiEventToOpenFusion(event: any, runId: string): OpenFusionEve
 
 ```ts
 import { spawn } from "child_process";
-import type { HarnessSessionContext, EventSink, HarnessTask } from "@openfusion/harness";
-import { mapPiEventToOpenFusion } from "./pi.events.js";
+import type { HarnessSessionContext, EventSink, HarnessTask } from "@agentdeck/harness";
+import { mapPiEventToAgentDeck } from "./pi.events.js";
 import { redact } from "../../redaction/secrets.js";
 
 export class PiRpcRunner {
@@ -689,7 +689,7 @@ export class PiRpcRunner {
       if (!line.trim()) continue;
       try {
         const evt = JSON.parse(line);
-        for (const ofEvent of mapPiEventToOpenFusion(evt, this.ctx.runId)) {
+        for (const ofEvent of mapPiEventToAgentDeck(evt, this.ctx.runId)) {
           this.sink.emit(ofEvent);
         }
       } catch {
@@ -724,7 +724,7 @@ Each adapter is ~100-150 lines following the `ClaudeCodeAdapter` template.
 
 ```ts
 import { spawn } from "child_process";
-import type { HarnessAdapter, HarnessSessionHandle, HarnessSessionContext, ProbeResult } from "@openfusion/harness";
+import type { HarnessAdapter, HarnessSessionHandle, HarnessSessionContext, ProbeResult } from "@agentdeck/harness";
 
 export class AcpAdapter implements HarnessAdapter {
   readonly id = "acp";
@@ -779,7 +779,7 @@ class AcpSession implements HarnessSessionHandle {
 | **Adapter** | Each adapter wraps a different agent CLI and exposes a uniform `HarnessAdapter` + `HarnessSessionHandle` interface. |
 | **Strategy** | Pi adapter selects between 4 execution modes (SDK/RPC/JSON/PTY) using `selectPiMode()`. |
 | **Registry** | `AdapterRegistry` maps `AgentKind` to `HarnessAdapter`. New adapters are registered without modifying existing code. |
-| **Mapper / Translator** | `mapPiEventToOpenFusion()` translates Pi event names to OpenFusion event types. Native names never leak. |
+| **Mapper / Translator** | `mapPiEventToAgentDeck()` translates Pi event names to AgentDeck event types. Native names never leak. |
 | **Factory** | `createSession()` on each adapter is a factory method that produces a `HarnessSessionHandle`. |
 
 ## SOLID / DRY Compliance
@@ -789,7 +789,7 @@ class AcpSession implements HarnessSessionHandle {
 - **LSP:** Any `HarnessSessionHandle` can replace any other. The bridge calls `start()`, `sendUserMessage()`, `cancel()` without knowing which agent is running.
 - **ISP:** `HarnessSessionHandle` is split into `start`, `sendUserMessage`, `sendTerminalInput`, `approve`, `pause`, `resume`, `cancel`, `dispose`. Adapters that don't support a method (e.g., Aider has no `approve`) implement it as a no-op.
 - **DIP:** Bridge depends on `HarnessAdapter` interface, not on `ClaudeCodeAdapter` or `PiAdapter` concretely.
-- **DRY:** Event normalization is per-adapter (one mapper per agent). The `HarnessAdapter` interface is defined once in `@openfusion/harness`. Redaction is in `@openfusion/redaction` (one place).
+- **DRY:** Event normalization is per-adapter (one mapper per agent). The `HarnessAdapter` interface is defined once in `@agentdeck/harness`. Redaction is in `@agentdeck/redaction` (one place).
 
 ---
 
@@ -831,7 +831,7 @@ class AcpSession implements HarnessSessionHandle {
 ## Acceptance Criteria
 
 ```text
-[ ] @openfusion/harness package exists with HarnessAdapter interface
+[ ] @agentdeck/harness package exists with HarnessAdapter interface
 [ ] AdapterRegistry can register and retrieve adapters by kind
 [ ] Claude Code adapter probes and runs in PTY mode
 [ ] Codex adapter probes and runs in PTY mode
@@ -839,7 +839,7 @@ class AcpSession implements HarnessSessionHandle {
 [ ] Qwen Code adapter probes and runs in PTY mode
 [ ] Aider adapter probes and runs in PTY mode
 [ ] Pi adapter supports 4 modes (SDK, RPC, JSON, PTY)
-[ ] Pi event mapper converts all Pi event types to OpenFusion events
+[ ] Pi event mapper converts all Pi event types to AgentDeck events
 [ ] Native agent event names never appear in UI or D1
 [ ] Steering messages work for interactive adapters
 [ ] Follow-up messages work for interactive adapters

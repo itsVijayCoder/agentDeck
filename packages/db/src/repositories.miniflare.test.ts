@@ -2,21 +2,21 @@ import { readFile } from "node:fs/promises";
 import { Miniflare } from "miniflare";
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { OpenFusionEvent } from "@openfusion/core";
-import { createOpenFusionRepositories } from "./repositories";
+import type { AgentDeckEvent } from "@agentdeck/core";
+import { createAgentDeckRepositories } from "./repositories";
 
 let miniflare: Miniflare | null = null;
 
 async function createMigratedDatabase(): Promise<D1Database> {
 	miniflare = new Miniflare({
-		d1Databases: ["OPENFUSION_DB"],
+		d1Databases: ["AGENTDECK_DB"],
 		d1Persist: false,
 		modules: true,
 		script: "export default { fetch() { return new Response('ok'); } };",
 	});
 
-	const db = await miniflare.getD1Database("OPENFUSION_DB");
-	const migration = await readFile(new URL("../migrations/0001_openfusion_core.sql", import.meta.url), "utf8");
+	const db = await miniflare.getD1Database("AGENTDECK_DB");
+	const migration = await readFile(new URL("../migrations/0001_agentdeck_core.sql", import.meta.url), "utf8");
 	for (const statement of splitSqlStatements(migration)) {
 		await db.prepare(statement).run();
 	}
@@ -33,7 +33,7 @@ function splitSqlStatements(sql: string): string[] {
 		.filter((statement) => statement.length > 0);
 }
 
-describe("OpenFusion repositories with Miniflare D1", () => {
+describe("AgentDeck repositories with Miniflare D1", () => {
 	afterEach(async () => {
 		await miniflare?.dispose();
 		miniflare = null;
@@ -41,7 +41,7 @@ describe("OpenFusion repositories with Miniflare D1", () => {
 
 	it("applies the canonical migration and persists core control-plane rows", async () => {
 		const db = await createMigratedDatabase();
-		const repositories = createOpenFusionRepositories(db);
+		const repositories = createAgentDeckRepositories(db);
 		const now = "2026-06-28T00:00:00.000Z";
 
 		const workspace = await repositories.workspaces.create({
@@ -60,7 +60,7 @@ describe("OpenFusion repositories with Miniflare D1", () => {
 			updatedAt: now,
 			workspaceId: workspace.id,
 		});
-		const event: OpenFusionEvent = {
+		const event: AgentDeckEvent = {
 			createdAt: now,
 			id: "evt_miniflare",
 			payload: { privacyMode: session.privacy_mode, title: session.title },

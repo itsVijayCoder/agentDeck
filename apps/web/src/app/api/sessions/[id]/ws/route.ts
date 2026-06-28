@@ -1,10 +1,10 @@
 import type { NextRequest } from "next/server";
-import { isSessionHubClientRole } from "@openfusion/bridge-protocol";
+import { isSessionHubClientRole } from "@agentdeck/bridge-protocol";
 
 import { requireWorkspaceRow } from "@/lib/api/access";
 import { badRequest, forbidden, jsonResponse, notFound, unauthorized, withApiErrors } from "@/lib/api/errors";
 import { requireSession, verifyBridgeConnectionToken } from "@/lib/auth";
-import { getOpenFusionBindings, getRepositories } from "@/lib/cloudflare-context";
+import { getAgentDeckBindings, getRepositories } from "@/lib/cloudflare-context";
 import { SESSION_HUB_HEADERS } from "@/do/session-hub-protocol";
 
 export const runtime = "edge";
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			headers.set(SESSION_HUB_HEADERS.userId, user.userId);
 		}
 
-		const env = await getOpenFusionBindings();
+		const env = await getAgentDeckBindings();
 		const stub = env.SESSION_HUB.getByName(session.id);
 		return stub.fetch(
 			new Request(request.url, {

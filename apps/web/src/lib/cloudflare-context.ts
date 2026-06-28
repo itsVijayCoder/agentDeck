@@ -1,29 +1,29 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { createOpenFusionRepositories, type OpenFusionRepositories } from "@openfusion/db";
+import { createAgentDeckRepositories, type AgentDeckRepositories } from "@agentdeck/db";
 import type { SessionHub } from "@/do/session-hub";
 
-export type OpenFusionBindings = CloudflareEnv & {
-	OPENFUSION_ARTIFACTS: R2Bucket;
-	OPENFUSION_DB: D1Database;
+export type AgentDeckBindings = CloudflareEnv & {
+	AGENTDECK_ARTIFACTS: R2Bucket;
+	AGENTDECK_DB: D1Database;
 	SESSION_HUB: DurableObjectNamespace<SessionHub>;
 };
 
-export async function getOpenFusionBindings(): Promise<OpenFusionBindings> {
+export async function getAgentDeckBindings(): Promise<AgentDeckBindings> {
 	const { env } = await getCloudflareContext({ async: true });
 
-	if (!env.OPENFUSION_DB || !env.OPENFUSION_ARTIFACTS || !env.SESSION_HUB) {
-		throw new Error("OpenFusion Cloudflare bindings are not configured.");
+	if (!env.AGENTDECK_DB || !env.AGENTDECK_ARTIFACTS || !env.SESSION_HUB) {
+		throw new Error("AgentDeck Cloudflare bindings are not configured.");
 	}
 
-	return env as OpenFusionBindings;
+	return env as AgentDeckBindings;
 }
 
-export async function getRepositories(): Promise<OpenFusionRepositories> {
-	const env = await getOpenFusionBindings();
-	return createOpenFusionRepositories(env.OPENFUSION_DB);
+export async function getRepositories(): Promise<AgentDeckRepositories> {
+	const env = await getAgentDeckBindings();
+	return createAgentDeckRepositories(env.AGENTDECK_DB);
 }
 
 export async function getR2(): Promise<R2Bucket> {
-	const env = await getOpenFusionBindings();
-	return env.OPENFUSION_ARTIFACTS;
+	const env = await getAgentDeckBindings();
+	return env.AGENTDECK_ARTIFACTS;
 }

@@ -1,5 +1,5 @@
 {
-  "extends": "@openfusion/config/tsconfig/base.json",
+  "extends": "@agentdeck/config/tsconfig/base.json",
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",

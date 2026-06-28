@@ -11,14 +11,14 @@
 - No provider abstraction exists. No AI Gateway integration.
 - Agents call their own providers natively (Claude Code calls Anthropic, Codex calls OpenAI, etc.).
 - No cost tracking, no rate limiting, no DLP scanning, no provider fallback.
-- The `ai-gateway` event source is typed in `@openfusion/core` but unused.
+- The `ai-gateway` event source is typed in `@agentdeck/core` but unused.
 
 ---
 
 ## Target State
 
 ```text
-- @openfusion/ai package with LlmProviderAdapter interface
+- @agentdeck/ai package with LlmProviderAdapter interface
 - Provider adapters: OpenAI, Anthropic, Google, Qwen, DeepSeek, Ollama, OpenRouter
 - Cloudflare AI Gateway integration for observability, cost, rate limits, DLP
 - Unified AI events (ai.request.start, ai.text.delta, ai.tool_call.start, etc.)
@@ -34,7 +34,7 @@
 
 ```mermaid
 flowchart TB
-  subgraph OpenFusion[OpenFusion Control Plane]
+  subgraph AgentDeck[AgentDeck Control Plane]
     Router[Model Router]
     AIG[Cloudflare AI Gateway]
     Adapters[Provider Adapters]
@@ -63,8 +63,8 @@ flowchart TB
 2. Cloudflare AI Gateway mode
    Requests route through AI Gateway. Good for observability, DLP, cost tracking, rate limits.
 
-3. OpenFusion-managed mode
-   OpenFusion calls providers directly. Good for enterprise policy, centralized secrets.
+3. AgentDeck-managed mode
+   AgentDeck calls providers directly. Good for enterprise policy, centralized secrets.
 
 4. Local-only mode
    Only local models (Ollama, vLLM). Good for privacy-sensitive repos.
@@ -74,20 +74,20 @@ flowchart TB
 
 ## Low-Level Design
 
-### 1. `@openfusion/ai` package
+### 1. `@agentdeck/ai` package
 
 **`packages/ai/package.json`:**
 
 ```jsonc
 {
-  "name": "@openfusion/ai",
+  "name": "@agentdeck/ai",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "dependencies": {
-    "@openfusion/core": "workspace:*"
+    "@agentdeck/core": "workspace:*"
   }
 }
 ```
@@ -599,7 +599,7 @@ export class CostTracker {
 ## Acceptance Criteria
 
 ```text
-[ ] @openfusion/ai package exists with LlmProviderAdapter interface
+[ ] @agentdeck/ai package exists with LlmProviderAdapter interface
 [ ] OpenAI adapter streams chat completions and parses SSE
 [ ] Anthropic adapter streams messages and parses SSE
 [ ] Ollama adapter works with local models

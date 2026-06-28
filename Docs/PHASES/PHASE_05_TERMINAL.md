@@ -11,7 +11,7 @@
 - The dashboard terminal dock (`mission-control-dashboard.tsx:569-636`) renders static `TerminalLine[]` from mock data as plain `<div>`/`<code>` elements.
 - No xterm.js, no `@xterm/xterm` dependency, no real terminal rendering.
 - No PTY streaming to the browser. No terminal resize. No jump-in.
-- Terminal lease state machine exists in `@openfusion/core` (`transitionTerminalLease`) but is not exercised at runtime.
+- Terminal lease state machine exists in `@agentdeck/core` (`transitionTerminalLease`) but is not exercised at runtime.
 
 ---
 
@@ -85,7 +85,7 @@ cd apps/web && pnpm add @xterm/xterm @xterm/addon-fit @xterm/addon-web-links
 
 ### 2. Terminal component
 
-**`apps/web/src/components/openfusion/terminal-pane.tsx`:**
+**`apps/web/src/components/agentdeck/terminal-pane.tsx`:**
 
 ```tsx
 "use client";
@@ -94,8 +94,8 @@ import { useEffect, useRef, useCallback } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
-import type { EventEnvelope, BrowserControlMessage } from "@openfusion/core";
-import { transitionTerminalLease } from "@openfusion/core";
+import type { EventEnvelope, BrowserControlMessage } from "@agentdeck/core";
+import { transitionTerminalLease } from "@agentdeck/core";
 import "@xterm/xterm/css/xterm.css";
 
 type TerminalPaneProps = {
@@ -225,14 +225,14 @@ export function TerminalPane({
 
 ### 3. Jump-in control component
 
-**`apps/web/src/components/openfusion/jump-in-control.tsx`:**
+**`apps/web/src/components/agentdeck/jump-in-control.tsx`:**
 
 ```tsx
 "use client";
 
 import { useCallback } from "react";
-import { transitionTerminalLease, type TerminalLeaseMode } from "@openfusion/core";
-import type { BrowserControlMessage } from "@openfusion/core";
+import { transitionTerminalLease, type TerminalLeaseMode } from "@agentdeck/core";
+import type { BrowserControlMessage } from "@agentdeck/core";
 
 type JumpInControlProps = {
   runId: string;
@@ -284,12 +284,12 @@ export function JumpInControl({ runId, leaseMode, onControl }: JumpInControlProp
 
 ### 4. Lease banner
 
-**`apps/web/src/components/openfusion/lease-banner.tsx`:**
+**`apps/web/src/components/agentdeck/lease-banner.tsx`:**
 
 ```tsx
 "use client";
 
-import type { TerminalLeaseMode } from "@openfusion/core";
+import type { TerminalLeaseMode } from "@agentdeck/core";
 
 const BANNER_CONFIG: Record<TerminalLeaseMode, { text: string; className: string }> = {
   "agent-control": {
@@ -314,7 +314,7 @@ export function LeaseBanner({ mode }: { mode: TerminalLeaseMode }) {
 
 ### 5. Terminal dock (multi-tab)
 
-**`apps/web/src/components/openfusion/terminal-dock.tsx`:**
+**`apps/web/src/components/agentdeck/terminal-dock.tsx`:**
 
 ```tsx
 "use client";
@@ -323,7 +323,7 @@ import { useState, useCallback } from "react";
 import { TerminalPane } from "./terminal-pane";
 import { JumpInControl } from "./jump-in-control";
 import { LeaseBanner } from "./lease-banner";
-import type { EventEnvelope, BrowserControlMessage, TerminalLeaseMode } from "@openfusion/core";
+import type { EventEnvelope, BrowserControlMessage, TerminalLeaseMode } from "@agentdeck/core";
 
 type TerminalTab = {
   id: string;
@@ -513,7 +513,7 @@ private async flushRecording() {
 
 | Pattern | Application |
 |---|---|
-| **Adapter** | `TerminalPane` adapts xterm.js to the OpenFusion event model. `TerminalSession` adapts `node-pty` to the event sink. |
+| **Adapter** | `TerminalPane` adapts xterm.js to the AgentDeck event model. `TerminalSession` adapts `node-pty` to the event sink. |
 | **State machine** | Terminal lease transitions are gated by `transitionTerminalLease()`. No illegal transitions possible. |
 | **Observer** | xterm.js observes event stream; PTY output is observed by the event sink. |
 | **Command** | `BrowserControlMessage` is the command pattern — each control action (resize, stdin, lease) is an object. |
@@ -527,7 +527,7 @@ private async flushRecording() {
 - **LSP:** Any `TerminalLeaseMode` value works with `LeaseBanner` and `JumpInControl`.
 - **ISP:** `TerminalPane` depends only on `EventEnvelope[]` and `onControl` callback. It does not depend on the WebSocket implementation.
 - **DIP:** UI components depend on `BrowserControlMessage` abstraction, not on WebSocket internals.
-- **DRY:** Lease state machine is in `@openfusion/core` (one place). Redaction is in `@openfusion/redaction` (one place). Terminal rendering is in `TerminalPane` (one place).
+- **DRY:** Lease state machine is in `@agentdeck/core` (one place). Redaction is in `@agentdeck/redaction` (one place). Terminal rendering is in `TerminalPane` (one place).
 
 ---
 
@@ -549,10 +549,10 @@ private async flushRecording() {
 ## Implementation Steps
 
 1. Install `@xterm/xterm`, `@xterm/addon-fit`, `@xterm/addon-web-links` in `apps/web`
-2. Create `apps/web/src/components/openfusion/terminal-pane.tsx`
-3. Create `apps/web/src/components/openfusion/jump-in-control.tsx`
-4. Create `apps/web/src/components/openfusion/lease-banner.tsx`
-5. Create `apps/web/src/components/openfusion/terminal-dock.tsx` (replace mock terminal dock)
+2. Create `apps/web/src/components/agentdeck/terminal-pane.tsx`
+3. Create `apps/web/src/components/agentdeck/jump-in-control.tsx`
+4. Create `apps/web/src/components/agentdeck/lease-banner.tsx`
+5. Create `apps/web/src/components/agentdeck/terminal-dock.tsx` (replace mock terminal dock)
 6. Wire `TerminalDock` to `useSessionWebSocket` events
 7. Create `apps/bridge/src/pty/terminal-session.ts`
 8. Implement terminal.open, terminal.stdin, terminal.resize handling in bridge

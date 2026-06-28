@@ -1,4 +1,4 @@
-# OpenFusion Core Contracts
+# AgentDeck Core Contracts
 
 This document describes the first reusable product core added after the initial Mission Control UI.
 
@@ -22,22 +22,22 @@ These contracts should remain small, typed, and framework-independent.
 ## Files
 
 ```text
-src/types/openfusion-events.ts
+src/types/agentdeck-events.ts
   Event envelope, event catalog, browser control messages, and bridge messages.
 
-src/lib/openfusion-state.ts
+src/lib/agentdeck-state.ts
   Run, approval, and terminal lease state-machine helpers.
 
-src/lib/openfusion-policy.ts
+src/lib/agentdeck-policy.ts
   Command risk classifier, privacy storage matrix, and approval requirement helper.
 
-infra/migrations/0001_openfusion_core.sql
+infra/migrations/0001_agentdeck_core.sql
   D1 control-plane schema for metadata, queueing, approvals, reports, policy, and R2 object references.
 
-src/types/openfusion-db.ts
+src/types/agentdeck-db.ts
   D1 row shapes and repository input contracts.
 
-src/lib/openfusion-db.ts
+src/lib/agentdeck-db.ts
   Prepared-statement D1 repository factory for Worker/API code.
 ```
 
@@ -84,7 +84,7 @@ synthesis.*
 report.*
 ```
 
-The UI should consume normalized OpenFusion events, not native Claude Code, Codex, OpenCode, Qwen Code, Pi, or ACP event names.
+The UI should consume normalized AgentDeck events, not native Claude Code, Codex, OpenCode, Qwen Code, Pi, or ACP event names.
 
 ## State Machines
 

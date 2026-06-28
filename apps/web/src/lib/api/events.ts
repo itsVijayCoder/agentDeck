@@ -1,17 +1,17 @@
-import type { EventSource, EventVisibility, OpenFusionEvent, OpenFusionEventType, PrivacyMode } from "@openfusion/core";
-import type { JsonValue, OpenFusionRepositories } from "@openfusion/db";
+import type { EventSource, EventVisibility, AgentDeckEvent, AgentDeckEventType, PrivacyMode } from "@agentdeck/core";
+import type { JsonValue, AgentDeckRepositories } from "@agentdeck/db";
 
 type AppendApiEventInput = {
 	payload: JsonValue;
 	runId?: string | null;
 	sessionId: string;
 	source?: EventSource;
-	type: OpenFusionEventType;
+	type: AgentDeckEventType;
 	visibility: EventVisibility;
 	workspaceId: string;
 };
 
-export async function appendApiEvent(repositories: OpenFusionRepositories, input: AppendApiEventInput): Promise<void> {
+export async function appendApiEvent(repositories: AgentDeckRepositories, input: AppendApiEventInput): Promise<void> {
 	const seq = await repositories.events.nextSeq(input.sessionId);
 
 	await repositories.events.append({
@@ -26,7 +26,7 @@ export async function appendApiEvent(repositories: OpenFusionRepositories, input
 			type: input.type,
 			visibility: input.visibility,
 			workspaceId: input.workspaceId,
-		} as OpenFusionEvent,
+		} as AgentDeckEvent,
 	});
 }
 
