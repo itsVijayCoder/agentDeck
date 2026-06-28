@@ -13,6 +13,7 @@ Watch agents work. Jump in anytime. Review before merge.
 This repository currently contains the first product milestone:
 
 - Architecture blueprint derived from `Docs/IMPLEMENTATION_GUIDE_WITH_PI.md`.
+- pnpm monorepo with shared `core`, `policy`, `db`, and `config` packages.
 - Type-safe OpenFusion domain model and realistic mock data.
 - D1 schema migration plus typed repository contracts for the control-plane metadata layer.
 - Production-style Mission Control dashboard in Next.js.
@@ -49,6 +50,7 @@ See [Docs/ARCHITECTURE_BLUEPRINT.md](Docs/ARCHITECTURE_BLUEPRINT.md) for the imp
 - Next.js App Router
 - React
 - TypeScript strict mode
+- pnpm workspaces
 - Tailwind CSS
 - OpenNext Cloudflare adapter
 - Cloudflare Workers deployment target
@@ -67,25 +69,25 @@ Planned:
 Install dependencies:
 
 ```bash
-npm install
+pnpm install
 ```
 
 Run the dev server:
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 Build for production:
 
 ```bash
-npm run build
+pnpm build
 ```
 
 Start the production server after a build:
 
 ```bash
-npm run start
+pnpm start
 ```
 
 ## Quality Gates
@@ -93,7 +95,11 @@ npm run start
 Run before opening a pull request:
 
 ```bash
-npm run build
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm test:e2e
+pnpm build
 ```
 
 The UI should also be smoke-tested in a browser at desktop and mobile widths. The current dashboard has been verified with production build rendering at `1440x1000` and `390x900`.
@@ -105,19 +111,22 @@ Docs/
   Architecture and product implementation notes.
 
 infra/migrations/
-  Cloudflare D1 schema history.
+  Compatibility marker. Canonical D1 migrations live in packages/db/migrations.
 
-src/app/
-  Next.js app shell, metadata, global design tokens, and route entry.
+apps/web/
+  Next.js app shell, metadata, global design tokens, route entry, mock UI, and OpenNext config.
 
-src/components/openfusion/
-  Product UI components for Mission Control.
+packages/core/
+  Shared domain types, event contracts, and state machines.
 
-src/lib/
-  Mock data, lifecycle helpers, policy helpers, and D1 repository helpers shaped for future shared packages.
+packages/policy/
+  Command risk classifier and privacy storage decisions.
 
-src/types/
-  Shared OpenFusion domain, event/protocol, and D1 row/input types.
+packages/db/
+  D1 row/input contracts, zod validators, repositories, tests, and migrations.
+
+packages/config/
+  Shared TypeScript and ESLint presets.
 ```
 
 ## Open-Source Principles

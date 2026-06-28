@@ -1,0 +1,11 @@
+# OpenFusion web local development secrets
+# Copy to .dev.vars from apps/web when running Wrangler or OpenNext commands there.
+# .dev.vars is gitignored.
+
+# Cloudflare AI Gateway (Phase 10)
+CLOUDFLARE_API_KEY=
+CLOUDFLARE_ACCOUNT_ID=
+CLOUDFLARE_GATEWAY_ID=default
+
+# Bridge pairing secret (Phase 04)
+OPENFUSION_BRIDGE_TOKEN=

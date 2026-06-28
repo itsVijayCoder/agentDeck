@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -11,15 +11,16 @@
 !.yarn/versions
 
 # testing
-/coverage
-/test-results
+coverage
+test-results
 
 # next.js
-/.next/
-/out/
+.next
+out
 
 # production
-/build
+build
+dist
 
 # misc
 .DS_Store
@@ -43,7 +44,7 @@ yarn-error.log*
 next-env.d.ts
 
 # OpenNext
-/.open-next
+.open-next
 
 # wrangler files
 .wrangler
@@ -51,3 +52,4 @@ next-env.d.ts
 
 
 !.dev.vars.example
+!apps/web/.dev.vars.example

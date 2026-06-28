@@ -2,11 +2,13 @@
 
 **Objective:** Restructure the flat Next.js app into a pnpm monorepo with isolated packages. Extract the existing contracts (types, state machines, policy, db) into shareable packages so that `apps/web`, `apps/bridge`, and `workers/*` can all depend on them without duplicating code.
 
+**Status:** Implemented in the current repository. The app now lives in `apps/web`, shared contracts live under `packages/*`, and root scripts delegate through pnpm workspaces.
+
 **Prerequisites:** Phase 00 (quality gates must work before restructuring).
 
 ---
 
-## Current State
+## Current State Before Phase 01
 
 The repo is a flat Next.js app:
 
@@ -426,18 +428,18 @@ Or keep a symlink at `infra/migrations` -> `packages/db/migrations` for CLI comp
 ## Acceptance Criteria
 
 ```text
-[ ] pnpm-workspace.yaml exists at root
-[ ] packages/core, packages/policy, packages/db, packages/config exist
-[ ] apps/web exists with the full Next.js app
-[ ] pnpm install links all workspace packages
-[ ] pnpm -r typecheck passes (all packages)
-[ ] pnpm -r lint passes (all packages)
-[ ] pnpm -r test passes (all packages, same coverage as Phase 00)
-[ ] pnpm build passes (Next.js app builds)
-[ ] No import in apps/web references @/lib/openfusion-state or @/lib/openfusion-policy
-[ ] All imports use @openfusion/core, @openfusion/policy, @openfusion/db
-[ ] @openfusion/core has zero dependencies on other @openfusion/* packages
-[ ] AGENTS.md updated with monorepo structure
+[x] pnpm-workspace.yaml exists at root
+[x] packages/core, packages/policy, packages/db, packages/config exist
+[x] apps/web exists with the full Next.js app
+[x] pnpm install links all workspace packages
+[x] pnpm -r typecheck passes (all packages)
+[x] pnpm -r lint passes (all packages)
+[x] pnpm -r test passes (all packages, same coverage as Phase 00)
+[x] pnpm build passes (Next.js app builds)
+[x] No import in apps/web references @/lib/openfusion-state or @/lib/openfusion-policy
+[x] All imports use @openfusion/core, @openfusion/policy, @openfusion/db
+[x] @openfusion/core has zero dependencies on other @openfusion/* packages
+[x] AGENTS.md updated with monorepo structure
 ```
 
 ---
@@ -447,7 +449,7 @@ Or keep a symlink at `infra/migrations` -> `packages/db/migrations` for CLI comp
 | Risk | Mitigation |
 |---|---|
 | Breaking all imports during migration | Do the move in one commit; use codemod (jscodeshift) or sed to update imports; run typecheck after each package move |
-| `wrangler.jsonc` paths break after move | Test `npm run cf-typegen` and `npm run build` after moving wrangler.jsonc to `apps/web/` |
+| `wrangler.jsonc` paths break after move | Test `pnpm cf-typegen` and `pnpm build` after moving wrangler.jsonc to `apps/web/` |
 | pnpm hoisting differences from npm | Pin exact versions; use `pnpm.overrides` if needed; test build |
 | OpenNext config expects root-level files | Keep `open-next.config.ts` in `apps/web/`; update deploy script to run from `apps/web/` |
 | D1 migrations_dir path changes | Use relative path from `apps/web/wrangler.jsonc` to `packages/db/migrations/` |

@@ -1,0 +1,26 @@
+{
+  "name": "@openfusion/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./eslint/library": "./eslint/library.mjs",
+    "./eslint/next": "./eslint/next.mjs",
+    "./tsconfig/base.json": "./tsconfig/base.json",
+    "./tsconfig/react.json": "./tsconfig/react.json"
+  },
+  "scripts": {
+    "build": "node --check eslint/library.mjs && node --check eslint/next.mjs",
+    "typecheck": "node --check eslint/library.mjs && node --check eslint/next.mjs",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "eslint-config-next": "16.2.6"
+  },
+  "devDependencies": {
+    "eslint": "^9",
+    "vitest": "^4.1.9"
+  }
+}

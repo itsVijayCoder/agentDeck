@@ -4,78 +4,78 @@ Guidance for AI coding agents working in this repository.
 
 ## Current State
 
-This repo is a **flat Next.js/OpenNext app** for OpenFusion Mission Control. It has typed domain models, event contracts, state machines, a policy classifier, mock data, the production dashboard UI, and the first D1 persistence contracts.
+This repo is a **pnpm monorepo** for OpenFusion Mission Control. It has typed domain models, event contracts, state machines, a policy classifier, D1 persistence contracts, runtime validators, mock data, and the production dashboard UI.
 
 There is still no Worker API implementation, Durable Object session hub, local bridge, R2 write path, Queue consumer, Workflow, or real agent execution yet.
 
-`Docs/IMPLEMENTATION_GUIDE_WITH_PI.md` describes the *planned* monorepo (`apps/`, `packages/`, `workers/`), but the actual repo is a flat Next.js app. Do not assume the monorepo exists. Trust the code, not the guide, for what is implemented today.
+`Docs/IMPLEMENTATION_GUIDE_WITH_PI.md` describes the full planned architecture. Trust the code and current phase docs for what is implemented today.
 
 ## Commands
 
 ```bash
-npm run dev        # next dev (local dev server)
-npm run typecheck  # tsc --noEmit (fast TypeScript gate)
-npm run lint       # eslint . (Next.js 16-compatible lint gate)
-npm run test       # vitest run --coverage (unit tests + coverage thresholds)
-npm run test:watch # vitest watch mode
-npm run test:e2e   # playwright test (Phase 00 skeleton)
-npm run build      # next build — current quality gate (includes TypeScript checking)
-npm run start      # next start (serve production build)
-npm run deploy     # opennextjs-cloudflare build && deploy to Cloudflare
-npm run cf-typegen # regenerate cloudflare-env.d.ts from wrangler.jsonc bindings
+pnpm install        # install/link all workspace packages
+pnpm dev            # apps/web next dev
+pnpm typecheck      # pnpm -r typecheck
+pnpm lint           # pnpm -r lint
+pnpm test           # pnpm -r test
+pnpm test:e2e       # apps/web Playwright skeleton
+pnpm build:packages # build all packages
+pnpm build          # apps/web next build
+pnpm start          # apps/web next start
+pnpm deploy         # apps/web OpenNext deploy to Cloudflare
+pnpm cf-typegen     # regenerate apps/web/cloudflare-env.d.ts
 ```
 
-- `npm run lint` uses the ESLint CLI directly because Next.js 16 removed `next lint`.
-- `npm run test` uses Vitest with V8 coverage thresholds for the existing contracts.
-- Run `npm run typecheck`, `npm run lint`, `npm run test`, and `npm run build` before considering any task complete.
+- This repository uses pnpm workspaces. Do not reintroduce `package-lock.json` or npm-only scripts.
+- `pnpm lint` uses the ESLint CLI directly because Next.js 16 removed `next lint`.
+- `pnpm test` runs package-level Vitest suites with V8 coverage thresholds for shared contracts.
+- Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm test:e2e`, and `pnpm build` before considering any task complete. Run `pnpm build:packages` when package exports or build config changed.
 
 ## Architecture
 
 ### What exists
 
-```
-src/app/                              Next.js App Router shell
-  layout.tsx                            Root layout, fonts, metadata
-  page.tsx                              Renders MissionControlDashboard
-  globals.css                           All dashboard styles (see CSS section)
-src/components/openfusion/
-  mission-control-dashboard.tsx         Entire UI in one 698-line file (intentional for mock phase)
-src/lib/
-  mock-openfusion.ts                    All mock data — keep mock data here
-  openfusion-db.ts                      D1 repository factory using prepared statements
-  openfusion-policy.ts                  classifyCommandRisk() + privacy storage decisions
-  openfusion-state.ts                   Run/approval/terminal-lease state machines
-  validators.ts                         zod runtime validators for D1 inputs and event envelopes
-src/types/
-  openfusion.ts                         Domain types (the contract)
-  openfusion-db.ts                      D1 row types and repository input contracts
-  openfusion-events.ts                  Event-sourced protocol types
+```text
+apps/
+  web/                                  Next.js/OpenNext Mission Control app
+    src/app/                            App Router shell, fonts, metadata, global CSS
+    src/components/openfusion/          Dashboard UI
+    src/lib/mock-openfusion.ts          App-local mock data
+    e2e/phase-00.spec.ts                Playwright wiring smoke test
+    wrangler.jsonc                      Cloudflare deploy config
+    cloudflare-env.d.ts                 Generated Cloudflare env types
+packages/
+  core/                                 Domain types, events, state machines
+  policy/                               Command risk + privacy storage decisions
+  db/                                   D1 repositories, input validators, migrations
+  config/                               Shared tsconfig and ESLint presets
+  bridge-protocol/                      Placeholder for Phase 03+ protocol schemas
+  ui/                                   Placeholder for Phase 11 shared UI/tokens
 infra/migrations/
-  0001_openfusion_core.sql              D1 control-plane schema
-e2e/
-  phase-00.spec.ts                      Playwright wiring smoke test
+  README.md                             Compatibility marker; canonical SQL is in packages/db/migrations
 ```
 
 ### Key conventions
 
-- **Path alias**: `@/*` maps to `./src/*`. Use it for all imports.
-- **Types are the contract.** `src/types/openfusion.ts` and `src/types/openfusion-events.ts` define the domain model. Add shared types here before component-local shapes. The implementation guide rule "typed contracts come before backend implementation" is enforced.
-- **State machines are authoritative.** `src/lib/openfusion-state.ts` defines legal transitions for `RunStatus`, `ApprovalStatus`, and `TerminalLeaseMode`. Use `transitionRunStatus()`, `transitionApprovalStatus()`, `transitionTerminalLease()` — do not invent new transitions or bypass these.
-- **Policy classifier is authoritative.** `src/lib/openfusion-policy.ts` `classifyCommandRisk()` maps commands to `allow`/`approval`/`deny` + `RiskLevel`. Reuse it; do not duplicate risk logic.
-- **D1 repositories are the database boundary.** `src/lib/openfusion-db.ts` exposes `createOpenFusionRepositories()`. Use it in future Worker/API code instead of writing ad hoc queries in handlers.
-- **Runtime validators guard D1 inputs.** `src/lib/validators.ts` mirrors the D1 input contracts with zod. Parse at the repository/API boundary; do not duplicate ad hoc validation in handlers.
-- **Mock data stays in `src/lib/mock-openfusion.ts`.** Do not inline mock data in components. Do not introduce real provider calls, real fetch, or real auth into the mock UI.
+- **Path alias**: `@/*` maps to `apps/web/src/*` and is only for app-local imports. Shared imports must use package facades.
+- **Types are the contract.** `@openfusion/core` owns domain and event types. Add shared types there before app-local shapes.
+- **State machines are authoritative.** `@openfusion/core` exports legal transitions for `RunStatus`, `ApprovalStatus`, and `TerminalLeaseMode`. Use `transitionRunStatus()`, `transitionApprovalStatus()`, `transitionTerminalLease()` — do not invent new transitions or bypass these.
+- **Policy classifier is authoritative.** `@openfusion/policy` exports `classifyCommandRisk()` and privacy storage decisions. Reuse it; do not duplicate risk logic.
+- **D1 repositories are the database boundary.** `@openfusion/db` exposes `createOpenFusionRepositories()`. Use it in future Worker/API code instead of writing ad hoc queries in handlers.
+- **Runtime validators guard D1 inputs.** `@openfusion/db` exports zod validators for repository/API boundaries. Do not duplicate ad hoc validation in handlers.
+- **Mock data stays in `apps/web/src/lib/mock-openfusion.ts`.** Do not inline mock data in components. Do not introduce real provider calls, real fetch, or real auth into the mock UI.
+- **Dependency rule**: `@openfusion/core` depends on no other `@openfusion/*` package. `@openfusion/policy` and `@openfusion/db` may depend on `@openfusion/core`. Apps may depend on packages; packages must not depend on apps.
 
 ## CSS and Styling
 
 This is the most likely place to make a mistake.
 
-- **The dashboard does NOT use Tailwind utility classes.** Tailwind v4 is imported (`@import "tailwindcss"`) but the entire UI uses **custom `of-` prefixed classes** defined in `src/app/globals.css`.
+- **The dashboard does NOT use Tailwind utility classes.** Tailwind v4 is imported (`@import "tailwindcss"`) but the entire UI uses **custom `of-` prefixed classes** defined in `apps/web/src/app/globals.css`.
 - **Design tokens are CSS variables** in `:root` (`--background`, `--foreground`, `--cyan`, `--violet`, `--amber`, `--green`, `--red`, `--panel`, `--border`, `--radius`, etc.). Reference these variables; do not hardcode hex values that duplicate tokens.
 - **Color semantics**: cyan = active routing, violet = AI synthesis, amber = approval/waiting, green = verified/passed, red = blocked/failed. Color is always a secondary signal — never the only signal.
 - **`@theme inline`** maps a subset of CSS vars into Tailwind's theme (`--color-background`, `--color-foreground`, `--font-sans`, `--font-mono`). Extend this only when you need Tailwind utilities to consume a token.
 - **Responsive breakpoints**: `1240px` (collapse left nav to icons), `860px` (stack to single column). `prefers-reduced-motion` is respected.
-- When adding UI, follow the existing `of-*` class pattern and add styles to `globals.css`. Do not introduce a new styling approach mid-stream.
+- When adding UI, follow the existing `of-*` class pattern and add styles to `apps/web/src/app/globals.css`. Do not introduce a new styling approach mid-stream.
 
 ## Product Principles (non-negotiable)
 
@@ -90,7 +90,7 @@ These are enforced by `CONTRIBUTING.md` and the architecture docs:
 
 Follow conventional commits with scopes (established in git history and `CONTRIBUTING.md`):
 
-```
+```text
 feat(core): add run event types
 feat(ui): build terminal dock
 fix(ui): prevent mobile overflow
@@ -99,16 +99,16 @@ chore: update project metadata
 ```
 
 - One focused slice per commit. Commit messages should explain the product or engineering slice.
-- Do not commit unless explicitly asked. Do not push, merge, or open PRs unless explicitly asked.
+- Do not push, merge, or open PRs unless explicitly asked.
 
 ## Cloudflare / OpenNext
 
 - Deployment target is Cloudflare Workers via `@opennextjs/cloudflare`.
-- `wrangler.jsonc` is the deploy config. `compatibility_date` is pinned to `2026-06-27`.
-- `cloudflare-env.d.ts` is **generated** by `npm run cf-typegen`. Do not edit it by hand. Regenerate after changing `wrangler.jsonc` bindings.
-- D1 migration history lives in `infra/migrations`. Add a real `OPENFUSION_DB` binding with `migrations_dir: "infra/migrations"` after a D1 database is created.
-- `next.config.ts` calls `initOpenNextCloudflareForDev()` to enable `getCloudflareContext()` in `next dev`.
-- `.dev.vars` holds local secrets for dev (gitignored). `.dev.vars.example` is the template.
+- `apps/web/wrangler.jsonc` is the deploy config. `compatibility_date` is pinned to `2026-06-27`.
+- `apps/web/cloudflare-env.d.ts` is **generated** by `pnpm cf-typegen`. Do not edit it by hand. Regenerate after changing `apps/web/wrangler.jsonc` bindings.
+- D1 migration history lives in `packages/db/migrations`. Add a real `OPENFUSION_DB` binding with `migrations_dir: "../../packages/db/migrations"` after a D1 database is created.
+- `apps/web/next.config.ts` calls `initOpenNextCloudflareForDev()` to enable `getCloudflareContext()` in `pnpm dev`.
+- `.dev.vars` holds local secrets for dev (gitignored). `.dev.vars.example` and `apps/web/.dev.vars.example` are templates.
 
 ## Reference Docs
 

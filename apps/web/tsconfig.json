@@ -1,0 +1,22 @@
+{
+	"extends": "@openfusion/config/tsconfig/react.json",
+	"compilerOptions": {
+		"allowJs": true,
+		"noEmit": true,
+		"incremental": true,
+		"plugins": [
+			{
+				"name": "next"
+			}
+		],
+		"paths": {
+			"@/*": ["./src/*"]
+		},
+		"types": [
+			"./cloudflare-env.d.ts",
+			"node"
+		]
+	},
+	"include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".next/dev/types/**/*.ts"],
+	"exclude": ["node_modules"]
+}

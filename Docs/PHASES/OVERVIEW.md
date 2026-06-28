@@ -14,26 +14,26 @@ This document is the master index for a 13-phase buildout plan (Phase 00 through
 
 | Artifact | Location | Lines | Status |
 |---|---|---|---|
-| Domain types (UI-facing) | `src/types/openfusion.ts` | 205 | Complete — 7 agent kinds, 13 capabilities, 10 run statuses |
-| D1 row types + input contracts | `src/types/openfusion-db.ts` | 388 | Complete — 12 row types, 14 input contracts |
-| Event-sourced protocol | `src/types/openfusion-events.ts` | 152 | Complete — 13 event categories, browser/bridge control messages |
-| State machines | `src/lib/openfusion-state.ts` | 118 | Complete — run/approval/lease transitions |
-| Policy classifier + privacy matrix | `src/lib/openfusion-policy.ts` | 138 | Complete — 4 risk tiers, 3 privacy modes |
-| D1 schema | `infra/migrations/0001_openfusion_core.sql` | 224 | Complete — 12 tables, 16 indexes, FKs, CHECKs |
-| Typed D1 repositories | `src/lib/openfusion-db.ts` | 693 | Complete — 12 repos, prepared statements, R2 object_key support |
-| Runtime validators | `src/lib/validators.ts` | 390+ | Complete — zod schemas for all D1 input contracts + event envelope validation |
-| Quality gates | `package.json`, `vitest.config.ts`, `playwright.config.ts` | — | Complete — typecheck, eslint, vitest coverage, Playwright skeleton |
-| Mission Control dashboard (mock) | `src/components/openfusion/mission-control-dashboard.tsx` | 698 | Complete — 14 sub-components, custom `of-*` design system |
-| Design system CSS | `src/app/globals.css` | 1322 | Complete — 262 `of-*` classes, CSS variables, responsive |
-| Mock data | `src/lib/mock-openfusion.ts` | 410 | Complete — 5 agents, active run, queue, schedules, reports |
+| pnpm monorepo | `pnpm-workspace.yaml`, `apps/`, `packages/`, `workers/` | — | Complete — web app + shared package boundaries |
+| Domain types (UI-facing) | `packages/core/src/types/openfusion.ts` | 205 | Complete — 7 agent kinds, 13 capabilities, 10 run statuses |
+| D1 row types + input contracts | `packages/db/src/types/openfusion-db.ts` | 388 | Complete — 12 row types, 14 input contracts |
+| Event-sourced protocol | `packages/core/src/types/openfusion-events.ts` | 152 | Complete — 13 event categories, browser/bridge control messages |
+| State machines | `packages/core/src/state/openfusion-state.ts` | 118 | Complete — run/approval/lease transitions |
+| Policy classifier + privacy matrix | `packages/policy/src/classify-command-risk.ts` | 138 | Complete — 4 risk tiers, 3 privacy modes |
+| D1 schema | `packages/db/migrations/0001_openfusion_core.sql` | 224 | Complete — 12 tables, 16 indexes, FKs, CHECKs |
+| Typed D1 repositories | `packages/db/src/repositories.ts` | 693 | Complete — 12 repos, prepared statements, R2 object_key support |
+| Runtime validators | `packages/db/src/validators.ts` | 390+ | Complete — zod schemas for all D1 input contracts + event envelope validation |
+| Quality gates | `package.json`, package `vitest.config.ts`, `apps/web/playwright.config.ts` | — | Complete — typecheck, eslint, vitest coverage, Playwright skeleton |
+| Mission Control dashboard (mock) | `apps/web/src/components/openfusion/mission-control-dashboard.tsx` | 698 | Complete — 14 sub-components, custom `of-*` design system |
+| Design system CSS | `apps/web/src/app/globals.css` | 1322 | Complete — 262 `of-*` classes, CSS variables, responsive |
+| Mock data | `apps/web/src/lib/mock-openfusion.ts` | 410 | Complete — 5 agents, active run, queue, schedules, reports |
 | Architecture docs | `Docs/` (6 files) | ~6000+ | Complete — Blueprint, Core Contracts, DB Schema, Impl Guide |
 
 ### 1.2 Missing (blocks the full vision)
 
 | Missing component | Impact | Phase |
 |---|---|---|
-| Monorepo (`apps/`, `packages/`, `workers/`) | No package isolation | Phase 01 |
-| Cloudflare D1/R2 bindings in `wrangler.jsonc` | No database access | Phase 02 |
+| Cloudflare D1/R2 bindings in `apps/web/wrangler.jsonc` | No database access | Phase 02 |
 | Worker API / BFF (REST endpoints) | No server-state source | Phase 02 |
 | Durable Object session hub | No realtime, no event ordering | Phase 03 |
 | Local OpenFusion Bridge | No agent detection or execution | Phase 04 |
@@ -237,7 +237,7 @@ flowchart LR
 | Risk classification | `packages/policy/src/classify-command-risk.ts` |
 | Privacy decisions | `packages/policy/src/privacy-storage.ts` |
 | Event catalog | `packages/core/src/events/` |
-| D1 schema | `infra/migrations/` |
+| D1 schema | `packages/db/migrations/` |
 | Design tokens | `packages/ui/src/tokens.css` |
 | API contracts | `packages/bridge-protocol/src/` |
 

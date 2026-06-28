@@ -22,14 +22,17 @@ The boundary is intentional: D1 remains queryable and small, while R2 holds appe
 ## Files
 
 ```text
-infra/migrations/0001_openfusion_core.sql
+packages/db/migrations/0001_openfusion_core.sql
   Initial D1 schema, constraints, foreign keys, and indexes.
 
-src/types/openfusion-db.ts
+packages/db/src/types/openfusion-db.ts
   Raw D1 row types and camelCase repository input contracts.
 
-src/lib/openfusion-db.ts
+packages/db/src/repositories.ts
   Prepared-statement repository factory for Worker/API code.
+
+packages/db/src/validators.ts
+  Runtime zod validation for D1 repository input contracts.
 ```
 
 ## Tables
@@ -88,7 +91,7 @@ workspaces/{workspaceId}/queue/{date}/morning-summary.md
 
 ## Wrangler Binding
 
-After creating the Cloudflare resources, add real IDs to `wrangler.jsonc`:
+After creating the Cloudflare resources, add real IDs to `apps/web/wrangler.jsonc`:
 
 ```jsonc
 {
@@ -97,7 +100,7 @@ After creating the Cloudflare resources, add real IDs to `wrangler.jsonc`:
 			"binding": "OPENFUSION_DB",
 			"database_name": "openfusion-control",
 			"database_id": "<cloudflare-d1-database-id>",
-			"migrations_dir": "infra/migrations"
+			"migrations_dir": "../../packages/db/migrations"
 		}
 	],
 	"r2_buckets": [
@@ -112,7 +115,7 @@ After creating the Cloudflare resources, add real IDs to `wrangler.jsonc`:
 Then regenerate environment types:
 
 ```bash
-npm run cf-typegen
+pnpm cf-typegen
 ```
 
 ## Applying Migrations
@@ -120,13 +123,13 @@ npm run cf-typegen
 Local:
 
 ```bash
-wrangler d1 migrations apply openfusion-control --local
+pnpm --filter @openfusion/web wrangler d1 migrations apply openfusion-control --local
 ```
 
 Remote:
 
 ```bash
-wrangler d1 migrations apply openfusion-control --remote
+pnpm --filter @openfusion/web wrangler d1 migrations apply openfusion-control --remote
 ```
 
 ## Repository Usage
@@ -134,7 +137,7 @@ wrangler d1 migrations apply openfusion-control --remote
 Worker/API code should use `createOpenFusionRepositories()` instead of hand-written queries in route handlers:
 
 ```ts
-import { createOpenFusionRepositories } from "@/lib/openfusion-db";
+import { createOpenFusionRepositories } from "@openfusion/db";
 
 export async function createSession(env: { OPENFUSION_DB: D1Database }) {
 	const db = createOpenFusionRepositories(env.OPENFUSION_DB);
