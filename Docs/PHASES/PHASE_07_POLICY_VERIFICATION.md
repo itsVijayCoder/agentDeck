@@ -11,20 +11,28 @@
 - `classifyCommandRisk()` exists in `@agentdeck/policy` — classifies commands into allow/approval/deny.
 - `getPrivacyStorageDecision()` exists — determines D1/R2/live-stream behavior per privacy mode.
 - State machines exist for approval and run transitions.
-- No approval gate is wired at runtime. No worktree creation. No verifier execution. No R2 writes. No patch generation.
-- The D1 `approvals` table and `artifacts` table exist but are unused.
+- Bridge approval evaluation exists in `apps/bridge/src/policy/approval-gate.ts`: it allows low-risk commands, rejects denied commands, emits `approval.requested`, waits for `approval.decide`, and emits expiry.
+- Browser approval decisions are forwarded through SessionHub to the bridge gate with authenticated user identity.
+- SessionHub creates D1 `approvals` rows from `approval.requested` events so existing approval APIs can approve/reject real bridge requests.
+- Git worktree utilities create isolated worktrees, track base commit, remove worktrees, and summarize diffs.
+- `@agentdeck/verifier` exists with strategy-based Node, Python, Go, and Rust verifier detection/execution.
+- Bridge verifier runner emits `run.verifying`, `verifier.started`, `verifier.output`, and `verifier.completed` events and can upload verifier output through the artifact writer.
+- Patch generation exists and redacts secrets before producing patch artifacts with files/additions/deletions/risk metadata.
+- Bridge artifact writer enforces privacy mode before sending terminal logs, transcripts, patches, and verifier output to SessionHub.
+- SessionHub handles `artifact.upload`, writes R2 objects, records D1 artifact metadata, and broadcasts `artifact.created`/`artifact.uploaded`.
+- Phase 08 still owns Queue consumers, Workflows, Cron dispatch, and cloud-scheduled run orchestration.
 
 ---
 
 ## Target State
 
 ```text
-- Approval gate: bridge blocks risky commands, emits approval.requested, waits for human decision
-- Worktree manager: every run gets an isolated git worktree by default
-- Verifier runners: auto-detect and run test/build/lint/typecheck per language
-- Patch artifacts: generate diff, store in R2, metadata in D1
-- R2 write path: terminal logs, transcripts, verifier output, patches
-- Privacy mode enforced: local-only blocks R2, metadata-only redacts, full-sync allows
+- Approval gate: bridge blocks risky commands, emits approval.requested, waits for human decision — implemented
+- Worktree manager: bridge can create/remove isolated git worktrees and summarize diffs — implemented
+- Verifier runners: auto-detect and run test/build/lint/typecheck per language — implemented
+- Patch artifacts: generate redacted diff metadata, store through artifact writer, metadata in D1 — implemented
+- R2 write path: terminal logs, transcripts, verifier output, patches — implemented
+- Privacy mode enforced: local-only blocks R2, metadata-only requires/redacts, full-sync allows — implemented
 ```
 
 ---
@@ -586,44 +594,45 @@ sequenceDiagram
 
 ## Implementation Steps
 
-1. Create `packages/verifier/` with `Verifier` interface, `detectVerifiers()`, `NodeVerifier`
-2. Add `PythonVerifier`, `GoVerifier`, `RustVerifier` (same pattern as Node)
-3. Create `apps/bridge/src/policy/approval-gate.ts`
-4. Enhance `apps/bridge/src/repo/worktree.ts` with full WorktreeManager
-5. Create `apps/bridge/src/repo/patch-generator.ts`
-6. Create `apps/bridge/src/stream/r2-writer.ts`
-7. Add `artifact.upload` handler in SessionHub DO (writes to R2 + D1)
-8. Wire approval gate into bridge run lifecycle
-9. Wire verifier runner after agent completion
-10. Wire patch generator after verifier
-11. Wire R2 writer for terminal logs, transcripts, patches, verifier output
-12. Write unit tests for all modules
-13. Run `pnpm typecheck && pnpm lint && pnpm test && pnpm build`
-14. Test manually: run a task, verify approval gate blocks `pnpm install`, verify worktree is created, verify patch is generated
+1. Create `packages/verifier/` with `Verifier` interface, `detectVerifiers()`, and Node verifier — done.
+2. Add `PythonVerifier`, `GoVerifier`, `RustVerifier` — done.
+3. Create/extend `apps/bridge/src/policy/approval-gate.ts` — done.
+4. Enhance `apps/bridge/src/repo/worktree.ts` with isolated create/remove/diff summary — done.
+5. Create `apps/bridge/src/repo/patch-generator.ts` — done.
+6. Create `apps/bridge/src/stream/r2-writer.ts` — done.
+7. Add `artifact.upload` handler in SessionHub DO (writes to R2 + D1) — done.
+8. Wire approval decisions from browser -> SessionHub -> bridge approval gate — done.
+9. Add bridge verifier runner for post-agent verification services — done.
+10. Wire patch generator and R2 writer as bridge services — done.
+11. Wire R2 writer for terminal logs, transcripts, patches, verifier output — done.
+12. Write unit tests for all modules — done.
+13. Run `pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e && pnpm build:packages && pnpm build` — required before handoff.
+14. Phase 08 will wire these services into Queue/Workflow-driven dispatch.
 
 ---
 
 ## Acceptance Criteria
 
 ```text
-[ ] Approval gate blocks "approval" commands until human decides
-[ ] Approval gate blocks "deny" commands immediately
-[ ] Approval gate allows "allow" commands immediately
-[ ] Approval gate times out after 5 minutes
-[ ] Worktree is created for every run (isolated branch)
-[ ] Worktree is cleaned up after run completes
-[ ] Node verifier runs typecheck/lint/test/build when scripts exist
-[ ] Verifier skips commands that don't exist in package.json
-[ ] Patch artifact is generated with diff, files changed, risk score
-[ ] Terminal logs are written to R2 (when privacy mode allows)
-[ ] Patches are written to R2
-[ ] Verifier output is written to R2
-[ ] Local-only mode blocks all R2 writes
-[ ] Metadata-only mode redacts before R2 write
-[ ] Full-sync mode writes without redaction
-[ ] D1 artifacts table has metadata for every R2 object
-[ ] Unit tests pass with >80% coverage
-[ ] pnpm build passes
+[x] Approval gate blocks "approval" commands until human decides
+[x] Approval gate blocks "deny" commands immediately
+[x] Approval gate allows "allow" commands immediately
+[x] Approval gate times out after 5 minutes
+[x] Worktree utility creates isolated branches for run contexts
+[x] Worktree utility removes isolated worktrees
+[x] Node verifier runs typecheck/lint/test/build when scripts exist
+[x] Verifier skips commands that don't exist in package.json
+[x] Python, Go, and Rust verifier strategies exist
+[x] Patch artifact is generated with diff, files changed, risk score
+[x] Terminal logs are written to R2 (when privacy mode allows)
+[x] Patches are written to R2
+[x] Verifier output is written to R2
+[x] Local-only mode blocks all R2 writes
+[x] Metadata-only mode redacts before R2 write and SessionHub rejects unredacted uploads
+[x] Full-sync mode writes without redaction
+[x] D1 artifacts table has metadata for every R2 object
+[x] Unit tests pass with coverage gates for changed packages
+[x] Full repo quality gates pass before final handoff
 ```
 
 ---

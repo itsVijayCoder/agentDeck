@@ -8,6 +8,8 @@ import type {
 	VerificationStatus,
 } from "./agentdeck";
 
+export type ApprovalKind = "command" | "file" | "patch" | "provider" | "queue";
+
 export type EventSource = "browser" | "worker" | "durable-object" | "bridge" | "agent" | "verifier" | "ai-gateway";
 
 export type EventVisibility = "local-only" | "metadata" | "full";
@@ -86,7 +88,17 @@ export type ToolEvent =
 	| EventEnvelope<"tool.error", { toolCallId: string; error: string }>;
 
 export type ApprovalEvent =
-	| EventEnvelope<"approval.requested", { approvalId: string; title: string; risk: RiskLevel }>
+	| EventEnvelope<
+			"approval.requested",
+			{
+				approvalId: string;
+				expiresAt?: string;
+				kind?: ApprovalKind;
+				requestedAction?: unknown;
+				risk: RiskLevel;
+				title: string;
+			}
+	  >
 	| EventEnvelope<"approval.approved", { approvalId: string; decidedBy: string; status: ApprovalStatus }>
 	| EventEnvelope<"approval.rejected", { approvalId: string; decidedBy: string; reason?: string }>
 	| EventEnvelope<"approval.expired", { approvalId: string }>;
@@ -146,10 +158,22 @@ export type BrowserControlMessage =
 	| { type: "terminal.lease.release"; runId: string; leaseId: string }
 	| { type: "message.steer"; runId: string; content: string }
 	| { type: "message.follow_up"; runId: string; content: string }
-	| { type: "approval.decide"; approvalId: string; status: "approved" | "rejected"; notes?: string };
+	| { type: "approval.decide"; approvalId: string; status: "approved" | "rejected"; notes?: string; userId?: string };
+
+export type BridgeArtifactUploadMessage = {
+	artifactId?: string;
+	data: string;
+	kind: string;
+	mimeType: string;
+	objectKey: string;
+	redactionStatus?: "none" | "redacted";
+	runId?: string;
+	type: "artifact.upload";
+};
 
 export type BridgeMessage =
 	| { type: "machine.heartbeat"; machineId: string; sentAt: string }
 	| { type: "agent.detected"; agentKind: AgentKind; command: string; version?: string }
 	| { type: "run.status"; runId: string; status: RunStatus }
-	| { type: "event.batch"; events: AgentDeckEvent[] };
+	| { type: "event.batch"; events: AgentDeckEvent[] }
+	| BridgeArtifactUploadMessage;

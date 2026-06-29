@@ -1,4 +1,4 @@
-import type { AgentKind, RiskLevel } from "@agentdeck/core";
+import type { AgentKind, ApprovalKind, RiskLevel } from "@agentdeck/core";
 
 import type {
 	HarnessEventDraft,
@@ -245,6 +245,9 @@ export function toolErrorEvent(input: {
 
 export function approvalRequestedEvent(input: {
 	approvalId: string;
+	expiresAt?: string;
+	kind?: ApprovalKind;
+	requestedAction?: JsonValue;
 	risk: RiskLevel;
 	runId: string;
 	title: string;
@@ -252,6 +255,9 @@ export function approvalRequestedEvent(input: {
 	return {
 		payload: {
 			approvalId: input.approvalId,
+			...(input.expiresAt ? { expiresAt: input.expiresAt } : {}),
+			...(input.kind ? { kind: input.kind } : {}),
+			...(input.requestedAction ? { requestedAction: input.requestedAction } : {}),
 			risk: input.risk,
 			title: input.title,
 		},

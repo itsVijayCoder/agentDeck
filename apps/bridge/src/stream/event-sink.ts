@@ -96,6 +96,16 @@ export class CloudEventSink implements EventSink {
 		}
 	}
 
+	async sendBridgeMessage(message: BridgeMessage): Promise<boolean> {
+		const encoded = JSON.stringify(message);
+		const sent = await this.send(encoded);
+		if (sent === false) {
+			this.replayBuffer.push(encoded);
+			return false;
+		}
+		return true;
+	}
+
 	flushReplayBuffer(): void {
 		for (const message of this.replayBuffer.drain()) {
 			const sent = this.send(message);

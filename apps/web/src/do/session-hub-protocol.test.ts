@@ -4,6 +4,7 @@ import {
 	bridgeMessageToEventDrafts,
 	browserControlForBridge,
 	browserControlToEventDraft,
+	parseBridgeArtifactUploadMessage,
 	parseBrowserControlMessage,
 	shouldStorePayloadInR2,
 	visibilityForEvent,
@@ -106,6 +107,47 @@ describe("session hub protocol helpers", () => {
 			type: "terminal.lease.request",
 			userId: "user_01",
 		});
+		expect(
+			browserControlForBridge(
+				{
+					approvalId: "approval_01",
+					status: "approved",
+					type: "approval.decide",
+				},
+				"user_01",
+			),
+		).toEqual({
+			approvalId: "approval_01",
+			status: "approved",
+			type: "approval.decide",
+			userId: "user_01",
+		});
+	});
+
+	it("parses bridge artifact uploads outside the event batch path", () => {
+		expect(
+			parseBridgeArtifactUploadMessage({
+				artifactId: "artifact_01",
+				data: "patch",
+				kind: "patch-diff",
+				mimeType: "text/x-diff",
+				objectKey: "workspaces/ws/sessions/session/artifacts/artifact_01/patch.diff",
+				redactionStatus: "redacted",
+				runId: "run_01",
+				type: "artifact.upload",
+			}),
+		).toEqual({
+			artifactId: "artifact_01",
+			data: "patch",
+			kind: "patch-diff",
+			mimeType: "text/x-diff",
+			objectKey: "workspaces/ws/sessions/session/artifacts/artifact_01/patch.diff",
+			redactionStatus: "redacted",
+			runId: "run_01",
+			type: "artifact.upload",
+		});
+		expect(parseBridgeArtifactUploadMessage({ data: "patch", type: "artifact.upload" })).toBeNull();
+		expect(parseBridgeArtifactUploadMessage({ type: "event.batch" })).toBeNull();
 	});
 
 	it("keeps terminal visibility local unless full sync is enabled", () => {

@@ -1,6 +1,14 @@
 import { DurableObject } from "cloudflare:workers";
 import { transitionApprovalStatus } from "@agentdeck/core";
-import type { EventEnvelope, EventVisibility, AgentDeckEvent, PrivacyMode } from "@agentdeck/core";
+import type {
+	ApprovalKind,
+	BridgeArtifactUploadMessage,
+	EventEnvelope,
+	EventVisibility,
+	AgentDeckEvent,
+	PrivacyMode,
+	RiskLevel,
+} from "@agentdeck/core";
 import {
 	SESSION_HUB_RECENT_EVENT_LIMIT,
 	type SessionHubClientRole,
@@ -12,13 +20,17 @@ import {
 	createAgentDeckRepositories,
 	agentDeckEventSchema,
 	type AgentDeckRepositories,
+	type JsonValue,
 } from "@agentdeck/db";
+import { getPrivacyStorageDecision } from "@agentdeck/policy";
 
 import {
 	SESSION_HUB_HEADERS,
 	bridgeMessageToEventDrafts,
 	browserControlForBridge,
 	browserControlToEventDraft,
+	isJsonValue,
+	parseBridgeArtifactUploadMessage,
 	parseBrowserControlMessage,
 	shouldStorePayloadInR2,
 	visibilityForEvent,
@@ -239,6 +251,12 @@ export class SessionHub extends DurableObject<SessionHubEnv> {
 	}
 
 	private async handleBridgeMessage(ws: WebSocket, message: unknown): Promise<void> {
+		const artifactUpload = parseBridgeArtifactUploadMessage(message);
+		if (artifactUpload) {
+			await this.handleArtifactUpload(ws, artifactUpload);
+			return;
+		}
+
 		const drafts = bridgeMessageToEventDrafts(message);
 		if (!drafts) {
 			this.sendError(ws, "BAD_MESSAGE", "Bridge message does not match the AgentDeck protocol.");
@@ -255,11 +273,6 @@ export class SessionHub extends DurableObject<SessionHubEnv> {
 		if (!control) {
 			this.sendError(ws, "BAD_MESSAGE", "Browser control message does not match the AgentDeck protocol.");
 			return;
-		}
-
-		const forwarded = this.forwardToBridge(browserControlForBridge(control, client.userId ?? "unknown"));
-		if (forwarded === 0) {
-			this.sendError(ws, "BRIDGE_UNAVAILABLE", "No bridge is connected for this session.");
 		}
 
 		let approvalRunId: string | undefined;
@@ -288,6 +301,11 @@ export class SessionHub extends DurableObject<SessionHubEnv> {
 			approvalRunId = approval.run_id;
 		}
 
+		const forwarded = this.forwardToBridge(browserControlForBridge(control, client.userId ?? "unknown"));
+		if (forwarded === 0) {
+			this.sendError(ws, "BRIDGE_UNAVAILABLE", "No bridge is connected for this session.");
+		}
+
 		const draft = browserControlToEventDraft(control, client.userId ?? "unknown", approvalRunId);
 		if (draft) {
 			await this.persistAndBroadcast(draft);
@@ -301,6 +319,10 @@ export class SessionHub extends DurableObject<SessionHubEnv> {
 		const validation = agentDeckEventSchema.safeParse(validationEnvelope);
 		if (!validation.success) {
 			throw new SessionHubHttpError(400, "VALIDATION_ERROR", "Event envelope failed AgentDeck validation.");
+		}
+
+		if (validationEnvelope.type === "approval.requested") {
+			await this.persistApprovalRequest(validationEnvelope);
 		}
 
 		const seq = this.reserveNextSeq();
@@ -351,6 +373,107 @@ export class SessionHub extends DurableObject<SessionHubEnv> {
 		await this.getRepositories().events.append({
 			event: { ...envelope, hash } as AgentDeckEvent,
 			objectKey,
+		});
+	}
+
+	private async handleArtifactUpload(ws: WebSocket, upload: BridgeArtifactUploadMessage): Promise<void> {
+		const meta = this.requireSessionMeta();
+		const storageDecision = getPrivacyStorageDecision(meta.privacy_mode);
+
+		if (storageDecision.r2 === "blocked") {
+			this.sendError(ws, "FORBIDDEN", "Artifact uploads are blocked by this session privacy mode.");
+			return;
+		}
+
+		if (storageDecision.r2 === "redacted" && upload.redactionStatus !== "redacted") {
+			this.sendError(ws, "VALIDATION_ERROR", "Metadata-only sessions require pre-redacted artifact uploads.");
+			return;
+		}
+
+		if (!upload.objectKey.startsWith(`workspaces/${meta.workspace_id}/sessions/${meta.session_id}/`)) {
+			this.sendError(ws, "FORBIDDEN", "Artifact object key is outside this session namespace.");
+			return;
+		}
+
+		const artifactId = upload.artifactId ?? crypto.randomUUID();
+		const sizeBytes = new TextEncoder().encode(upload.data).byteLength;
+		const sha256 = await sha256Hex(upload.data);
+		const redactionStatus = upload.redactionStatus ?? "none";
+
+		await this.env.AGENTDECK_ARTIFACTS.put(upload.objectKey, upload.data, {
+			customMetadata: {
+				artifactId,
+				kind: upload.kind,
+				sessionId: meta.session_id,
+				...(upload.runId ? { runId: upload.runId } : {}),
+			},
+			httpMetadata: {
+				contentType: upload.mimeType,
+			},
+		});
+
+		const repositories = this.getRepositories();
+		if (!(await repositories.artifacts.findById(artifactId))) {
+			await repositories.artifacts.create({
+				id: artifactId,
+				kind: upload.kind,
+				mimeType: upload.mimeType,
+				objectKey: upload.objectKey,
+				redactionStatus,
+				runId: upload.runId ?? null,
+				sessionId: meta.session_id,
+				sha256,
+				sizeBytes,
+				workspaceId: meta.workspace_id,
+			});
+		}
+
+		await this.persistAndBroadcast({
+			payload: {
+				artifactId,
+				kind: upload.kind,
+				objectKey: upload.objectKey,
+			},
+			runId: upload.runId,
+			source: "durable-object",
+			type: "artifact.created",
+			visibility: "metadata",
+		});
+		await this.persistAndBroadcast({
+			payload: {
+				artifactId,
+				sha256,
+				sizeBytes,
+			},
+			runId: upload.runId,
+			source: "durable-object",
+			type: "artifact.uploaded",
+			visibility: "metadata",
+		});
+	}
+
+	private async persistApprovalRequest(envelope: EventEnvelope): Promise<void> {
+		if (!isJsonRecord(envelope.payload) || !isApprovalRequestPayload(envelope.payload) || !envelope.runId) {
+			throw new SessionHubHttpError(400, "VALIDATION_ERROR", "Approval request payload is incomplete.");
+		}
+
+		const repositories = this.getRepositories();
+		if (await repositories.approvals.findById(envelope.payload.approvalId)) {
+			return;
+		}
+
+		await repositories.approvals.create({
+			expiresAt: typeof envelope.payload.expiresAt === "string" ? envelope.payload.expiresAt : null,
+			id: envelope.payload.approvalId,
+			kind: isApprovalKind(envelope.payload.kind) ? envelope.payload.kind : "command",
+			requestedAction: isJsonValue(envelope.payload.requestedAction)
+				? envelope.payload.requestedAction
+				: approvalPayloadToRequestedAction(envelope.payload),
+			risk: envelope.payload.risk,
+			runId: envelope.runId,
+			sessionId: envelope.sessionId,
+			title: envelope.payload.title,
+			workspaceId: envelope.workspaceId,
 		});
 	}
 
@@ -544,6 +667,38 @@ async function sha256Hex(value: string): Promise<string> {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isJsonRecord(value: unknown): value is Record<string, JsonValue> {
+	return isRecord(value) && Object.values(value).every(isJsonValue);
+}
+
+function isApprovalRequestPayload(value: Record<string, JsonValue>): value is Record<string, JsonValue> & {
+	approvalId: string;
+	risk: RiskLevel;
+	title: string;
+} {
+	return typeof value.approvalId === "string" && typeof value.title === "string" && isRiskLevel(value.risk);
+}
+
+function isApprovalKind(value: unknown): value is ApprovalKind {
+	return value === "command" || value === "file" || value === "patch" || value === "provider" || value === "queue";
+}
+
+function isRiskLevel(value: unknown): value is RiskLevel {
+	return value === "low" || value === "medium" || value === "high" || value === "critical";
+}
+
+function approvalPayloadToRequestedAction(payload: {
+	approvalId: string;
+	risk: RiskLevel;
+	title: string;
+}): JsonValue {
+	return {
+		approvalId: payload.approvalId,
+		risk: payload.risk,
+		title: payload.title,
+	};
 }
 
 function errorToString(error: unknown): string {

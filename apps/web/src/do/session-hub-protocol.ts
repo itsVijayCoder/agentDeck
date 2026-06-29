@@ -1,5 +1,6 @@
 import type {
 	BrowserControlMessage,
+	BridgeArtifactUploadMessage,
 	EventSource,
 	EventVisibility,
 	AgentDeckEvent,
@@ -106,6 +107,40 @@ export function bridgeMessageToEventDrafts(message: unknown): SessionHubEventDra
 		default:
 			return singleDraftOrNull(inboundEventToDraft(message, "bridge"));
 	}
+}
+
+export function parseBridgeArtifactUploadMessage(message: unknown): BridgeArtifactUploadMessage | null {
+	if (!isJsonRecord(message) || message.type !== "artifact.upload") {
+		return null;
+	}
+
+	if (
+		typeof message.data !== "string" ||
+		typeof message.kind !== "string" ||
+		typeof message.mimeType !== "string" ||
+		typeof message.objectKey !== "string"
+	) {
+		return null;
+	}
+
+	if (
+		message.redactionStatus !== undefined &&
+		message.redactionStatus !== "none" &&
+		message.redactionStatus !== "redacted"
+	) {
+		return null;
+	}
+
+	return {
+		data: message.data,
+		kind: message.kind,
+		mimeType: message.mimeType,
+		objectKey: message.objectKey,
+		...(typeof message.artifactId === "string" ? { artifactId: message.artifactId } : {}),
+		...(message.redactionStatus ? { redactionStatus: message.redactionStatus } : {}),
+		...(typeof message.runId === "string" ? { runId: message.runId } : {}),
+		type: "artifact.upload",
+	};
 }
 
 export function parseBrowserControlMessage(message: unknown): BrowserControlMessage | null {
@@ -227,6 +262,7 @@ export function browserControlForBridge(message: BrowserControlMessage, userId: 
 	switch (message.type) {
 		case "terminal.stdin":
 		case "terminal.lease.request":
+		case "approval.decide":
 			return { ...message, userId };
 		default:
 			return message;

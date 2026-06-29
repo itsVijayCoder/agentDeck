@@ -115,6 +115,27 @@ describe("harness event helpers", () => {
 			payload: { approvalId: "app_1", risk: "critical", title: "Deploy" },
 			type: "approval.requested",
 		});
+		expect(
+			approvalRequestedEvent({
+				approvalId: "app_2",
+				expiresAt: "2026-06-29T00:05:00.000Z",
+				kind: "command",
+				requestedAction: { command: "pnpm add zod" },
+				risk: "medium",
+				runId: "run_1",
+				title: "Install dependency",
+			}),
+		).toMatchObject({
+			payload: {
+				approvalId: "app_2",
+				expiresAt: "2026-06-29T00:05:00.000Z",
+				kind: "command",
+				requestedAction: { command: "pnpm add zod" },
+				risk: "medium",
+				title: "Install dependency",
+			},
+			type: "approval.requested",
+		});
 	});
 
 	it("stringifies JSON values without wrapping strings", () => {

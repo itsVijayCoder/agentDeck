@@ -4,9 +4,9 @@ Guidance for AI coding agents working in this repository.
 
 ## Current State
 
-This repo is a **pnpm monorepo** for AgentDeck Mission Control. It has typed domain models, event contracts, state machines, a policy classifier, D1 persistence contracts, runtime validators, Worker API routes, a Durable Object session hub, the local bridge, terminal jump-in control, harness adapter contracts, agent event normalization, mock data, and the production dashboard UI.
+This repo is a **pnpm monorepo** for AgentDeck Mission Control. It has typed domain models, event contracts, state machines, a policy classifier, D1 persistence contracts, runtime validators, Worker API routes, a Durable Object session hub, the local bridge, terminal jump-in control, harness adapter contracts, agent event normalization, approval-gated command policy services, isolated worktree helpers, verifier strategies, patch/artifact upload plumbing, mock data, and the production dashboard UI.
 
-There is still no Queue consumer, Workflow, or cloud-dispatched real run orchestration yet. Agent adapters can start local agent processes through the bridge harness, but later phases still own approval-gated command execution, worktree isolation for every dispatched run, verifiers, queue consumers, workflows, and reports. The R2 path exists for artifacts and large SessionHub event payloads, but bridge-side artifact upload workflows are still planned.
+There is still no Queue consumer, Workflow, or cloud-dispatched real run orchestration yet. Agent adapters can start local agent processes through the bridge harness, and Phase 07 now provides the bridge/runtime services needed by dispatched runs: approval wait gates, worktree creation/removal, verifier runners, patch generation, and privacy-aware artifact uploads. Later phases still own queue consumers, workflows, scheduled dispatch, multi-agent orchestration, and reports.
 
 `Docs/IMPLEMENTATION_GUIDE_WITH_PI.md` describes the full planned architecture. Trust the code and current phase docs for what is implemented today.
 
@@ -50,6 +50,7 @@ packages/
   core/                                 Domain types, events, state machines
   harness/                              Agent adapter SDK, registry, event draft helpers
   policy/                               Command risk + privacy storage decisions
+  verifier/                             Test/build/lint/typecheck detector strategies
   db/                                   D1 repositories, input validators, migrations
   config/                               Shared tsconfig and ESLint presets
   bridge-protocol/                      Shared SessionHub protocol roles/messages/constants
@@ -64,6 +65,7 @@ infra/migrations/
 - **Types are the contract.** `@agentdeck/core` owns domain and event types. Add shared types there before app-local shapes.
 - **State machines are authoritative.** `@agentdeck/core` exports legal transitions for `RunStatus`, `ApprovalStatus`, and `TerminalLeaseMode`. Use `transitionRunStatus()`, `transitionApprovalStatus()`, `transitionTerminalLease()` — do not invent new transitions or bypass these.
 - **Policy classifier is authoritative.** `@agentdeck/policy` exports `classifyCommandRisk()` and privacy storage decisions. Reuse it; do not duplicate risk logic.
+- **Verifier strategies are shared.** `@agentdeck/verifier` owns language/tool detection and deterministic test/lint/typecheck/build command execution. Bridge code should use it instead of ad hoc verifier commands.
 - **D1 repositories are the database boundary.** `@agentdeck/db` exposes `createAgentDeckRepositories()`. Use it in future Worker/API code instead of writing ad hoc queries in handlers.
 - **Runtime validators guard D1 inputs.** `@agentdeck/db` exports zod validators for repository/API boundaries. Do not duplicate ad hoc validation in handlers.
 - **Mock data stays in `apps/web/src/lib/mock-agentdeck.ts`.** Do not inline mock data in components. Do not introduce real provider calls, real fetch, or real auth into the mock UI.

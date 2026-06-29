@@ -6,6 +6,7 @@ import type { AdapterRegistry } from "@agentdeck/harness";
 import { pairingAgentsFromProbeResults } from "../agents/detector.js";
 import { createBridgeAdapterRegistry } from "../agents/adapters/registry.js";
 import { getStatePath } from "../config.js";
+import { ApprovalGate } from "../policy/approval-gate.js";
 import { JsonlReplayBuffer } from "../state/jsonl-replay-buffer.js";
 import type { BridgeConfig, BridgeRuntimeOptions } from "../types.js";
 import {
@@ -17,6 +18,7 @@ import { CloudEventSink } from "./event-sink.js";
 
 export type BridgeRuntime = {
 	adapterRegistry: AdapterRegistry;
+	approvalGate: ApprovalGate;
 	close(): void;
 	sink: CloudEventSink;
 	socket: ReconnectingWebSocket;
@@ -25,6 +27,7 @@ export type BridgeRuntime = {
 
 export type StartBridgeOptions = BridgeRuntimeOptions & {
 	adapterRegistry?: AdapterRegistry;
+	approvalGate?: ApprovalGate;
 	onControlMessage?: (message: BrowserControlMessage, handled: boolean) => void;
 	terminalSessions?: TerminalSessionRegistry;
 };
@@ -38,13 +41,15 @@ export type ReconnectingWebSocketOptions = {
 export async function startBridge(config: BridgeConfig, options: StartBridgeOptions): Promise<BridgeRuntime> {
 	const terminalSessions = options.terminalSessions ?? new TerminalSessionRegistry();
 	const adapterRegistry = options.adapterRegistry ?? createBridgeAdapterRegistry({ terminalSessions });
+	const approvalGate = options.approvalGate ?? new ApprovalGate();
 	const socket = new ReconnectingWebSocket(config, options.sessionId, {
 		onMessage: (message) => {
 			if (!isBrowserControlMessage(message)) {
 				return;
 			}
 
-			const handled = handleTerminalControlMessage(message, terminalSessions);
+			const handled =
+				handleApprovalControlMessage(message, approvalGate) || handleTerminalControlMessage(message, terminalSessions);
 			options.onControlMessage?.(message, handled);
 		},
 	});
@@ -97,6 +102,7 @@ export async function startBridge(config: BridgeConfig, options: StartBridgeOpti
 
 	return {
 		adapterRegistry,
+		approvalGate,
 		close: () => {
 			clearInterval(heartbeat);
 			socket.close();
@@ -105,6 +111,19 @@ export async function startBridge(config: BridgeConfig, options: StartBridgeOpti
 		socket,
 		terminalSessions,
 	};
+}
+
+function handleApprovalControlMessage(message: BrowserControlMessage, approvalGate: ApprovalGate): boolean {
+	if (message.type !== "approval.decide") {
+		return false;
+	}
+
+	return approvalGate.resolve({
+		approvalId: message.approvalId,
+		decidedBy: message.userId,
+		notes: message.notes,
+		status: message.status,
+	});
 }
 
 export class ReconnectingWebSocket {

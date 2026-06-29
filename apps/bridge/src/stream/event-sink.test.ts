@@ -78,6 +78,46 @@ describe("CloudEventSink", () => {
 		expect(sent).toHaveLength(1);
 	});
 
+	it("sends direct bridge messages through the replay boundary", async () => {
+		const replayBuffer = new ReplayBuffer<string>();
+		const sink = new CloudEventSink(() => false, {
+			privacyMode: "metadata-only",
+			replayBuffer,
+		});
+
+		await expect(
+			sink.sendBridgeMessage({
+				data: "patch",
+				kind: "patch-diff",
+				mimeType: "text/x-diff",
+				objectKey: "workspaces/ws/sessions/sess/artifacts/a/patch.diff",
+				type: "artifact.upload",
+			}),
+		).resolves.toBe(false);
+		expect(replayBuffer.size).toBe(1);
+	});
+
+	it("reports successful direct bridge messages", async () => {
+		const sent: string[] = [];
+		const sink = new CloudEventSink((data) => {
+			sent.push(data);
+			return true;
+		}, { privacyMode: "metadata-only" });
+
+		await expect(
+			sink.sendBridgeMessage({
+				machineId: "machine-1",
+				sentAt: "now",
+				type: "machine.heartbeat",
+			}),
+		).resolves.toBe(true);
+		expect(JSON.parse(sent[0] ?? "{}")).toEqual({
+			machineId: "machine-1",
+			sentAt: "now",
+			type: "machine.heartbeat",
+		});
+	});
+
 	it("keeps replay batches when reconnect send still fails", () => {
 		const replayBuffer = new ReplayBuffer<string>();
 		replayBuffer.push(JSON.stringify({ events: [], type: "event.batch" }));

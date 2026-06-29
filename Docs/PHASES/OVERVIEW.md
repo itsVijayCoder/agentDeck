@@ -34,13 +34,13 @@ This document is the master index for a 13-phase buildout plan (Phase 00 through
 | Local AgentDeck Bridge | `apps/bridge/src/` | — | Complete — pairing, agent detection, PTY/session primitives, policy gate, redaction, reconnecting SessionHub WebSocket, JSONL replay state, worktree helpers |
 | Real terminal and jump-in control | `apps/web/src/components/agentdeck/terminal-*.tsx`, `apps/bridge/src/pty/terminal-control.ts` | — | Complete — xterm.js terminal dock, resize/stdin/lease controls, authenticated audit identity, bridge terminal dispatcher, R2 terminal payload offload |
 | Agent adapter harness | `packages/harness/src/`, `apps/bridge/src/agents/adapters/` | — | Complete — HarnessAdapter contract, registry, Claude/Codex/OpenCode/Qwen/Pi/Aider/ACP adapters, Pi mode strategy, normalized event mapper, structured event UI |
+| Policy, verification, worktrees, artifacts | `packages/verifier/src/`, `apps/bridge/src/policy/`, `apps/bridge/src/repo/`, `apps/bridge/src/stream/r2-writer.ts`, `apps/web/src/do/session-hub.ts` | — | Complete — approval wait gate, approval D1 rows, isolated worktree helpers, verifier strategies, patch artifacts, privacy-aware artifact upload path, R2/D1 artifact metadata |
 | Architecture docs | `Docs/` (6 files) | ~6000+ | Complete — Blueprint, Core Contracts, DB Schema, Impl Guide |
 
 ### 1.2 Missing (blocks the full vision)
 
 | Missing component | Impact | Phase |
 |---|---|---|
-| Approval gates + worktrees + verifiers | No safety or verification | Phase 07 |
 | Queues + Workflows + Cron | No overnight/scheduled jobs | Phase 08 |
 | Multi-agent orchestration (judge/synthesis) | No candidate comparison | Phase 09 |
 | AI Gateway + provider abstraction | No model routing or cost tracking | Phase 10 |
@@ -120,7 +120,7 @@ agentdeck/
 │   ├── bridge-protocol/             # WS/RPC schemas
 │   ├── policy/                      # Command/provider/privacy/path policies
 │   ├── redaction/                   # Secret redaction
-│   ├── verifier/                    # Test/build/lint detectors
+│   ├── verifier/                    # Test/build/lint/typecheck detectors
 │   ├── db/                          # D1 migrations + repositories
 │   ├── ui/                          # Shared UI components + design tokens
 │   └── config/                      # tsconfig/eslint/tailwind presets
