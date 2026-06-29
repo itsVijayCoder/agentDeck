@@ -223,6 +223,16 @@ export function browserControlToEventDraft(
 	}
 }
 
+export function browserControlForBridge(message: BrowserControlMessage, userId: string): BrowserControlMessage {
+	switch (message.type) {
+		case "terminal.stdin":
+		case "terminal.lease.request":
+			return { ...message, userId };
+		default:
+			return message;
+	}
+}
+
 export function visibilityForEvent(type: AgentDeckEvent["type"], privacyMode: PrivacyMode): EventVisibility {
 	if (privacyMode === "full-sync") {
 		return "full";
@@ -241,7 +251,15 @@ export function shouldStorePayloadInR2(input: {
 	type: AgentDeckEvent["type"];
 }): boolean {
 	const decision = getPrivacyStorageDecision(input.privacyMode);
-	return decision.r2 !== "blocked" && input.payloadBytes > SESSION_HUB_LARGE_PAYLOAD_BYTES;
+	if (decision.r2 === "blocked") {
+		return false;
+	}
+
+	if (input.type === "terminal.stdout" || input.type === "terminal.stderr") {
+		return true;
+	}
+
+	return input.payloadBytes > SESSION_HUB_LARGE_PAYLOAD_BYTES;
 }
 
 export function isJsonValue(value: unknown): value is JsonValue {

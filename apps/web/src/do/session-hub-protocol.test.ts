@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
 	bridgeMessageToEventDrafts,
+	browserControlForBridge,
 	browserControlToEventDraft,
 	parseBrowserControlMessage,
 	shouldStorePayloadInR2,
@@ -73,16 +74,50 @@ describe("session hub protocol helpers", () => {
 		});
 	});
 
+	it("injects authenticated browser identity into terminal controls forwarded to the bridge", () => {
+		expect(
+			browserControlForBridge(
+				{
+					data: "ls\n",
+					runId: "run_01",
+					type: "terminal.stdin",
+				},
+				"user_01",
+			),
+		).toEqual({
+			data: "ls\n",
+			runId: "run_01",
+			type: "terminal.stdin",
+			userId: "user_01",
+		});
+
+		expect(
+			browserControlForBridge(
+				{
+					mode: "human-control",
+					runId: "run_01",
+					type: "terminal.lease.request",
+				},
+				"user_01",
+			),
+		).toEqual({
+			mode: "human-control",
+			runId: "run_01",
+			type: "terminal.lease.request",
+			userId: "user_01",
+		});
+	});
+
 	it("keeps terminal visibility local unless full sync is enabled", () => {
 		expect(visibilityForEvent("terminal.stdout", "metadata-only")).toBe("local-only");
 		expect(visibilityForEvent("terminal.stdout", "full-sync")).toBe("full");
 		expect(visibilityForEvent("agent.detected", "metadata-only")).toBe("metadata");
 	});
 
-	it("routes only large sync-eligible payloads to R2", () => {
+	it("routes sync-eligible terminal recordings and large payloads to R2", () => {
 		expect(
 			shouldStorePayloadInR2({
-				payloadBytes: 20_000,
+				payloadBytes: 120,
 				privacyMode: "metadata-only",
 				type: "terminal.stdout",
 			}),

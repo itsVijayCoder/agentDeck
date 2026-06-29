@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { classifyCommandRisk, getPrivacyStorageDecision } from "@agentdeck/policy";
+import { useCallback, useMemo, useState } from "react";
+import { getPrivacyStorageDecision } from "@agentdeck/policy";
 import { deriveRunProgress, transitionApprovalStatus, transitionTerminalLease } from "@agentdeck/core";
 import {
 	activeRun,
@@ -13,20 +13,26 @@ import {
 	scheduledJobs,
 	workspaceSummary,
 } from "@/lib/mock-agentdeck";
+import { useSessionWebSocket } from "@/lib/use-session-websocket";
 import type {
 	AgentGraphNode,
 	AgentInstallation,
 	ApprovalRequest,
+	BrowserControlMessage,
 	GraphNodeStatus,
 	PolicyRule,
 	QueueItem,
 	RiskLevel,
 	ScheduledJob,
 	TerminalLeaseMode,
-	TerminalTab,
-	TerminalTabStatus,
 	VerificationResult,
 } from "@agentdeck/core";
+import { TerminalDock } from "./terminal-dock";
+import {
+	defaultTerminalLeaseState,
+	deriveTerminalLeaseStates,
+	type TerminalLeaseState,
+} from "./terminal-lease";
 
 const statusLabels: Record<GraphNodeStatus, string> = {
 	complete: "Complete",
@@ -46,9 +52,16 @@ export function MissionControlDashboard() {
 	const [selectedNav, setSelectedNav] = useState("mission");
 	const [selectedNodeId, setSelectedNodeId] = useState("claude");
 	const [terminalTabId, setTerminalTabId] = useState("claude");
-	const [leaseMode, setLeaseMode] = useState<TerminalLeaseMode>("agent-control");
+	const [localLeaseStates, setLocalLeaseStates] = useState<Record<string, TerminalLeaseState>>({});
 	const [approvedIds, setApprovedIds] = useState<Set<string>>(() => new Set());
 	const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+	const sessionSocket = useSessionWebSocket(activeRun.sessionId);
+	const {
+		connected: sessionConnected,
+		error: sessionError,
+		events: sessionEvents,
+		send: sendSessionMessage,
+	} = sessionSocket;
 	const runProgress = deriveRunProgress(activeRun.status);
 
 	const selectedNode = useMemo(
@@ -60,14 +73,82 @@ export function MissionControlDashboard() {
 		() => activeRun.terminalTabs.find((tab) => tab.id === terminalTabId) ?? activeRun.terminalTabs[0],
 		[terminalTabId],
 	);
+	const liveLeaseStates = useMemo(() => deriveTerminalLeaseStates(sessionEvents), [sessionEvents]);
+	const activeLeaseState = terminalTab
+		? liveLeaseStates[terminalTab.runId] ?? localLeaseStates[terminalTab.runId] ?? defaultTerminalLeaseState
+		: defaultTerminalLeaseState;
+	const leaseMode = activeLeaseState.mode;
 
 	const pendingApprovals = activeRun.approvals.filter((approval) => !approvedIds.has(approval.id));
 	const privacyDecision = getPrivacyStorageDecision(workspaceSummary.privacyMode);
 
-	function requestLeaseMode(mode: TerminalLeaseMode) {
-		const transition = transitionTerminalLease(leaseMode, mode);
-		if (transition.ok) setLeaseMode(mode);
-	}
+	const applyLocalTerminalControl = useCallback((message: BrowserControlMessage) => {
+		switch (message.type) {
+			case "terminal.lease.request":
+				setLocalLeaseStates((current) => ({
+					...current,
+					[message.runId]: {
+						leaseId: `local-${message.runId}`,
+						mode: message.mode,
+					},
+				}));
+				break;
+			case "terminal.lease.release":
+				setLocalLeaseStates((current) => ({
+					...current,
+					[message.runId]: defaultTerminalLeaseState,
+				}));
+				break;
+			default:
+				break;
+		}
+	}, []);
+
+	const sendTerminalControl = useCallback(
+		(message: BrowserControlMessage) => {
+			const sent = sendSessionMessage(message);
+			if (!sent) {
+				applyLocalTerminalControl(message);
+			}
+			return sent;
+		},
+		[applyLocalTerminalControl, sendSessionMessage],
+	);
+
+	const requestLeaseMode = useCallback(
+		(mode: TerminalLeaseMode) => {
+			if (!terminalTab) return;
+
+			const transition = transitionTerminalLease(activeLeaseState.mode, mode);
+			if (!transition.ok) return;
+
+			if (mode === "agent-control") {
+				const leaseId = activeLeaseState.leaseId ?? localLeaseStates[terminalTab.runId]?.leaseId;
+				if (!leaseId) {
+					applyLocalTerminalControl({
+						leaseId: `local-${terminalTab.runId}`,
+						runId: terminalTab.runId,
+						type: "terminal.lease.release",
+					});
+					return;
+				}
+
+				sendTerminalControl({
+					leaseId,
+					runId: terminalTab.runId,
+					type: "terminal.lease.release",
+				});
+				return;
+			}
+
+			sendTerminalControl({
+				mode,
+				runId: terminalTab.runId,
+				type: "terminal.lease.request",
+			});
+		},
+		[activeLeaseState, applyLocalTerminalControl, localLeaseStates, sendTerminalControl, terminalTab],
+	);
 
 	function approveRequest(approvalId: string) {
 		const approval = activeRun.approvals.find((item) => item.id === approvalId);
@@ -105,11 +186,15 @@ export function MissionControlDashboard() {
 					/>
 				</main>
 				<TerminalDock
-					selectedTab={terminalTab}
+					connected={sessionConnected}
+					connectionError={sessionError}
+					events={sessionEvents}
+					leaseState={activeLeaseState}
+					onControl={sendTerminalControl}
 					selectedTabId={terminalTabId}
-					leaseMode={leaseMode}
 					onSelectTab={setTerminalTabId}
-					onLeaseModeChange={requestLeaseMode}
+					sessionId={activeRun.sessionId}
+					tabs={activeRun.terminalTabs}
 				/>
 			</div>
 			{commandPaletteOpen ? <CommandPalette onClose={() => setCommandPaletteOpen(false)} /> : null}
@@ -229,11 +314,18 @@ function ActiveRunHeader({
 			<div className="of-hero-actions" aria-label="Run controls">
 				<div className="of-lease-banner">{leaseLabels[leaseMode]}</div>
 				<div className="of-action-row">
-					<button className="of-primary-action" type="button" onClick={() => onLeaseModeChange("human-control")}>
-						Jump In
+					<button
+						className="of-primary-action"
+						type="button"
+						onClick={() => onLeaseModeChange(leaseMode === "human-control" ? "agent-control" : "human-control")}
+					>
+						{leaseMode === "human-control" ? "Release Control" : "Jump In"}
 					</button>
 					<button className="of-secondary-action" type="button" onClick={() => onLeaseModeChange("agent-control")}>
-						Pause Agent
+						Agent Control
+					</button>
+					<button className="of-secondary-action" type="button" onClick={() => onLeaseModeChange("read-only")}>
+						Observe
 					</button>
 					<button className="of-secondary-action" type="button">
 						Queue Follow-up
@@ -565,75 +657,6 @@ function PolicyRow({ rule }: { rule: PolicyRule }) {
 	);
 }
 
-function TerminalDock({
-	selectedTab,
-	selectedTabId,
-	leaseMode,
-	onSelectTab,
-	onLeaseModeChange,
-}: {
-	selectedTab: TerminalTab;
-	selectedTabId: string;
-	leaseMode: TerminalLeaseMode;
-	onSelectTab: (tabId: string) => void;
-	onLeaseModeChange: (mode: TerminalLeaseMode) => void;
-}) {
-	const commandPolicy = useMemo(() => {
-		const lastPromptLine = selectedTab.lines.findLast((line) => line.prompt);
-		return lastPromptLine ? classifyCommandRisk(lastPromptLine.text) : undefined;
-	}, [selectedTab]);
-
-	return (
-		<section className="of-terminal-dock" aria-label="Terminal dock">
-			<div className="of-terminal-tabs">
-				{activeRun.terminalTabs.map((tab) => (
-					<button
-						key={tab.id}
-						className={tab.id === selectedTabId ? "of-terminal-tab is-active" : "of-terminal-tab"}
-						type="button"
-						onClick={() => onSelectTab(tab.id)}
-					>
-						<span>{tab.label}</span>
-						<TerminalStatusDot status={tab.status} />
-					</button>
-				))}
-			</div>
-			<div className="of-terminal-toolbar">
-				<div className="of-terminal-toolbar-copy">
-					<span>{leaseLabels[leaseMode]}</span>
-					{commandPolicy ? (
-						<span className={`of-command-policy is-${commandPolicy.decision}`}>
-							{commandPolicy.decision} / {commandPolicy.risk}
-						</span>
-					) : null}
-				</div>
-				<div>
-					<button type="button" onClick={() => onLeaseModeChange("human-control")}>
-						Jump In
-					</button>
-					<button type="button" onClick={() => onLeaseModeChange("agent-control")}>
-						Release
-					</button>
-					<button type="button" onClick={() => onLeaseModeChange("read-only")}>
-						Read Only
-					</button>
-					<button type="button">Copy Logs</button>
-				</div>
-			</div>
-			<div className="of-terminal-pane">
-				{selectedTab.lines.map((line) => (
-					<div className={`of-terminal-line is-${line.tone ?? "default"}`} key={line.id}>
-						<span>{line.timestamp}</span>
-						{line.prompt ? <strong>{line.prompt}</strong> : null}
-						<code>{line.text}</code>
-					</div>
-				))}
-				<div className="of-terminal-cursor" />
-			</div>
-		</section>
-	);
-}
-
 function CommandPalette({ onClose }: { onClose: () => void }) {
 	return (
 		<div className="of-command-overlay" role="dialog" aria-modal="true" aria-label="Command palette">
@@ -683,10 +706,6 @@ function RiskBadge({ risk }: { risk: RiskLevel }) {
 
 function StatusChip({ status }: { status: GraphNodeStatus }) {
 	return <span className={`of-status-chip is-${status}`}>{statusLabels[status]}</span>;
-}
-
-function TerminalStatusDot({ status }: { status: TerminalTabStatus }) {
-	return <span className={`of-terminal-status is-${status}`} aria-label={status} />;
 }
 
 function formatPrivacyMode(mode: string) {

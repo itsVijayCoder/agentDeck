@@ -140,9 +140,9 @@ export type BrowserControlMessage =
 	| { type: "control.pause"; runId: string; reason?: string }
 	| { type: "control.resume"; runId: string; reason?: string }
 	| { type: "control.cancel"; runId: string; reason?: string }
-	| { type: "terminal.stdin"; runId: string; data: string }
+	| { type: "terminal.stdin"; runId: string; data: string; userId?: string }
 	| { type: "terminal.resize"; runId: string; cols: number; rows: number }
-	| { type: "terminal.lease.request"; runId: string; mode: TerminalLeaseMode }
+	| { type: "terminal.lease.request"; runId: string; mode: TerminalLeaseMode; userId?: string }
 	| { type: "terminal.lease.release"; runId: string; leaseId: string }
 	| { type: "message.steer"; runId: string; content: string }
 	| { type: "message.follow_up"; runId: string; content: string }

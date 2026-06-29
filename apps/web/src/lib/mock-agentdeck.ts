@@ -224,6 +224,7 @@ export const activeRun: ActiveRun = {
 		{
 			id: "claude",
 			label: "Claude Code",
+			runId: "run_auth_refresh_claude",
 			status: "running",
 			lines: [
 				{ id: "c1", timestamp: "09:14:02", prompt: "$", text: "claude \"Fix flaky auth refresh test\"", tone: "info" },
@@ -236,6 +237,7 @@ export const activeRun: ActiveRun = {
 		{
 			id: "codex",
 			label: "Codex",
+			runId: "run_auth_refresh_codex",
 			status: "waiting",
 			lines: [
 				{ id: "x1", timestamp: "09:13:55", prompt: "$", text: "codex run --profile verifier", tone: "info" },
@@ -245,6 +247,7 @@ export const activeRun: ActiveRun = {
 		{
 			id: "opencode",
 			label: "OpenCode",
+			runId: "run_auth_refresh_opencode",
 			status: "passed",
 			lines: [
 				{ id: "o1", timestamp: "09:12:49", prompt: "$", text: "opencode run auth-refresh-flake", tone: "info" },
@@ -254,18 +257,21 @@ export const activeRun: ActiveRun = {
 		{
 			id: "qwen",
 			label: "Qwen",
+			runId: "run_auth_refresh_qwen",
 			status: "idle",
 			lines: [{ id: "q1", timestamp: "09:10:00", text: "Auth missing. Configure before routing tasks.", tone: "warning" }],
 		},
 		{
 			id: "pi",
 			label: "Pi",
+			runId: "run_auth_refresh_pi",
 			status: "idle",
 			lines: [{ id: "p1", timestamp: "09:10:02", text: "Ready for SDK, RPC, JSON event, or PTY mode.", tone: "success" }],
 		},
 		{
 			id: "tests",
 			label: "Tests",
+			runId: "run_auth_refresh_tests",
 			status: "running",
 			lines: [
 				{ id: "t1", timestamp: "09:21:17", prompt: "$", text: "pnpm test auth-refresh.spec.ts -- --repeat=20", tone: "info" },
@@ -275,6 +281,7 @@ export const activeRun: ActiveRun = {
 		{
 			id: "system",
 			label: "System",
+			runId: "run_auth_refresh_system",
 			status: "idle",
 			lines: [{ id: "s1", timestamp: "09:11:30", text: "Metadata-only sync enabled. Raw terminal logs remain local unless approved.", tone: "muted" }],
 		},

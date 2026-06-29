@@ -19,11 +19,14 @@
     "cf-typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts"
   },
   "dependencies": {
-    "@agentdeck/core": "workspace:*",
     "@agentdeck/bridge-protocol": "workspace:*",
+    "@agentdeck/core": "workspace:*",
     "@agentdeck/db": "workspace:*",
     "@agentdeck/policy": "workspace:*",
     "@opennextjs/cloudflare": "^1.19.9",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/addon-web-links": "^0.12.0",
+    "@xterm/xterm": "^6.0.0",
     "next": "16.2.6",
     "react": "^19.1.7",
     "react-dom": "^19.1.7",

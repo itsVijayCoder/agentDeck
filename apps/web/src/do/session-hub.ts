@@ -17,6 +17,7 @@ import {
 import {
 	SESSION_HUB_HEADERS,
 	bridgeMessageToEventDrafts,
+	browserControlForBridge,
 	browserControlToEventDraft,
 	parseBrowserControlMessage,
 	shouldStorePayloadInR2,
@@ -256,7 +257,7 @@ export class SessionHub extends DurableObject<SessionHubEnv> {
 			return;
 		}
 
-		const forwarded = this.forwardToBridge(control);
+		const forwarded = this.forwardToBridge(browserControlForBridge(control, client.userId ?? "unknown"));
 		if (forwarded === 0) {
 			this.sendError(ws, "BRIDGE_UNAVAILABLE", "No bridge is connected for this session.");
 		}

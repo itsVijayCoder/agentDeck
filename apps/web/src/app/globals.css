@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@xterm/xterm/css/xterm.css";
 
 :root {
 	--background: #05070c;
@@ -201,7 +202,7 @@ input:focus-visible {
 
 .of-main {
 	display: grid;
-	grid-template-rows: 68px minmax(0, 1fr) 276px;
+	grid-template-rows: 68px minmax(0, 1fr) 336px;
 	min-width: 0;
 	height: 100vh;
 }
@@ -351,7 +352,7 @@ kbd {
 
 .of-hero-panel {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) max-content;
+	grid-template-columns: minmax(320px, 1fr) minmax(260px, 360px);
 	gap: 24px;
 	min-height: 210px;
 	padding: 18px;
@@ -427,17 +428,71 @@ kbd {
 .of-hero-actions {
 	display: grid;
 	align-content: center;
-	justify-items: end;
+	justify-items: stretch;
 	gap: 12px;
 }
 
+.of-hero-actions .of-action-row {
+	justify-content: flex-end;
+	flex-wrap: wrap;
+}
+
 .of-lease-banner {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) max-content;
+	gap: 2px 12px;
+	align-items: center;
 	padding: 9px 11px;
 	border: 1px solid rgba(53, 213, 255, 0.28);
 	border-radius: 8px;
 	background: rgba(53, 213, 255, 0.08);
 	color: #dff8ff;
 	font-size: 13px;
+}
+
+.of-lease-banner span,
+.of-lease-banner small {
+	min-width: 0;
+}
+
+.of-lease-banner span {
+	font-weight: 750;
+}
+
+.of-lease-banner small,
+.of-lease-banner em {
+	color: var(--muted);
+	font-size: 11px;
+	font-style: normal;
+	line-height: 1.35;
+}
+
+.of-lease-banner small {
+	grid-column: 1;
+}
+
+.of-lease-banner em {
+	grid-column: 2;
+	grid-row: 1 / span 2;
+	white-space: nowrap;
+}
+
+.of-lease-banner.is-human-control {
+	border-color: rgba(85, 217, 139, 0.34);
+	background: rgba(85, 217, 139, 0.08);
+}
+
+.of-lease-banner.is-human-control span {
+	color: var(--green);
+}
+
+.of-lease-banner.is-read-only {
+	border-color: rgba(246, 184, 75, 0.34);
+	background: rgba(246, 184, 75, 0.08);
+}
+
+.of-lease-banner.is-read-only span {
+	color: var(--amber);
 }
 
 .of-panel {
@@ -941,6 +996,8 @@ kbd {
 }
 
 .of-terminal-dock {
+	display: grid;
+	grid-template-rows: auto auto auto minmax(0, 1fr);
 	min-height: 0;
 	margin: 0 14px 14px;
 	overflow: hidden;
@@ -1010,11 +1067,61 @@ kbd {
 	display: flex;
 	align-items: center;
 	gap: 8px;
+	min-width: 0;
+	overflow: hidden;
 }
 
 .of-terminal-toolbar button {
 	min-height: 28px;
 	font-size: 12px;
+}
+
+.of-terminal-controls {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-shrink: 0;
+}
+
+.of-terminal-control.is-primary {
+	border-color: rgba(53, 213, 255, 0.5);
+	background: rgba(53, 213, 255, 0.12);
+	color: #e6fbff;
+}
+
+.of-terminal-control.is-active {
+	border-color: rgba(85, 217, 139, 0.38);
+	background: rgba(85, 217, 139, 0.1);
+	color: var(--green);
+}
+
+.of-terminal-control:disabled {
+	cursor: not-allowed;
+	opacity: 0.55;
+}
+
+.of-terminal-connection {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	max-width: 220px;
+	color: var(--amber);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.of-terminal-connection::before {
+	content: "";
+	width: 7px;
+	height: 7px;
+	flex: 0 0 auto;
+	border-radius: 999px;
+	background: currentColor;
+}
+
+.of-terminal-connection.is-connected {
+	color: var(--green);
 }
 
 .of-command-policy {
@@ -1044,14 +1151,41 @@ kbd {
 }
 
 .of-terminal-pane {
-	height: 180px;
-	padding: 12px;
-	overflow: auto;
+	height: 100%;
+	min-height: 176px;
+	padding: 10px 12px;
+	overflow: hidden;
 	background:
 		linear-gradient(rgba(53, 213, 255, 0.035) 1px, transparent 1px),
 		#02040a;
 	background-size: 100% 28px;
 	font-family: var(--font-geist-mono), "SFMono-Regular", Consolas, monospace;
+}
+
+.of-terminal-pane[data-lease-mode="human-control"] {
+	box-shadow: inset 0 0 0 1px rgba(85, 217, 139, 0.34);
+}
+
+.of-terminal-pane[data-lease-mode="read-only"] {
+	box-shadow: inset 0 0 0 1px rgba(246, 184, 75, 0.26);
+}
+
+.of-terminal-pane .xterm {
+	height: 100%;
+}
+
+.of-terminal-pane .xterm,
+.of-terminal-pane .xterm-viewport,
+.of-terminal-pane .xterm-screen {
+	background: transparent !important;
+}
+
+.of-terminal-pane .xterm-viewport {
+	scrollbar-color: rgba(148, 163, 184, 0.42) transparent;
+}
+
+.of-terminal-pane .xterm-rows {
+	letter-spacing: 0;
 }
 
 .of-terminal-line {
@@ -1238,8 +1372,14 @@ kbd {
 }
 
 @media (max-width: 860px) {
+	html,
+	body {
+		overflow-x: hidden;
+	}
+
 	.of-shell {
 		display: block;
+		max-width: 100vw;
 		overflow: visible;
 	}
 
@@ -1251,6 +1391,7 @@ kbd {
 
 	.of-nav-items {
 		display: flex;
+		max-width: 100%;
 		overflow-x: auto;
 	}
 
@@ -1267,6 +1408,29 @@ kbd {
 
 	.of-command-bar {
 		min-height: auto;
+		max-width: 100vw;
+		overflow: hidden;
+	}
+
+	.of-command-bar > * {
+		min-width: 0;
+	}
+
+	.of-context,
+	.of-top-metrics {
+		max-width: 100%;
+		overflow-x: auto;
+	}
+
+	.of-task-input {
+		width: 100%;
+		min-width: 0;
+	}
+
+	.of-task-input span {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.of-main {
@@ -1308,6 +1472,11 @@ kbd {
 
 	.of-terminal-dock {
 		margin: 10px;
+		max-width: calc(100vw - 20px);
+	}
+
+	.of-terminal-tabs {
+		max-width: 100%;
 	}
 }
 

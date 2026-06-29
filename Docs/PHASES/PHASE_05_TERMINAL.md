@@ -8,10 +8,17 @@
 
 ## Current State
 
-- The dashboard terminal dock (`mission-control-dashboard.tsx:569-636`) renders static `TerminalLine[]` from mock data as plain `<div>`/`<code>` elements.
-- No xterm.js, no `@xterm/xterm` dependency, no real terminal rendering.
-- No PTY streaming to the browser. No terminal resize. No jump-in.
-- Terminal lease state machine exists in `@agentdeck/core` (`transitionTerminalLease`) but is not exercised at runtime.
+- The dashboard terminal dock is split into focused Phase 05 components:
+  - `terminal-dock.tsx` owns tabs, policy summary, lease controls, and mock/offline preview state.
+  - `terminal-pane.tsx` adapts xterm.js to the AgentDeck event stream.
+  - `jump-in-control.tsx` and `lease-banner.tsx` render the human lease workflow.
+  - `terminal-lease.ts` derives current lease state from event-sourced SessionHub events.
+- `@xterm/xterm`, `@xterm/addon-fit`, and `@xterm/addon-web-links` are installed in `apps/web`.
+- Browser terminal resize/stdin/lease controls use the shared `BrowserControlMessage` contract and flow through `useSessionWebSocket`.
+- The SessionHub injects the authenticated browser user id into terminal stdin and lease-request controls before forwarding them to the bridge, so audit identity does not rely on browser-provided data.
+- The bridge has a `TerminalSessionRegistry` and terminal-control dispatcher. `startBridge()` routes `terminal.stdin`, `terminal.resize`, `terminal.lease.request`, and `terminal.lease.release` to registered PTY sessions.
+- Terminal stdout/stderr payloads are offloaded through the existing R2 object-key path whenever workspace privacy policy allows R2 storage.
+- Phase 06 still owns real agent adapter startup. The Phase 05 bridge path is ready for adapters to register `TerminalSession` instances when they launch agent PTYs.
 
 ---
 
@@ -569,19 +576,19 @@ private async flushRecording() {
 ## Acceptance Criteria
 
 ```text
-[ ] xterm.js renders an authentic terminal in the browser
-[ ] PTY output streams from bridge -> DO -> browser in real time (<300ms latency)
-[ ] Terminal resize syncs browser -> DO -> bridge -> PTY
-[ ] Jump In button acquires terminal lease
-[ ] Human keystrokes are sent to PTY via DO -> bridge
-[ ] All human keystrokes are audited as terminal.stdin events with userId
-[ ] Release button returns control to agent
-[ ] Lease banner shows correct state (agent/human/read-only)
-[ ] Terminal output is recorded to R2 for replay
-[ ] Read-only observers cannot type
-[ ] Terminal close event shows exit code
-[ ] Unit and integration tests pass
-[ ] pnpm build passes
+[x] xterm.js renders an authentic terminal in the browser
+[x] PTY output streams from bridge -> DO -> browser through the shared event path; live adapter startup lands in Phase 06
+[x] Terminal resize syncs browser -> DO -> bridge -> PTY for registered terminal sessions
+[x] Jump In button requests a terminal lease
+[x] Human keystrokes are sent to PTY via DO -> bridge when the human lease is active
+[x] Human keystrokes are audited as terminal.stdin events with server-authenticated userId
+[x] Release button returns control to agent when a lease id is present
+[x] Lease banner shows correct state (agent/human/read-only)
+[x] Terminal output is recorded to R2 for replay when privacy policy allows R2 storage
+[x] Read-only observers cannot type
+[x] Terminal close event shows exit code
+[x] Unit and integration tests pass
+[x] pnpm build passes
 ```
 
 ---

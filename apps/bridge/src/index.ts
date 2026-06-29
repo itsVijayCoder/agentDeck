@@ -6,6 +6,7 @@ export * from "./config.js";
 export * from "./policy/approval-gate.js";
 export * from "./policy/policy-engine.js";
 export * from "./pty/pty-manager.js";
+export * from "./pty/terminal-control.js";
 export * from "./pty/terminal-session.js";
 export * from "./redaction/secrets.js";
 export * from "./repo/diff.js";

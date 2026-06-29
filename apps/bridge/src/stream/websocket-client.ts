@@ -6,12 +6,23 @@ import { detectAgents, pairingAgentsFromProbeResults } from "../agents/detector.
 import { getStatePath } from "../config.js";
 import { JsonlReplayBuffer } from "../state/jsonl-replay-buffer.js";
 import type { BridgeConfig, BridgeRuntimeOptions } from "../types.js";
+import {
+	TerminalSessionRegistry,
+	handleTerminalControlMessage,
+	isBrowserControlMessage,
+} from "../pty/terminal-control.js";
 import { CloudEventSink } from "./event-sink.js";
 
 export type BridgeRuntime = {
 	close(): void;
 	sink: CloudEventSink;
 	socket: ReconnectingWebSocket;
+	terminalSessions: TerminalSessionRegistry;
+};
+
+export type StartBridgeOptions = BridgeRuntimeOptions & {
+	onControlMessage?: (message: BrowserControlMessage, handled: boolean) => void;
+	terminalSessions?: TerminalSessionRegistry;
 };
 
 export type ReconnectingWebSocketOptions = {
@@ -20,8 +31,18 @@ export type ReconnectingWebSocketOptions = {
 	onMessage?: (message: SessionHubServerMessage | BrowserControlMessage) => void;
 };
 
-export async function startBridge(config: BridgeConfig, options: BridgeRuntimeOptions): Promise<BridgeRuntime> {
-	const socket = new ReconnectingWebSocket(config, options.sessionId);
+export async function startBridge(config: BridgeConfig, options: StartBridgeOptions): Promise<BridgeRuntime> {
+	const terminalSessions = options.terminalSessions ?? new TerminalSessionRegistry();
+	const socket = new ReconnectingWebSocket(config, options.sessionId, {
+		onMessage: (message) => {
+			if (!isBrowserControlMessage(message)) {
+				return;
+			}
+
+			const handled = handleTerminalControlMessage(message, terminalSessions);
+			options.onControlMessage?.(message, handled);
+		},
+	});
 	const sink = new CloudEventSink((data) => socket.send(data), {
 		privacyMode: options.privacyMode ?? config.privacyMode,
 		replayBuffer: new JsonlReplayBuffer(getStatePath()),
@@ -76,6 +97,7 @@ export async function startBridge(config: BridgeConfig, options: BridgeRuntimeOp
 		},
 		sink,
 		socket,
+		terminalSessions,
 	};
 }
 

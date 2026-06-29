@@ -94,6 +94,7 @@ export type TerminalTabStatus = "running" | "waiting" | "passed" | "idle" | "fai
 export type TerminalTab = {
 	id: string;
 	label: string;
+	runId: string;
 	status: TerminalTabStatus;
 	lines: TerminalLine[];
 };
