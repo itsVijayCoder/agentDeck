@@ -8,10 +8,12 @@
 
 ## Current State
 
-- No provider abstraction exists. No AI Gateway integration.
-- Agents call their own providers natively (Claude Code calls Anthropic, Codex calls OpenAI, etc.).
-- No cost tracking, no rate limiting, no DLP scanning, no provider fallback.
-- The `ai-gateway` event source is typed in `@agentdeck/core` but unused.
+- `@agentdeck/ai` exists with `LlmProviderAdapter`, provider registry, model router fallback, circuit breaker, cost tracker, Cloudflare AI Gateway helpers, and unified AI streaming events.
+- Provider adapters exist for OpenAI, Anthropic, Google, Qwen, DeepSeek, Ollama, and OpenRouter. OpenAI-compatible providers share a dependency-free Fetch/SSE transport; Anthropic and Ollama have native stream handling.
+- Cloudflare AI Gateway support follows the current Cloudflare REST API (`/client/v4/accounts/{account_id}/ai/v1/chat/completions`) and provider-native gateway URLs. The deprecated compat endpoint is only kept as a helper for existing integrations.
+- DLP is represented as route/gateway configuration (`off`, `request-only`, `request-and-response`). Per Cloudflare behavior, request/response DLP is configured at the gateway level, and response scanning can buffer streaming responses.
+- The web app exposes authenticated `GET /api/ai/providers` for provider/gateway status without returning secrets or making live provider calls by default.
+- Agents still call their native CLIs through the bridge unless a future phase explicitly wires agent/provider execution to `@agentdeck/ai`.
 
 ---
 
@@ -580,37 +582,38 @@ export class CostTracker {
 
 ## Implementation Steps
 
-1. Create `packages/ai/` with types, provider interface
-2. Create `packages/ai/src/providers/openai.ts`
-3. Create `packages/ai/src/providers/anthropic.ts`
-4. Create `packages/ai/src/providers/google.ts`
-5. Create `packages/ai/src/providers/ollama.ts`
-6. Create `packages/ai/src/providers/openrouter.ts`
-7. Create `packages/ai/src/gateway.ts` (AI Gateway config)
-8. Create `packages/ai/src/circuit-breaker.ts`
-9. Create `packages/ai/src/cost-tracker.ts`
-10. Create provider registry
-11. Wire AI Gateway env vars in `.dev.vars.example`
-12. Write unit tests for all providers and utilities
-13. Run `pnpm typecheck && pnpm lint && pnpm test && pnpm build`
+1. [x] Create `packages/ai/` with types, provider interface
+2. [x] Create `packages/ai/src/providers/openai.ts`
+3. [x] Create `packages/ai/src/providers/anthropic.ts`
+4. [x] Create `packages/ai/src/providers/google.ts`
+5. [x] Create `packages/ai/src/providers/ollama.ts`
+6. [x] Create `packages/ai/src/providers/openrouter.ts`
+7. [x] Create `packages/ai/src/gateway.ts` (AI Gateway config)
+8. [x] Create `packages/ai/src/circuit-breaker.ts`
+9. [x] Create `packages/ai/src/cost-tracker.ts`
+10. [x] Create provider registry and model router
+11. [x] Wire AI Gateway env vars in `.dev.vars.example`
+12. [x] Add authenticated web provider status route
+13. [x] Write unit tests for all providers and utilities
+14. [x] Run full repo verification before merge
 
 ---
 
 ## Acceptance Criteria
 
 ```text
-[ ] @agentdeck/ai package exists with LlmProviderAdapter interface
-[ ] OpenAI adapter streams chat completions and parses SSE
-[ ] Anthropic adapter streams messages and parses SSE
-[ ] Ollama adapter works with local models
-[ ] AI Gateway URL builder generates correct gateway URLs
-[ ] Circuit breaker opens after 5 failures and resets after 60s
-[ ] Cost tracker accumulates cost from ai.usage events
-[ ] Unified AI events (ai.request.start, ai.text.delta, ai.usage, etc.) are emitted
-[ ] Provider healthcheck works for all adapters
-[ ] DLP mode can be set to off/request-only/request-and-response
-[ ] Unit tests pass for all providers
-[ ] pnpm build passes
+[x] @agentdeck/ai package exists with LlmProviderAdapter interface
+[x] OpenAI adapter streams chat completions and parses SSE
+[x] Anthropic adapter streams messages and parses SSE
+[x] Ollama adapter works with local models
+[x] AI Gateway URL builder generates correct gateway URLs
+[x] Circuit breaker opens after 5 failures and resets after 60s
+[x] Cost tracker accumulates cost from ai.usage events
+[x] Unified AI events (ai.request.start, ai.text.delta, ai.usage, etc.) are emitted
+[x] Provider healthcheck works for all adapters
+[x] DLP mode can be set to off/request-only/request-and-response
+[x] Unit tests pass for all providers
+[x] pnpm build passes
 ```
 
 ---

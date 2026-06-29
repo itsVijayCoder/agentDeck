@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-	transpilePackages: ["@agentdeck/bridge-protocol", "@agentdeck/core", "@agentdeck/db", "@agentdeck/policy"],
+	transpilePackages: ["@agentdeck/ai", "@agentdeck/bridge-protocol", "@agentdeck/core", "@agentdeck/db", "@agentdeck/policy"],
 };
 
 export default nextConfig;

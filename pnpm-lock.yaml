@@ -99,6 +99,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@agentdeck/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@agentdeck/bridge-protocol':
         specifier: workspace:*
         version: link:../../packages/bridge-protocol
@@ -172,6 +175,28 @@ importers:
       wrangler:
         specifier: ^4.105.0
         version: 4.105.0(@cloudflare/workers-types@4.20260628.1)
+
+  packages/ai:
+    dependencies:
+      '@agentdeck/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@agentdeck/config':
+        specifier: workspace:*
+        version: link:../config
+      '@vitest/coverage-v8':
+        specifier: ^4.1.9
+        version: 4.1.9(vitest@4.1.9)
+      eslint:
+        specifier: ^9
+        version: 9.39.4(jiti@2.7.0)
+      typescript:
+        specifier: ^5.7.4
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.9
+        version: 4.1.9(@types/node@20.19.43)(@vitest/coverage-v8@4.1.9)(@vitest/ui@4.1.9)(vite@8.1.0(@types/node@20.19.43)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.22.4)(yaml@2.9.0))
 
   packages/bridge-protocol:
     dependencies:

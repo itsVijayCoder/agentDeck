@@ -6,7 +6,7 @@ Guidance for AI coding agents working in this repository.
 
 This repo is a **pnpm monorepo** for AgentDeck Mission Control. It has typed domain models, event contracts, state machines, a policy classifier, D1 persistence contracts, runtime validators, Worker API routes, a Durable Object session hub, Cloudflare Queue/Workflow/Cron orchestration for queued runs and schedules, deterministic multi-agent classification/routing/judging/synthesis, decision report persistence, the local bridge, terminal jump-in control, harness adapter contracts, agent event normalization, approval-gated command policy services, isolated worktree helpers, verifier strategies, patch/artifact upload plumbing, mock data, and the production dashboard UI.
 
-Phase 09 now extends the cloud-dispatched queue flow: API-created and scheduled queue items are sent to `AGENTDECK_QUEUE`, the queue consumer starts `RunWorkflow`, Cron checks due schedules, the workflow classifies/routes the task, dispatches one or more candidate runs through SessionHub to connected bridges, waits for verifier-aware bridge completion, scores candidates, synthesizes a recommendation, stores the full decision report in R2 with D1 metadata, and exposes candidate comparison data in the dashboard mock surface. Later phases still own AI Gateway/provider routing, LLM-backed judge evaluation, advanced reports, premium multi-screen UI, observability, evals, and team beta features.
+Phase 10 now adds the AI provider abstraction: `@agentdeck/ai` exposes provider adapters for OpenAI, Anthropic, Google, Qwen, DeepSeek, Ollama, and OpenRouter; Cloudflare AI Gateway REST/native gateway URL and header helpers; unified AI streaming events; provider registry/model router fallback; circuit breaker and cost tracker utilities; and an authenticated `/api/ai/providers` status surface. Agents still execute through the bridge unless explicitly wired to this package. Later phases still own LLM-backed judge evaluation, advanced reports, premium multi-screen UI, observability, evals, and team beta features.
 
 `Docs/IMPLEMENTATION_GUIDE_WITH_PI.md` describes the full planned architecture. Trust the code and current phase docs for what is implemented today.
 
@@ -51,6 +51,7 @@ packages/
   core/                                 Domain types, events, state machines
   harness/                              Agent adapter SDK, registry, event draft helpers, orchestration helpers
   policy/                               Command risk + privacy storage decisions
+  ai/                                   Provider adapters, AI Gateway helpers, cost tracking
   verifier/                             Test/build/lint/typecheck detector strategies
   db/                                   D1 repositories, input validators, migrations
   config/                               Shared tsconfig and ESLint presets

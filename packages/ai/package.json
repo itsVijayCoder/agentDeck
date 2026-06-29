@@ -1,0 +1,31 @@
+{
+	"name": "@agentdeck/ai",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"main": "./src/index.ts",
+	"types": "./src/index.ts",
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"default": "./src/index.ts"
+		}
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.build.json",
+		"typecheck": "tsc --noEmit",
+		"lint": "eslint .",
+		"lint:fix": "eslint . --fix",
+		"test": "vitest run --coverage"
+	},
+	"dependencies": {
+		"@agentdeck/core": "workspace:*"
+	},
+	"devDependencies": {
+		"@agentdeck/config": "workspace:*",
+		"@vitest/coverage-v8": "^4.1.9",
+		"eslint": "^9",
+		"typescript": "^5.7.4",
+		"vitest": "^4.1.9"
+	}
+}

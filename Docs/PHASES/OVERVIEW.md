@@ -37,13 +37,13 @@ This document is the master index for a 13-phase buildout plan (Phase 00 through
 | Policy, verification, worktrees, artifacts | `packages/verifier/src/`, `apps/bridge/src/policy/`, `apps/bridge/src/repo/`, `apps/bridge/src/stream/r2-writer.ts`, `apps/web/src/do/session-hub.ts` | — | Complete — approval wait gate, approval D1 rows, isolated worktree helpers, verifier strategies, patch artifacts, privacy-aware artifact upload path, R2/D1 artifact metadata |
 | Queue, Workflows, Schedules | `apps/web/src/workers/`, `apps/web/worker.ts`, `apps/web/wrangler.jsonc`, `apps/bridge/src/stream/run-dispatcher.ts` | — | Complete — Cloudflare Queue producer/consumer, RunWorkflow saga, Cron scheduler, SessionHub dispatch, bridge worktree dispatch, morning reports |
 | Multi-agent orchestration & reports | `packages/core/src/types/orchestration.ts`, `packages/harness/src/{classifier,router,judge,synthesis,report-generator}.ts`, `apps/web/src/workers/run-workflow.ts`, dashboard report panel | — | Complete — deterministic task classification, strategy routing, multi-candidate queue dispatch, verifier-aware candidate scoring, synthesis, R2/D1 report persistence, candidate comparison UI |
+| AI Gateway + provider abstraction | `packages/ai/src/`, `apps/web/src/app/api/ai/providers/route.ts`, `.dev.vars.example` | — | Complete — adapters for OpenAI, Anthropic, Google, Qwen, DeepSeek, Ollama, OpenRouter; Cloudflare AI Gateway REST/native helpers; unified AI events; model router fallback; circuit breaker; cost tracker; provider status API |
 | Architecture docs | `Docs/` (6 files) | ~6000+ | Complete — Blueprint, Core Contracts, DB Schema, Impl Guide |
 
 ### 1.2 Missing (blocks the full vision)
 
 | Missing component | Impact | Phase |
 |---|---|---|
-| AI Gateway + provider abstraction | No model routing or cost tracking | Phase 10 |
 | Premium multi-screen UI (React Flow, shadcn, Zustand, TanStack Query) | Single mock dashboard only | Phase 11 |
 | Observability + evals + team features | No metrics, no beta readiness | Phase 12 |
 
