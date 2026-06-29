@@ -19,6 +19,7 @@ import type {
 	AgentInstallation,
 	ApprovalRequest,
 	BrowserControlMessage,
+	DecisionReportCandidate,
 	GraphNodeStatus,
 	PolicyRule,
 	QueueItem,
@@ -438,7 +439,38 @@ function DecisionReportPanel() {
 				<Metric label="Commands" value={decisionReport.commandsRun.toString()} />
 				<Metric label="Human input" value={decisionReport.humanInterventions.toString()} />
 			</div>
+			{decisionReport.candidateComparison?.length ? (
+				<div className="of-candidate-table" aria-label="Candidate comparison">
+					<div className="of-candidate-head">
+						<span>Candidate</span>
+						<span>Score</span>
+						<span>Evidence</span>
+					</div>
+					{decisionReport.candidateComparison.map((candidate, index) => (
+						<CandidateRow candidate={candidate} key={candidate.id} rank={index + 1} />
+					))}
+				</div>
+			) : null}
 		</section>
+	);
+}
+
+function CandidateRow({ candidate, rank }: { candidate: DecisionReportCandidate; rank: number }) {
+	return (
+		<article className={`of-candidate-row is-${candidate.recommendation}`}>
+			<div className="of-candidate-main">
+				<span className="of-candidate-rank">{rank}</span>
+				<div>
+					<strong>{candidate.agent}</strong>
+					<span>{candidate.status} / {candidate.latencyLabel}</span>
+				</div>
+			</div>
+			<div className="of-candidate-score">{Math.round(candidate.score * 100)}</div>
+			<div className="of-candidate-evidence">
+				<span className={`of-verdict is-${candidate.verificationStatus}`}>{candidate.verificationStatus}</span>
+				<p>{candidate.notes}</p>
+			</div>
+		</article>
 	);
 }
 

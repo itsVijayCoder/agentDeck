@@ -22,6 +22,7 @@
     "@agentdeck/bridge-protocol": "workspace:*",
     "@agentdeck/core": "workspace:*",
     "@agentdeck/db": "workspace:*",
+    "@agentdeck/harness": "workspace:*",
     "@agentdeck/policy": "workspace:*",
     "@opennextjs/cloudflare": "^1.19.9",
     "@xterm/addon-fit": "^0.11.0",

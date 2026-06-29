@@ -4,9 +4,9 @@ Guidance for AI coding agents working in this repository.
 
 ## Current State
 
-This repo is a **pnpm monorepo** for AgentDeck Mission Control. It has typed domain models, event contracts, state machines, a policy classifier, D1 persistence contracts, runtime validators, Worker API routes, a Durable Object session hub, Cloudflare Queue/Workflow/Cron orchestration for queued runs and schedules, the local bridge, terminal jump-in control, harness adapter contracts, agent event normalization, approval-gated command policy services, isolated worktree helpers, verifier strategies, patch/artifact upload plumbing, mock data, and the production dashboard UI.
+This repo is a **pnpm monorepo** for AgentDeck Mission Control. It has typed domain models, event contracts, state machines, a policy classifier, D1 persistence contracts, runtime validators, Worker API routes, a Durable Object session hub, Cloudflare Queue/Workflow/Cron orchestration for queued runs and schedules, deterministic multi-agent classification/routing/judging/synthesis, decision report persistence, the local bridge, terminal jump-in control, harness adapter contracts, agent event normalization, approval-gated command policy services, isolated worktree helpers, verifier strategies, patch/artifact upload plumbing, mock data, and the production dashboard UI.
 
-Phase 08 now provides the first cloud-dispatched single-agent queue flow: API-created and scheduled queue items are sent to `AGENTDECK_QUEUE`, the queue consumer starts `RunWorkflow`, Cron checks due schedules, the workflow dispatches through SessionHub to a connected bridge, and the bridge creates an isolated worktree before starting the selected adapter. Later phases still own multi-agent orchestration, judge/synthesis flows, provider routing, advanced reports, and premium UI.
+Phase 09 now extends the cloud-dispatched queue flow: API-created and scheduled queue items are sent to `AGENTDECK_QUEUE`, the queue consumer starts `RunWorkflow`, Cron checks due schedules, the workflow classifies/routes the task, dispatches one or more candidate runs through SessionHub to connected bridges, waits for verifier-aware bridge completion, scores candidates, synthesizes a recommendation, stores the full decision report in R2 with D1 metadata, and exposes candidate comparison data in the dashboard mock surface. Later phases still own AI Gateway/provider routing, LLM-backed judge evaluation, advanced reports, premium multi-screen UI, observability, evals, and team beta features.
 
 `Docs/IMPLEMENTATION_GUIDE_WITH_PI.md` describes the full planned architecture. Trust the code and current phase docs for what is implemented today.
 
@@ -49,7 +49,7 @@ apps/
     cloudflare-env.d.ts                 Generated Cloudflare env types
 packages/
   core/                                 Domain types, events, state machines
-  harness/                              Agent adapter SDK, registry, event draft helpers
+  harness/                              Agent adapter SDK, registry, event draft helpers, orchestration helpers
   policy/                               Command risk + privacy storage decisions
   verifier/                             Test/build/lint/typecheck detector strategies
   db/                                   D1 repositories, input validators, migrations

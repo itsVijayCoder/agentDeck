@@ -108,6 +108,9 @@ importers:
       '@agentdeck/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@agentdeck/harness':
+        specifier: workspace:*
+        version: link:../../packages/harness
       '@agentdeck/policy':
         specifier: workspace:*
         version: link:../../packages/policy

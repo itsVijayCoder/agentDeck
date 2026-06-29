@@ -130,6 +130,11 @@ export function createAgentDeckRepositories(db: QueryableD1) {
 			create: (input: CreateRunInput) => createRun(db, createRunInputSchema.parse(input)),
 			countActiveByMachine: (machineId: string) => countActiveRunsByMachine(db, machineId),
 			findById: (id: string) => firstRow<RunRow>(db, "SELECT * FROM runs WHERE id = ?", [id]),
+			listByQueueItem: (queueItemId: string, limit?: number) =>
+				allRows<RunRow>(db, "SELECT * FROM runs WHERE queue_item_id = ? ORDER BY created_at ASC LIMIT ?", [
+					queueItemId,
+					normalizeLimit(limit),
+				]),
 			listBySession: (sessionId: string, limit?: number) =>
 				allRows<RunRow>(db, "SELECT * FROM runs WHERE session_id = ? ORDER BY created_at DESC LIMIT ?", [
 					sessionId,

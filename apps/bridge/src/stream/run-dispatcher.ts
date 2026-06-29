@@ -41,7 +41,7 @@ export class BridgeRunDispatcher {
 
 		try {
 			const adapter = this.options.adapterRegistry.require(message.agentKind);
-			const worktree = await createWorktree(this.options.repoPath, message.runId, `agentdeck/${message.runId}`, {
+			const worktree = await createWorktree(this.options.repoPath, message.runId, message.worktreeBranch ?? `agentdeck/${message.runId}`, {
 				baseDir: this.options.worktreeBaseDir,
 				targetRef: message.targetBranch,
 			});
@@ -63,6 +63,7 @@ export class BridgeRunDispatcher {
 
 			this.options.sink.emit({
 				payload: {
+					...(message.candidateId ? { candidateId: message.candidateId } : {}),
 					status: "running",
 					worktreePathHash: hashString(worktree.path),
 				},
@@ -247,16 +248,21 @@ export function isRunDispatchControlMessage(message: unknown): message is RunDis
 	return (
 		isRecord(message) &&
 		message.type === "run.dispatch" &&
-		typeof message.agentInstallationId === "string" &&
-		isAgentKind(message.agentKind) &&
-		typeof message.machineId === "string" &&
-		isPrivacyMode(message.privacyMode) &&
-		typeof message.queueItemId === "string" &&
-		typeof message.runId === "string" &&
-		typeof message.sessionId === "string" &&
-		typeof message.targetBranch === "string" &&
-		typeof message.task === "string" &&
-		typeof message.workspaceId === "string" &&
+			typeof message.agentInstallationId === "string" &&
+			isAgentKind(message.agentKind) &&
+			(message.candidateId === undefined || typeof message.candidateId === "string") &&
+			(message.candidateLabel === undefined || typeof message.candidateLabel === "string") &&
+			typeof message.machineId === "string" &&
+			(message.orchestrationId === undefined || typeof message.orchestrationId === "string") &&
+			isPrivacyMode(message.privacyMode) &&
+			typeof message.queueItemId === "string" &&
+			typeof message.runId === "string" &&
+			(message.routingStrategy === undefined || isRoutingStrategy(message.routingStrategy)) &&
+			typeof message.sessionId === "string" &&
+			typeof message.targetBranch === "string" &&
+			typeof message.task === "string" &&
+			(message.worktreeBranch === undefined || typeof message.worktreeBranch === "string") &&
+			typeof message.workspaceId === "string" &&
 		(message.model === undefined || typeof message.model === "string") &&
 		(message.provider === undefined || typeof message.provider === "string") &&
 		(message.scheduledJobId === undefined || typeof message.scheduledJobId === "string")
@@ -285,4 +291,14 @@ function isAgentKind(value: unknown): value is RunDispatchControlMessage["agentK
 
 function isPrivacyMode(value: unknown): value is RunDispatchControlMessage["privacyMode"] {
 	return value === "local-only" || value === "metadata-only" || value === "full-sync";
+}
+
+function isRoutingStrategy(value: unknown): value is NonNullable<RunDispatchControlMessage["routingStrategy"]> {
+	return (
+		value === "cascade" ||
+		value === "frontier-fallback" ||
+		value === "local-only" ||
+		value === "parallel-candidates" ||
+		value === "single"
+	);
 }

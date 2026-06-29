@@ -1,11 +1,34 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
-import type { AgentDeckEvent, AgentKind, PrivacyMode, RunDispatchControlMessage, RunStatus } from "@agentdeck/core";
+import type {
+	AgentCandidate,
+	AgentDeckEvent,
+	AgentKind,
+	CandidateDiffSummary,
+	CandidateResult,
+	DecisionReportDetail,
+	HumanIntervention,
+	PrivacyMode,
+	RoutingDecision,
+	RoutingStrategy,
+	RunDispatchControlMessage,
+	RunStatus,
+	TaskClassification,
+} from "@agentdeck/core";
 import { isTerminalRunStatus, transitionRunStatus } from "@agentdeck/core";
+import {
+	classifyTask,
+	generateDecisionReportDetail,
+	judgeCandidates,
+	routeTask,
+	synthesizeCandidates,
+	type RouteTaskOptions,
+} from "@agentdeck/harness";
 import {
 	createAgentDeckRepositories,
 	parseNullableJsonColumn,
 	type AgentDeckRepositories,
 	type AgentInstallationRow,
+	type ArtifactRow,
 	type JsonValue,
 	type MachineRow,
 	type QueueItemRow,
@@ -23,8 +46,8 @@ export type RunWorkflowParams = {
 };
 
 export type RunWorkflowResult =
-	| { status: "completed"; reportId?: string; runId: string }
-	| { status: "failed" | "timeout"; runId: string }
+	| { status: "completed"; reportId?: string; runId: string; runIds: string[] }
+	| { status: "failed" | "timeout"; runId: string; runIds: string[] }
 	| { reason: string; status: "waiting-machine" | "queued" };
 
 export type RunWorkflowEnv = {
@@ -33,22 +56,35 @@ export type RunWorkflowEnv = {
 	SESSION_HUB: DurableObjectNamespace<SessionHub>;
 };
 
-type DispatchTarget =
+type PreparedCandidate = {
+	agentInstallationId: string;
+	agentKind: AgentKind;
+	candidate: AgentCandidate;
+	machineId: string;
+	privacyMode: PrivacyMode;
+	queueItemId: string;
+	runId: string;
+	scheduledJobId?: string;
+	sessionId: string;
+	targetBranch: string;
+	task: string;
+	worktreeBranch: string;
+	workspaceId: string;
+	model?: string;
+	provider?: string;
+};
+
+type PreparedOrchestration =
 	| {
-			agentInstallationId: string;
-			agentKind: AgentKind;
-			machineId: string;
-			privacyMode: PrivacyMode;
+			classification: TaskClassification;
+			orchestrationId: string;
 			queueItemId: string;
-			runId: string;
-			scheduledJobId?: string;
+			routing: RoutingDecision;
 			sessionId: string;
 			status: "ready";
-			targetBranch: string;
+			targets: PreparedCandidate[];
 			task: string;
 			workspaceId: string;
-			model?: string;
-			provider?: string;
 	  }
 	| { reason: string; status: "queued" | "waiting-machine" };
 
@@ -57,6 +93,7 @@ type DispatchResult = { accepted: true; bridgeCount: number } | { accepted: fals
 const maxDispatchAttempts = 32;
 const dispatchRetryDelay = "15 minutes";
 const runPollDelay = "1 minute";
+const maxPatchSummaryBytes = 256 * 1024;
 
 export class RunWorkflow extends WorkflowEntrypoint<RunWorkflowEnv, RunWorkflowParams> {
 	override async run(event: Readonly<WorkflowEvent<RunWorkflowParams>>, step: WorkflowStep): Promise<RunWorkflowResult> {
@@ -69,55 +106,82 @@ export async function runQueueWorkflow(
 	params: RunWorkflowParams,
 	step: WorkflowStep,
 ): Promise<RunWorkflowResult> {
-	let target: Extract<DispatchTarget, { status: "ready" }> | null = null;
+	let orchestration: Extract<PreparedOrchestration, { status: "ready" }> | null = null;
 
 	for (let attempt = 1; attempt <= maxDispatchAttempts; attempt += 1) {
-		const prepared = await step.do(`prepare-dispatch-${attempt}`, async () => prepareDispatchTarget(env, params));
+		const prepared = await step.do(`prepare-orchestration-${attempt}`, async () => prepareOrchestration(env, params));
 		if (prepared.status !== "ready") {
 			if (attempt === maxDispatchAttempts) {
 				return prepared;
 			}
-			await step.sleep(`wait-before-dispatch-${attempt}`, dispatchRetryDelay);
+			await step.sleep(`wait-before-orchestration-${attempt}`, dispatchRetryDelay);
 			continue;
 		}
 
-		const dispatch = await step.do(`dispatch-run-${attempt}`, async () => dispatchRun(env, prepared));
-		if (dispatch.accepted) {
-			await step.do(`mark-dispatched-running-${attempt}`, async () =>
-				markDispatchedRunning(env, prepared.queueItemId, prepared.runId),
+		const dispatches: Array<{ dispatch: DispatchResult; target: PreparedCandidate }> = [];
+		for (const target of prepared.targets) {
+			const dispatch = await step.do(`dispatch-${target.candidate.id}-${attempt}`, async () =>
+				dispatchRun(env, prepared.orchestrationId, prepared.routing.strategy, target),
 			);
-			target = prepared;
+			dispatches.push({ dispatch, target });
+		}
+
+		const acceptedTargets = dispatches.filter(
+			(item): item is { dispatch: { accepted: true; bridgeCount: number }; target: PreparedCandidate } => item.dispatch.accepted,
+		);
+		if (acceptedTargets.length > 0) {
+			for (const { target } of acceptedTargets) {
+				await step.do(`mark-${target.candidate.id}-running-${attempt}`, async () =>
+					markDispatchedRunning(env, target.queueItemId, target.runId),
+				);
+			}
+			orchestration = {
+				...prepared,
+				targets: acceptedTargets.map(({ target }) => target),
+			};
 			break;
 		}
 
-		await step.do(`mark-dispatch-waiting-${attempt}`, async () =>
-			markQueueAndRunWaiting(env, prepared.queueItemId, prepared.runId, dispatch.reason),
-		);
-		if (attempt === maxDispatchAttempts) {
-			return { reason: dispatch.reason, status: "waiting-machine" };
+		const reason = dispatches.map(({ dispatch }) => (dispatch.accepted ? "" : dispatch.reason)).find(Boolean) ?? "No bridge accepted dispatch.";
+		for (const { target } of dispatches) {
+			await step.do(`mark-${target.candidate.id}-waiting-${attempt}`, async () =>
+				markQueueAndRunWaiting(env, target.queueItemId, target.runId, reason),
+			);
 		}
-		await step.sleep(`wait-after-dispatch-${attempt}`, dispatchRetryDelay);
+		if (attempt === maxDispatchAttempts) {
+			return { reason, status: "waiting-machine" };
+		}
+		await step.sleep(`wait-after-orchestration-${attempt}`, dispatchRetryDelay);
 	}
 
-	if (!target) {
+	if (!orchestration) {
 		return { reason: "No dispatch target was available.", status: "waiting-machine" };
 	}
 
-	const completedRun = await waitForRunCompletion(env, step, target.runId, target.queueItemId);
-	if (completedRun.status === "timeout") {
-		return { runId: target.runId, status: "timeout" };
+	const completedRuns: Array<{ runId: string; status: "cancelled" | "completed" | "failed" | "timeout" }> = [];
+	for (const target of orchestration.targets) {
+		const completedRun = await waitForRunCompletion(env, step, target.runId, target.queueItemId);
+		completedRuns.push({ runId: target.runId, status: completedRun.status });
 	}
 
-	if (completedRun.status === "failed" || completedRun.status === "cancelled") {
-		return { runId: target.runId, status: "failed" };
+	const candidateResults = await step.do("collect-candidate-results", async () =>
+		collectCandidateResults(env, orchestration, completedRuns),
+	);
+	const reportId = await step.do("generate-orchestration-report", async () =>
+		generateOrchestrationReport(env, orchestration, candidateResults),
+	);
+	const report = await step.do("read-orchestration-report", async () => readDecisionReport(env, reportId));
+	const runIds = orchestration.targets.map((target) => target.runId);
+	await step.do("mark-queue-final", async () => markQueueFinal(env, orchestration.queueItemId, reportId, report));
+
+	if (!report || report.recommendation === "rerun" || report.recommendation === "reject") {
+		return { runId: runIds[0] ?? "", runIds, status: "failed" };
 	}
 
-	const reportId = await step.do("generate-decision-report", async () => generateDecisionReport(env, target.runId));
-	await step.do("mark-queue-completed", async () => markQueueCompleted(env, target.queueItemId, target.runId, reportId));
-	return { reportId, runId: target.runId, status: "completed" };
+	return { reportId, runId: report.synthesis.winningRunId ?? runIds[0] ?? "", runIds, status: "completed" };
 }
 
-async function prepareDispatchTarget(env: RunWorkflowEnv, params: RunWorkflowParams): Promise<DispatchTarget> {
+async function prepareOrchestration(env: RunWorkflowEnv, params: RunWorkflowParams): Promise<PreparedOrchestration> {
 	const repositories = createAgentDeckRepositories(env.AGENTDECK_DB);
 	const queueItem = await repositories.queue.findById(params.queueItemId);
 	if (!queueItem) {
@@ -143,81 +207,73 @@ async function prepareDispatchTarget(env: RunWorkflowEnv, params: RunWorkflowPar
 		timezone: "UTC",
 	});
 	if (!windowDecision.dispatch && windowDecision.reason === "Outside allowed hours") {
-		if (queueItem.status === "queued") {
-			await transitionQueueItemStatus(repositories, queueItem.id, "queued");
-			return { reason: windowDecision.reason, status: "queued" };
-		}
-		return { reason: windowDecision.reason, status: "waiting-machine" };
+		return { reason: windowDecision.reason, status: queueItem.status === "queued" ? "queued" : "waiting-machine" };
 	}
 
 	const session = await ensureQueueSession(repositories, workspace, queueItem);
-	const existingRun = await repositories.runs.findById(`run_${sanitizeId(queueItem.id)}`);
-	const target = await selectDispatchTarget(repositories, queueItem, policy, existingRun);
-	if (!target) {
-		await transitionQueueItemStatus(repositories, queueItem.id, "waiting-machine");
-		return { reason: "No eligible online machine with a configured agent is available.", status: "waiting-machine" };
-	}
-
-	const run = await ensureQueueRun(repositories, {
-		agentInstallationId: target.agentInstallation.id,
-		branchName: `agentdeck/${sanitizeId(queueItem.id).slice(0, 48)}`,
-		machineId: target.machine.id,
+	const agentSelector = parseNullableJsonColumn(queueItem.agent_selector_json);
+	const machineSelector = parseNullableJsonColumn(queueItem.machine_selector_json);
+	const requestedMachineId = stringField(machineSelector, "machineId") ?? stringField(machineSelector, "id");
+	const requestedAgentKind = agentKindField(agentSelector);
+	const eligibleTargets = await listEligibleTargets(repositories, queueItem, policy, {
+		requestedAgentKind,
+		requestedMachineId,
+	});
+	const availableAgents = eligibleTargets.map((target) => target.agentInstallation.agent_kind);
+	const classification = classifyTask(queueItem.task);
+	const routing = routeTask(classification, availableAgents, workspace.privacy_mode, routeOptionsFromSelector(agentSelector));
+	const targets = await prepareCandidateTargets(repositories, {
+		classification,
+		eligibleTargets,
+		params,
+		policy,
 		queueItem,
-		scheduledJobId: params.scheduledJobId,
+		routing,
 		sessionId: session.id,
 		workspace,
 	});
-	const agentSelector = parseNullableJsonColumn(queueItem.agent_selector_json);
+
+	if (targets.length === 0) {
+		await transitionQueueItemStatus(repositories, queueItem.id, "waiting-machine");
+		return { reason: routing.reason, status: "waiting-machine" };
+	}
 
 	return {
-		agentInstallationId: target.agentInstallation.id,
-		agentKind: target.agentInstallation.agent_kind,
-		machineId: target.machine.id,
-		privacyMode: workspace.privacy_mode,
+		classification,
+		orchestrationId: `orch_${sanitizeId(queueItem.id)}`,
 		queueItemId: queueItem.id,
-		runId: run.id,
-		...(params.scheduledJobId ? { scheduledJobId: params.scheduledJobId } : {}),
+		routing: {
+			...routing,
+			candidates: targets.map((target) => target.candidate),
+		},
 		sessionId: session.id,
 		status: "ready",
-		targetBranch: workspace.default_branch,
+		targets,
 		task: queueItem.task,
 		workspaceId: workspace.id,
-		...modelProviderFromSelector(agentSelector),
 	};
 }
 
-async function selectDispatchTarget(
+async function listEligibleTargets(
 	repositories: AgentDeckRepositories,
 	queueItem: QueueItemRow,
 	policy: ReturnType<typeof queuePolicyFromScheduleWindow>,
-	existingRun: RunRow | null,
-): Promise<{ agentInstallation: AgentInstallationRow; machine: MachineRow } | null> {
-	const machineSelector = parseNullableJsonColumn(queueItem.machine_selector_json);
-	const agentSelector = parseNullableJsonColumn(queueItem.agent_selector_json);
-	const requestedMachineId = stringField(machineSelector, "machineId") ?? stringField(machineSelector, "id");
-	const requestedAgentKind = agentKindField(agentSelector);
+	input: {
+		requestedAgentKind: AgentKind | null;
+		requestedMachineId: string | null;
+	},
+): Promise<Array<{ activeRuns: number; agentInstallation: AgentInstallationRow; machine: MachineRow }>> {
 	const machines = await repositories.machines.listByWorkspace(queueItem.workspace_id, "online", 50);
+	const targets: Array<{ activeRuns: number; agentInstallation: AgentInstallationRow; machine: MachineRow }> = [];
 
 	for (const machine of machines) {
-		if (requestedMachineId && machine.id !== requestedMachineId) {
-			continue;
-		}
-
-		const installations = await repositories.agentInstallations.listByMachine(machine.id);
-		const agentInstallation = installations.find(
-			(installation) =>
-				(!requestedAgentKind || installation.agent_kind === requestedAgentKind) &&
-				installation.auth_status !== "missing" &&
-				installation.auth_status !== "expired",
-		);
-		if (!agentInstallation) {
+		if (input.requestedMachineId && machine.id !== input.requestedMachineId) {
 			continue;
 		}
 
 		const activeRuns = await repositories.runs.countActiveByMachine(machine.id);
-		const concurrentRuns = existingRun?.machine_id === machine.id ? Math.max(0, activeRuns - 1) : activeRuns;
 		const dispatch = shouldDispatch({
-			concurrentRuns,
+			concurrentRuns: activeRuns,
 			machineOnline: true,
 			now: new Date(),
 			policy,
@@ -227,25 +283,112 @@ async function selectDispatchTarget(
 			continue;
 		}
 
-		return { agentInstallation, machine };
+		const installations = await repositories.agentInstallations.listByMachine(machine.id);
+		for (const agentInstallation of installations) {
+			if (input.requestedAgentKind && agentInstallation.agent_kind !== input.requestedAgentKind) {
+				continue;
+			}
+			if (agentInstallation.auth_status === "missing" || agentInstallation.auth_status === "expired") {
+				continue;
+			}
+			targets.push({ activeRuns, agentInstallation, machine });
+		}
 	}
 
-	return null;
+	return targets;
 }
 
-async function dispatchRun(env: RunWorkflowEnv, target: Extract<DispatchTarget, { status: "ready" }>): Promise<DispatchResult> {
+async function prepareCandidateTargets(
+	repositories: AgentDeckRepositories,
+	input: {
+		classification: TaskClassification;
+		eligibleTargets: Array<{ activeRuns: number; agentInstallation: AgentInstallationRow; machine: MachineRow }>;
+		params: RunWorkflowParams;
+		policy: ReturnType<typeof queuePolicyFromScheduleWindow>;
+		queueItem: QueueItemRow;
+		routing: RoutingDecision;
+		sessionId: string;
+		workspace: WorkspaceRow;
+	},
+): Promise<PreparedCandidate[]> {
+	const prepared: PreparedCandidate[] = [];
+	const reservedMachineLoad = new Map<string, number>();
+
+	for (const candidate of input.routing.candidates) {
+		const selected = input.eligibleTargets.find((target) => {
+			if (target.agentInstallation.agent_kind !== candidate.agentKind) {
+				return false;
+			}
+			const reserved = reservedMachineLoad.get(target.machine.id) ?? 0;
+			return target.activeRuns + reserved < input.policy.maxConcurrentRunsPerMachine;
+		});
+		if (!selected) {
+			continue;
+		}
+
+		reservedMachineLoad.set(selected.machine.id, (reservedMachineLoad.get(selected.machine.id) ?? 0) + 1);
+		const worktreeBranch = `agentdeck/${sanitizeId(input.queueItem.id)}/${candidate.id}`;
+		const run = await ensureQueueRun(repositories, {
+			agentInstallationId: selected.agentInstallation.id,
+			branchName: worktreeBranch,
+			candidate,
+			candidateCount: input.routing.candidates.length,
+			machineId: selected.machine.id,
+			queueItem: input.queueItem,
+			routingStrategy: input.routing.strategy,
+			scheduledJobId: input.params.scheduledJobId,
+			sessionId: input.sessionId,
+			workspace: input.workspace,
+		});
+
+		prepared.push({
+			agentInstallationId: selected.agentInstallation.id,
+			agentKind: selected.agentInstallation.agent_kind,
+			candidate: {
+				...candidate,
+				worktreeBranch,
+			},
+			machineId: selected.machine.id,
+			privacyMode: input.workspace.privacy_mode,
+			queueItemId: input.queueItem.id,
+			runId: run.id,
+			...(input.params.scheduledJobId ? { scheduledJobId: input.params.scheduledJobId } : {}),
+			sessionId: input.sessionId,
+			targetBranch: input.workspace.default_branch,
+			task: input.queueItem.task,
+			worktreeBranch,
+			workspaceId: input.workspace.id,
+			...(candidate.model ? { model: candidate.model } : {}),
+			...(candidate.provider ? { provider: candidate.provider } : {}),
+		});
+	}
+
+	return prepared;
+}
+
+async function dispatchRun(
+	env: RunWorkflowEnv,
+	orchestrationId: string,
+	routingStrategy: RoutingStrategy,
+	target: PreparedCandidate,
+): Promise<DispatchResult> {
 	const message: RunDispatchControlMessage = runDispatchControlMessageSchema.parse({
 		agentInstallationId: target.agentInstallationId,
 		agentKind: target.agentKind,
+		candidateId: target.candidate.id,
+		candidateLabel: target.candidate.label,
 		machineId: target.machineId,
+		orchestrationId,
 		privacyMode: target.privacyMode,
 		queueItemId: target.queueItemId,
 		runId: target.runId,
+		routingStrategy,
 		...(target.scheduledJobId ? { scheduledJobId: target.scheduledJobId } : {}),
 		sessionId: target.sessionId,
 		targetBranch: target.targetBranch,
 		task: target.task,
 		type: "run.dispatch",
+		worktreeBranch: target.worktreeBranch,
 		workspaceId: target.workspaceId,
 		...(target.model ? { model: target.model } : {}),
 		...(target.provider ? { provider: target.provider } : {}),
@@ -283,7 +426,7 @@ async function waitForRunCompletion(
 	const maxChecks = Math.max(1, queueItem?.max_runtime_minutes ?? 30);
 
 	for (let check = 1; check <= maxChecks; check += 1) {
-		const run = await step.do(`read-run-status-${check}`, async () => {
+		const run = await step.do(`read-run-status-${sanitizeId(runId)}-${check}`, async () => {
 			const current = await createAgentDeckRepositories(env.AGENTDECK_DB).runs.findById(runId);
 			return current ? { status: current.status } : null;
 		});
@@ -292,11 +435,10 @@ async function waitForRunCompletion(
 			return { status: terminalWorkflowStatus(run.status) };
 		}
 
-		await step.sleep(`wait-run-status-${check}`, runPollDelay);
+		await step.sleep(`wait-run-status-${sanitizeId(runId)}-${check}`, runPollDelay);
 	}
 
 	await transitionRunToStatus(repositories, runId, "failed");
-	await transitionQueueItemStatus(repositories, queueItemId, "failed");
 	await appendWorkerEvent(repositories, {
 		payload: { error: "Run timed out while waiting for bridge completion.", retryable: true },
 		runId,
@@ -305,43 +447,126 @@ async function waitForRunCompletion(
 	return { status: "timeout" };
 }
 
-function terminalWorkflowStatus(status: RunStatus): "cancelled" | "completed" | "failed" {
-	if (status === "completed" || status === "failed" || status === "cancelled") {
-		return status;
+async function collectCandidateResults(
+	env: RunWorkflowEnv,
+	orchestration: Extract<PreparedOrchestration, { status: "ready" }>,
+	completedRuns: ReadonlyArray<{ runId: string; status: "cancelled" | "completed" | "failed" | "timeout" }>,
+): Promise<CandidateResult[]> {
+	const repositories = createAgentDeckRepositories(env.AGENTDECK_DB);
+	const artifacts = await repositories.artifacts.listBySession(orchestration.sessionId, 500);
+	const results: CandidateResult[] = [];
+
+	for (const target of orchestration.targets) {
+		const run = await repositories.runs.findById(target.runId);
+		const completed = completedRuns.find((item) => item.runId === target.runId);
+		const runStatus = completed?.status ?? terminalWorkflowStatus(run?.status ?? "failed");
+		const runArtifacts = artifacts.filter((artifact) => artifact.run_id === target.runId);
+		const patchArtifact = runArtifacts.find((artifact) => artifact.kind === "patch-diff");
+		const approvals = await repositories.approvals.listByRun(target.runId, 100);
+		const latencyMs = run?.latency_ms ?? latencyMsFromRow(run) ?? 0;
+		const diff = patchArtifact ? await diffSummaryFromArtifact(env, patchArtifact) : null;
+
+		results.push({
+			agentKind: target.agentKind,
+			candidateId: target.candidate.id,
+			label: target.candidate.label,
+			latencyMs,
+			policyFit: approvals.some((approval) => approval.status === "rejected") ? 0.2 : 0.7,
+			riskFindings: approvals.map((approval) => ({
+				description: approval.title,
+				severity: approval.risk,
+			})),
+			runId: target.runId,
+			status: runStatus,
+			...(diff ? { diff } : {}),
+			...(run?.cost_usd === null || run?.cost_usd === undefined ? {} : { costUsd: run.cost_usd }),
+			verifierResults: [
+				{
+					command: "bridge verifier suite",
+					id: `${target.runId}-bridge-verifier`,
+					status: runStatus === "completed" ? "passed" : "failed",
+					summary:
+						runStatus === "completed"
+							? "Bridge completed terminal execution and verifier stage."
+							: "Bridge did not produce a passing terminal and verifier result.",
+				},
+			],
+		});
 	}
-	throw new Error(`Unexpected non-terminal run status: ${status}`);
+
+	return results;
 }
 
-async function generateDecisionReport(env: RunWorkflowEnv, runId: string): Promise<string> {
+async function generateOrchestrationReport(
+	env: RunWorkflowEnv,
+	orchestration: Extract<PreparedOrchestration, { status: "ready" }>,
+	candidateResults: readonly CandidateResult[],
+): Promise<string> {
 	const repositories = createAgentDeckRepositories(env.AGENTDECK_DB);
-	const run = await repositories.runs.findById(runId);
-	if (!run) {
-		throw new Error(`Run ${runId} was not found.`);
-	}
-	const existingReportId = `report_${sanitizeId(runId)}`;
-	if (await repositories.decisionReports.findById(existingReportId)) {
-		return existingReportId;
+	const reportId = `report_${sanitizeId(orchestration.queueItemId)}`;
+	if (await repositories.decisionReports.findById(reportId)) {
+		return reportId;
 	}
 
-	const session = await repositories.sessions.findById(run.session_id);
-	if (!session) {
-		throw new Error(`Session ${run.session_id} was not found.`);
+	const scores = judgeCandidates(candidateResults);
+	const synthesis = synthesizeCandidates(candidateResults, scores);
+	await appendWorkerEvent(repositories, {
+		payload: {
+			candidateRunIds: candidateResults.map((candidate) => candidate.runId),
+			orchestrationId: orchestration.orchestrationId,
+		},
+		sessionId: orchestration.sessionId,
+		type: "judge.started",
+		workspaceId: orchestration.workspaceId,
+	});
+	for (const score of scores) {
+		await appendWorkerEvent(repositories, {
+			payload: {
+				candidateId: score.candidateId,
+				recommendation: score.recommendation,
+				runId: score.runId,
+				score: score.totalScore,
+			},
+			runId: score.runId,
+			type: "judge.scored",
+		});
 	}
+	await appendWorkerEvent(repositories, {
+		payload: {
+			candidateRunIds: candidateResults.map((candidate) => candidate.runId),
+			orchestrationId: orchestration.orchestrationId,
+		},
+		sessionId: orchestration.sessionId,
+		type: "synthesis.started",
+		workspaceId: orchestration.workspaceId,
+	});
+	await appendWorkerEvent(repositories, {
+		payload: {
+			recommendation: synthesis.recommendation,
+			strategy: synthesis.strategy,
+			...(synthesis.winningCandidateId ? { winningCandidateId: synthesis.winningCandidateId } : {}),
+			...(synthesis.winningRunId ? { winningRunId: synthesis.winningRunId } : {}),
+		},
+		runId: synthesis.winningRunId,
+		sessionId: orchestration.sessionId,
+		type: "synthesis.completed",
+		workspaceId: orchestration.workspaceId,
+	});
 
-	const events = await repositories.events.listBySession(run.session_id, -1, 1000);
-	const artifacts = await repositories.artifacts.listBySession(run.session_id, 200);
-	const approvals = await repositories.approvals.listByRun(run.id, 200);
-	const report = {
-		approvals: approvals.length,
-		artifacts: artifacts.length,
-		events: events.length,
-		generatedAt: new Date().toISOString(),
-		queueItemId: run.queue_item_id,
-		runId: run.id,
-		status: run.status,
-		task: run.task,
-	};
-	const objectKey = `workspaces/${session.workspace_id}/sessions/${session.id}/reports/${existingReportId}.json`;
+	const humanInterventions = await collectHumanInterventions(repositories, candidateResults);
+	const report = generateDecisionReportDetail({
+		candidates: candidateResults,
+		classification: orchestration.classification,
+		id: reportId,
+		routing: orchestration.routing,
+		scores,
+		sessionId: orchestration.sessionId,
+		synthesis,
+		task: orchestration.task,
+		workspaceId: orchestration.workspaceId,
+		humanInterventions,
+	});
+	const objectKey = `workspaces/${orchestration.workspaceId}/sessions/${orchestration.sessionId}/reports/${reportId}.json`;
 
 	await env.AGENTDECK_ARTIFACTS.put(objectKey, JSON.stringify(report), {
 		httpMetadata: {
@@ -350,29 +575,41 @@ async function generateDecisionReport(env: RunWorkflowEnv, runId: string): Promi
 	});
 
 	await repositories.decisionReports.create({
-		confidence: run.confidence ?? 0.85,
-		costUsd: run.cost_usd,
-		id: existingReportId,
-		latencyMs: run.latency_ms,
+		confidence: report.confidence,
+		costUsd: report.costUsd,
+		id: reportId,
+		latencyMs: report.latencyMs,
 		objectKey,
-		recommendation: run.status === "completed" ? "accept" : "review-carefully",
+		recommendation: report.recommendation,
 		report: report as unknown as JsonValue,
-		sessionId: session.id,
-		summary: `Run ${run.status}: ${run.task}`,
-		workspaceId: session.workspace_id,
+		sessionId: report.sessionId,
+		summary: report.summary,
+		workspaceId: report.workspaceId,
 	});
 	await appendWorkerEvent(repositories, {
 		payload: {
-			recommendation: run.status === "completed" ? "accept" : "review-carefully",
-			reportId: existingReportId,
+			candidateCount: candidateResults.length,
+			recommendation: report.recommendation,
+			reportId,
+			...(report.winningCandidateId ? { winningCandidateId: report.winningCandidateId } : {}),
 		},
-		runId: run.id,
-		sessionId: session.id,
+		runId: report.synthesis.winningRunId,
+		sessionId: orchestration.sessionId,
 		type: "report.created",
-		workspaceId: session.workspace_id,
+		workspaceId: orchestration.workspaceId,
 	});
 
-	return existingReportId;
+	return reportId;
+}
+
+async function readDecisionReport(env: RunWorkflowEnv, reportId: string): Promise<DecisionReportDetail | null> {
+	const repositories = createAgentDeckRepositories(env.AGENTDECK_DB);
+	const report = await repositories.decisionReports.findById(reportId);
+	if (!report) {
+		return null;
+	}
+
+	return JSON.parse(report.report_json) as DecisionReportDetail;
 }
 
 async function markDispatchedRunning(env: RunWorkflowEnv, queueItemId: string, runId: string): Promise<void> {
@@ -402,18 +639,23 @@ async function markQueueAndRunWaiting(
 	});
 }
 
-async function markQueueCompleted(
+async function markQueueFinal(
 	env: RunWorkflowEnv,
 	queueItemId: string,
-	runId: string,
 	reportId: string,
+	report: DecisionReportDetail | null,
 ): Promise<void> {
 	const repositories = createAgentDeckRepositories(env.AGENTDECK_DB);
-	await transitionQueueItemStatus(repositories, queueItemId, "completed");
+	const completed = report && report.recommendation !== "rerun" && report.recommendation !== "reject";
+	await transitionQueueItemStatus(repositories, queueItemId, completed ? "completed" : "failed");
 	await appendWorkerEvent(repositories, {
-		payload: { queueItemId, reportId },
-		runId,
-		type: "queue.item_completed",
+		payload: completed
+			? { queueItemId, reportId }
+			: { error: report?.summary ?? "No acceptable candidate was produced.", queueItemId },
+		runId: report?.synthesis.winningRunId,
+		sessionId: report?.sessionId,
+		type: completed ? "queue.item_completed" : "queue.item_failed",
+		workspaceId: report?.workspaceId,
 	});
 }
 
@@ -421,7 +663,7 @@ async function ensureQueueSession(
 	repositories: AgentDeckRepositories,
 	workspace: WorkspaceRow,
 	queueItem: QueueItemRow,
-): Promise<{ id: string }> {
+): Promise<{ id: string; title: string }> {
 	const sessionId = `queue_${sanitizeId(queueItem.id)}`;
 	const existing = await repositories.sessions.findById(sessionId);
 	if (existing) {
@@ -453,14 +695,17 @@ async function ensureQueueRun(
 	input: {
 		agentInstallationId: string;
 		branchName: string;
+		candidate: AgentCandidate;
+		candidateCount: number;
 		machineId: string;
 		queueItem: QueueItemRow;
+		routingStrategy: RoutingStrategy;
 		scheduledJobId?: string;
 		sessionId: string;
 		workspace: WorkspaceRow;
 	},
 ): Promise<RunRow> {
-	const runId = `run_${sanitizeId(input.queueItem.id)}`;
+	const runId = runIdForCandidate(input.queueItem.id, input.candidate.id, input.candidateCount);
 	const existing = await repositories.runs.findById(runId);
 	if (existing) {
 		return existing;
@@ -481,7 +726,12 @@ async function ensureQueueRun(
 		updatedAt: now,
 	});
 	await appendWorkerEvent(repositories, {
-		payload: { targetBranch: input.workspace.default_branch, task: input.queueItem.task },
+		payload: {
+			candidateId: input.candidate.id,
+			routingStrategy: input.routingStrategy,
+			targetBranch: input.workspace.default_branch,
+			task: input.queueItem.task,
+		},
 		runId: run.id,
 		sessionId: input.sessionId,
 		type: "run.created",
@@ -575,12 +825,60 @@ async function appendWorkerEvent(
 	});
 }
 
-function modelProviderFromSelector(value: JsonValue | null): { model?: string; provider?: string } {
+async function collectHumanInterventions(
+	repositories: AgentDeckRepositories,
+	candidateResults: readonly CandidateResult[],
+): Promise<HumanIntervention[]> {
+	const interventions: HumanIntervention[] = [];
+	for (const candidate of candidateResults) {
+		const approvals = await repositories.approvals.listByRun(candidate.runId, 100);
+		for (const approval of approvals) {
+			interventions.push({
+				description: approval.title,
+				timestamp: approval.decided_at ?? approval.created_at,
+				type: approval.kind,
+			});
+		}
+	}
+	return interventions;
+}
+
+async function diffSummaryFromArtifact(env: RunWorkflowEnv, artifact: ArtifactRow): Promise<CandidateDiffSummary> {
+	if (artifact.size_bytes > maxPatchSummaryBytes) {
+		return {
+			additions: 0,
+			artifactId: artifact.id,
+			deletions: 0,
+			filesChanged: 0,
+			objectKey: artifact.object_key,
+		};
+	}
+
+	const object = await env.AGENTDECK_ARTIFACTS.get(artifact.object_key);
+	const diff = object ? await object.text() : "";
+	const lines = diff.split("\n");
+	const filesChanged = lines.filter((line) => line.startsWith("diff --git ")).length;
+	const additions = lines.filter((line) => line.startsWith("+") && !line.startsWith("+++")).length;
+	const deletions = lines.filter((line) => line.startsWith("-") && !line.startsWith("---")).length;
+	return {
+		additions,
+		artifactId: artifact.id,
+		deletions,
+		filesChanged,
+		objectKey: artifact.object_key,
+	};
+}
+
+function routeOptionsFromSelector(value: JsonValue | null): RouteTaskOptions {
 	const model = stringField(value, "model");
 	const provider = stringField(value, "provider");
+	const requestedStrategy = routingStrategyField(value);
+	const maxCandidates = numberField(value, "maxCandidates");
 	return {
+		...(maxCandidates ? { maxCandidates } : {}),
 		...(model ? { model } : {}),
 		...(provider ? { provider } : {}),
+		...(requestedStrategy ? { requestedStrategy } : {}),
 	};
 }
 
@@ -600,12 +898,59 @@ function agentKindField(value: JsonValue | null): AgentKind | null {
 	return null;
 }
 
+function routingStrategyField(value: JsonValue | null): RoutingStrategy | null {
+	const strategy = stringField(value, "strategy") ?? stringField(value, "routingStrategy");
+	if (
+		strategy === "cascade" ||
+		strategy === "frontier-fallback" ||
+		strategy === "local-only" ||
+		strategy === "parallel-candidates" ||
+		strategy === "single"
+	) {
+		return strategy;
+	}
+	return null;
+}
+
+function numberField(value: JsonValue | null, key: string): number | null {
+	if (!isRecord(value) || typeof value[key] !== "number" || !Number.isInteger(value[key])) {
+		return null;
+	}
+	return Math.max(1, Math.min(3, value[key]));
+}
+
 function stringField(value: JsonValue | null, key: string): string | null {
 	return isRecord(value) && typeof value[key] === "string" ? value[key] : null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function latencyMsFromRow(run: RunRow | null): number | null {
+	if (!run?.started_at || !run.completed_at) {
+		return null;
+	}
+
+	const started = Date.parse(run.started_at);
+	const completed = Date.parse(run.completed_at);
+	if (!Number.isFinite(started) || !Number.isFinite(completed) || completed < started) {
+		return null;
+	}
+
+	return completed - started;
+}
+
+function terminalWorkflowStatus(status: RunStatus): "cancelled" | "completed" | "failed" {
+	if (status === "completed" || status === "failed" || status === "cancelled") {
+		return status;
+	}
+	throw new Error(`Unexpected non-terminal run status: ${status}`);
+}
+
+function runIdForCandidate(queueItemId: string, candidateId: string, candidateCount: number): string {
+	const base = `run_${sanitizeId(queueItemId)}`;
+	return candidateCount <= 1 ? base : `${base}_${sanitizeId(candidateId)}`;
 }
 
 function sanitizeId(value: string): string {

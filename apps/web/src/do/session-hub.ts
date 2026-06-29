@@ -159,6 +159,7 @@ export class SessionHub extends DurableObject<SessionHubEnv> {
 		await this.persistAndBroadcast({
 			payload: {
 				agentInstallationId: message.agentInstallationId,
+				...(message.candidateId ? { candidateId: message.candidateId } : {}),
 				machineId: message.machineId,
 			},
 			runId: message.runId,
@@ -641,12 +642,19 @@ export class SessionHub extends DurableObject<SessionHubEnv> {
 
 		await repositories.runs.updateStatus({
 			completedAt: isTerminalRunStatus(nextStatus) ? envelope.createdAt : undefined,
+			confidence: confidenceFromEnvelope(envelope),
 			id: run.id,
+			latencyMs: latencyMsFromRun(run.started_at, envelope.createdAt, nextStatus),
 			startedAt: nextStatus === "running" ? envelope.createdAt : undefined,
 			status: nextStatus,
 		});
 
 		if (run.queue_item_id && (nextStatus === "completed" || nextStatus === "failed" || nextStatus === "cancelled")) {
+			const siblingRuns = await repositories.runs.listByQueueItem(run.queue_item_id, 2);
+			if (siblingRuns.length > 1) {
+				return;
+			}
+
 			const queueItem = await repositories.queue.findById(run.queue_item_id);
 			if (queueItem) {
 				const queueTransition = transitionRunStatus(queueItem.status, nextStatus);
@@ -659,6 +667,29 @@ export class SessionHub extends DurableObject<SessionHubEnv> {
 			}
 		}
 	}
+}
+
+function confidenceFromEnvelope(envelope: EventEnvelope): number | undefined {
+	if (envelope.type !== "run.completed" || !isJsonRecord(envelope.payload)) {
+		return undefined;
+	}
+
+	const confidence = envelope.payload.confidence;
+	return typeof confidence === "number" && Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : undefined;
+}
+
+function latencyMsFromRun(startedAt: string | null, completedAt: string, nextStatus: RunStatus): number | undefined {
+	if (!isTerminalRunStatus(nextStatus) || !startedAt) {
+		return undefined;
+	}
+
+	const started = Date.parse(startedAt);
+	const completed = Date.parse(completedAt);
+	if (!Number.isFinite(started) || !Number.isFinite(completed) || completed < started) {
+		return undefined;
+	}
+
+	return completed - started;
 }
 
 function statusFromEnvelope(envelope: EventEnvelope): RunStatus | null {
@@ -680,11 +711,6 @@ function statusFromEnvelope(envelope: EventEnvelope): RunStatus | null {
 			return "cancelled";
 		case "run.status":
 			return isJsonRecord(envelope.payload) && isRunStatus(envelope.payload.status) ? envelope.payload.status : null;
-		case "terminal.closed":
-			if (!isJsonRecord(envelope.payload)) {
-				return null;
-			}
-			return envelope.payload.exitCode === 0 ? "completed" : "failed";
 		default:
 			return null;
 	}

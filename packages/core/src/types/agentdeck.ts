@@ -195,6 +195,18 @@ export type DecisionReport = {
 	humanInterventions: number;
 	costUsd: number;
 	latencyLabel: string;
+	candidateComparison?: DecisionReportCandidate[];
+};
+
+export type DecisionReportCandidate = {
+	id: string;
+	agent: string;
+	status: "cancelled" | "completed" | "failed" | "timeout";
+	score: number;
+	recommendation: "accept" | "review-carefully" | "reject" | "rerun";
+	verificationStatus: VerificationStatus;
+	latencyLabel: string;
+	notes: string;
 };
 
 export type PolicyRule = {

@@ -440,6 +440,10 @@ class MemoryD1 implements QueryableD1 {
 			return limitRows(this.rows("runs").filter((row) => row.session_id === values[0]), values[1]);
 		}
 
+		if (normalized.includes("from runs where queue_item_id = ?")) {
+			return limitRows(this.rows("runs").filter((row) => row.queue_item_id === values[0]), values[1]);
+		}
+
 		if (normalized.includes("select count(*) as count from runs where machine_id = ?")) {
 			const activeStatuses = new Set(["queued", "waiting-machine", "running", "waiting-approval", "paused", "verifying"]);
 			return [
@@ -788,6 +792,7 @@ describe("AgentDeck D1 repositories", () => {
 		expect(run.status).toBe("running");
 		expect(await repositories.runs.findById("run_01")).toEqual(run);
 		expect(await repositories.runs.listBySession("sess_01")).toHaveLength(1);
+		expect(await repositories.runs.listByQueueItem("queue_01")).toHaveLength(1);
 		expect(await repositories.runs.countActiveByMachine("machine_01")).toBe(1);
 		expect(
 			await repositories.runs.updateStatus({

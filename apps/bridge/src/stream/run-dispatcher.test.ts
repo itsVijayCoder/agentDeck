@@ -199,6 +199,35 @@ describe("BridgeRunDispatcher", () => {
 		expect(mocks.createWorktree).not.toHaveBeenCalled();
 	});
 
+	it("uses orchestrated candidate worktree branches when provided", async () => {
+		const sink = createSink();
+		const { registry } = createRegistry();
+		const dispatcher = new BridgeRunDispatcher({
+			adapterRegistry: registry,
+			config: {
+				cloudUrl: "https://agentdeck.example",
+				displayName: "Machine",
+				machineId: "machine_01",
+				pairedAt: "2026-06-29T00:00:00.000Z",
+				privacyMode: "metadata-only",
+				token: "token",
+				workspaceId: "ws_01",
+			},
+			repoPath: "/repo",
+			sink,
+		});
+
+		await dispatcher.dispatch({
+			...dispatchMessage,
+			candidateId: "candidate-a",
+			worktreeBranch: "agentdeck/queue_01/candidate-a",
+		});
+
+		expect(mocks.createWorktree).toHaveBeenCalledWith("/repo", "run_01", "agentdeck/queue_01/candidate-a", {
+			targetRef: "main",
+		});
+	});
+
 	it("emits run.failed when worktree setup fails", async () => {
 		mocks.createWorktree.mockRejectedValueOnce(new Error("not a git repo"));
 		const sink = createSink();
@@ -320,9 +349,20 @@ describe("BridgeRunDispatcher", () => {
 
 	it("validates run dispatch control messages", () => {
 		expect(isRunDispatchControlMessage(dispatchMessage)).toBe(true);
+		expect(
+			isRunDispatchControlMessage({
+				...dispatchMessage,
+				candidateId: "candidate-a",
+				candidateLabel: "Candidate A",
+				orchestrationId: "orch_01",
+				routingStrategy: "parallel-candidates",
+				worktreeBranch: "agentdeck/queue_01/candidate-a",
+			}),
+		).toBe(true);
 		expect(isRunDispatchControlMessage({ ...dispatchMessage, agentKind: "unknown" })).toBe(false);
 		expect(isRunDispatchControlMessage({ ...dispatchMessage, model: 1 })).toBe(false);
 		expect(isRunDispatchControlMessage({ ...dispatchMessage, provider: 1 })).toBe(false);
 		expect(isRunDispatchControlMessage({ ...dispatchMessage, scheduledJobId: 1 })).toBe(false);
+		expect(isRunDispatchControlMessage({ ...dispatchMessage, routingStrategy: "unknown" })).toBe(false);
 	});
 });

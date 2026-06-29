@@ -372,6 +372,38 @@ export const decisionReport: DecisionReport = {
 	humanInterventions: 1,
 	costUsd: 3.41,
 	latencyLabel: "11m 42s",
+	candidateComparison: [
+		{
+			id: "candidate_a",
+			agent: "OpenCode",
+			status: "completed",
+			score: 0.91,
+			recommendation: "accept",
+			verificationStatus: "passed",
+			latencyLabel: "8m 18s",
+			notes: "Smallest patch with repeated auth refresh test passing.",
+		},
+		{
+			id: "candidate_b",
+			agent: "Claude Code",
+			status: "completed",
+			score: 0.82,
+			recommendation: "review-carefully",
+			verificationStatus: "warning",
+			latencyLabel: "11m 42s",
+			notes: "Strong diagnosis, broader patch, verifier still collecting evidence.",
+		},
+		{
+			id: "candidate_c",
+			agent: "Codex",
+			status: "failed",
+			score: 0.28,
+			recommendation: "reject",
+			verificationStatus: "failed",
+			latencyLabel: "4m 09s",
+			notes: "Stopped after reproducing the flake but did not produce a passing patch.",
+		},
+	],
 };
 
 export const policyRules: PolicyRule[] = [

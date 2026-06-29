@@ -7,6 +7,7 @@ import type {
 	TerminalLeaseMode,
 	VerificationStatus,
 } from "./agentdeck";
+import type { ReportRecommendation, RoutingStrategy, SynthesisStrategy } from "./orchestration";
 
 export type ApprovalKind = "command" | "file" | "patch" | "provider" | "queue";
 
@@ -50,8 +51,8 @@ export type AgentEvent =
 	| EventEnvelope<"agent.ended", { agentKind: AgentKind; status: "completed" | "failed" | "cancelled" }>;
 
 export type RunEvent =
-	| EventEnvelope<"run.created", { task: string; targetBranch: string }>
-	| EventEnvelope<"run.dispatched", { machineId: string; agentInstallationId: string }>
+	| EventEnvelope<"run.created", { task: string; targetBranch: string; candidateId?: string; routingStrategy?: RoutingStrategy }>
+	| EventEnvelope<"run.dispatched", { machineId: string; agentInstallationId: string; candidateId?: string }>
 	| EventEnvelope<"run.started", { status: RunStatus; worktreePathHash?: string }>
 	| EventEnvelope<"run.status", { runId: string; status: RunStatus }>
 	| EventEnvelope<"run.waiting_approval", { approvalId: string }>
@@ -125,11 +126,17 @@ export type ScheduleEvent =
 	| EventEnvelope<"schedule.completed", { scheduleId: string; runId: string }>;
 
 export type ReportEvent =
-	| EventEnvelope<"judge.started", { candidateRunIds: string[] }>
-	| EventEnvelope<"judge.scored", { runId: string; score: number }>
-	| EventEnvelope<"synthesis.started", { candidateRunIds: string[] }>
-	| EventEnvelope<"synthesis.completed", { winningRunId?: string }>
-	| EventEnvelope<"report.created", { reportId: string; recommendation: "accept" | "review-carefully" | "reject" | "rerun" }>;
+	| EventEnvelope<"judge.started", { candidateRunIds: string[]; orchestrationId?: string }>
+	| EventEnvelope<"judge.scored", { runId: string; score: number; candidateId?: string; recommendation?: ReportRecommendation }>
+	| EventEnvelope<"synthesis.started", { candidateRunIds: string[]; orchestrationId?: string }>
+	| EventEnvelope<
+			"synthesis.completed",
+			{ winningRunId?: string; winningCandidateId?: string; strategy?: SynthesisStrategy; recommendation?: ReportRecommendation }
+	  >
+	| EventEnvelope<
+			"report.created",
+			{ reportId: string; recommendation: ReportRecommendation; candidateCount?: number; winningCandidateId?: string }
+	  >;
 
 export type AgentDeckEvent =
 	| SessionEvent
@@ -164,14 +171,19 @@ export type RunDispatchControlMessage = {
 	type: "run.dispatch";
 	agentInstallationId: string;
 	agentKind: AgentKind;
+	candidateId?: string;
+	candidateLabel?: string;
 	machineId: string;
+	orchestrationId?: string;
 	privacyMode: PrivacyMode;
 	queueItemId: string;
 	runId: string;
+	routingStrategy?: RoutingStrategy;
 	scheduledJobId?: string;
 	sessionId: string;
 	targetBranch: string;
 	task: string;
+	worktreeBranch?: string;
 	workspaceId: string;
 	model?: string;
 	provider?: string;

@@ -8,10 +8,13 @@
 
 ## Current State
 
-- Single-agent runs work (one agent per session).
-- No task classifier. No router. No candidate comparison. No judge. No synthesis.
-- Decision report type exists in `@agentdeck/core` but is mock only.
-- No multi-agent orchestration logic exists.
+- `@agentdeck/core` exports shared Phase 09 orchestration contracts: task classification, routing strategy, candidates, scoring, synthesis, and full decision report detail payloads.
+- `@agentdeck/harness` owns deterministic orchestration helpers: task classifier, router, six-factor judge, synthesis strategy, and decision report mapper.
+- Queue-created and scheduled tasks are classified and routed inside `RunWorkflow`. Simple/medium tasks remain single-candidate; hard/critical tasks can dispatch multiple candidates when eligible bridge agents and queue concurrency allow it.
+- Each candidate is dispatched through SessionHub using the existing bridge execution primitive, with stable candidate IDs and isolated candidate worktree branches.
+- SessionHub no longer treats `terminal.closed` as final run completion; final status comes from verifier-aware bridge `run.completed` / `run.failed` events.
+- `RunWorkflow` waits for candidate terminal states, scores candidates, synthesizes a recommendation, stores full report JSON in R2 and D1 metadata, emits `judge.*`, `synthesis.*`, and `report.created` events, and marks the queue item final only after orchestration completes.
+- The dashboard decision report shows a candidate comparison table using the existing `of-*` design system.
 
 ---
 
@@ -603,18 +606,18 @@ export function generateDecisionReport(
 ## Acceptance Criteria
 
 ```text
-[ ] Task classifier categorizes tasks into simple/medium/hard/critical
-[ ] Router selects strategy based on classification
-[ ] Single-agent runs work (one candidate)
-[ ] Parallel-candidate runs work (2-3 agents in isolated worktrees)
-[ ] Judge scores candidates using the 6-factor scoring model
-[ ] Synthesis selects best candidate or recommends rerun
-[ ] Decision report includes: task, agents, timeline, verification, scores, recommendation
-[ ] Decision report is stored in D1 (metadata) and R2 (full JSON)
-[ ] report.created event is emitted
-[ ] Candidate comparison data is available via API
-[ ] Unit tests pass for classifier, router, judge, synthesis, report
-[ ] pnpm build passes
+[x] Task classifier categorizes tasks into simple/medium/hard/critical
+[x] Router selects strategy based on classification and privacy mode
+[x] Single-agent runs work as one candidate
+[x] Parallel-candidate runs dispatch as multiple isolated bridge runs when eligible agents and queue concurrency allow it
+[x] Judge scores candidates using the 6-factor scoring model
+[x] Synthesis selects best candidate or recommends rerun
+[x] Decision report includes task, agents, verification summary, candidate scores, synthesis, costs, latency, risks, and recommendation
+[x] Decision report is stored in D1 metadata and R2 full JSON
+[x] report.created event is emitted
+[x] Candidate comparison data is available through report JSON and visible in the dashboard mock surface
+[x] Unit tests pass for classifier, router, judge, synthesis, and report mapper
+[x] Full repo quality gate and build pass for the final Phase 09 commit
 ```
 
 ---
