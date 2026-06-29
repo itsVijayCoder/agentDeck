@@ -103,7 +103,7 @@ export const updateQueueItemRequestSchema = z
 export const upsertScheduledJobRequestSchema = z
 	.object({
 		agentSelector: jsonValueSchema.default({}),
-		cron: nonBlankStringSchema,
+		cron: nonBlankStringSchema.optional(),
 		enabled: z.boolean().default(true),
 		machineSelector: jsonValueSchema.default({}),
 		name: nonBlankStringSchema,

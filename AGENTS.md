@@ -4,9 +4,9 @@ Guidance for AI coding agents working in this repository.
 
 ## Current State
 
-This repo is a **pnpm monorepo** for AgentDeck Mission Control. It has typed domain models, event contracts, state machines, a policy classifier, D1 persistence contracts, runtime validators, Worker API routes, a Durable Object session hub, the local bridge, terminal jump-in control, harness adapter contracts, agent event normalization, approval-gated command policy services, isolated worktree helpers, verifier strategies, patch/artifact upload plumbing, mock data, and the production dashboard UI.
+This repo is a **pnpm monorepo** for AgentDeck Mission Control. It has typed domain models, event contracts, state machines, a policy classifier, D1 persistence contracts, runtime validators, Worker API routes, a Durable Object session hub, Cloudflare Queue/Workflow/Cron orchestration for queued runs and schedules, the local bridge, terminal jump-in control, harness adapter contracts, agent event normalization, approval-gated command policy services, isolated worktree helpers, verifier strategies, patch/artifact upload plumbing, mock data, and the production dashboard UI.
 
-There is still no Queue consumer, Workflow, or cloud-dispatched real run orchestration yet. Agent adapters can start local agent processes through the bridge harness, and Phase 07 now provides the bridge/runtime services needed by dispatched runs: approval wait gates, worktree creation/removal, verifier runners, patch generation, and privacy-aware artifact uploads. Later phases still own queue consumers, workflows, scheduled dispatch, multi-agent orchestration, and reports.
+Phase 08 now provides the first cloud-dispatched single-agent queue flow: API-created and scheduled queue items are sent to `AGENTDECK_QUEUE`, the queue consumer starts `RunWorkflow`, Cron checks due schedules, the workflow dispatches through SessionHub to a connected bridge, and the bridge creates an isolated worktree before starting the selected adapter. Later phases still own multi-agent orchestration, judge/synthesis flows, provider routing, advanced reports, and premium UI.
 
 `Docs/IMPLEMENTATION_GUIDE_WITH_PI.md` describes the full planned architecture. Trust the code and current phase docs for what is implemented today.
 
@@ -43,6 +43,7 @@ apps/
     src/components/agentdeck/          Dashboard UI
     src/do/                             SessionHub Durable Object + protocol helpers
     src/lib/mock-agentdeck.ts          App-local mock data
+    src/workers/                       Queue consumer, scheduler, RunWorkflow, morning reports
     e2e/phase-00.spec.ts                Playwright wiring smoke test
     wrangler.jsonc                      Cloudflare deploy config
     cloudflare-env.d.ts                 Generated Cloudflare env types

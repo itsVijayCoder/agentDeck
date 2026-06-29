@@ -2,11 +2,12 @@ import type { NextRequest } from "next/server";
 import { parseJsonColumn } from "@agentdeck/db";
 
 import { requireWorkspaceRow } from "@/lib/api/access";
-import { jsonResponse, withApiErrors } from "@/lib/api/errors";
+import { badRequest, jsonResponse, withApiErrors } from "@/lib/api/errors";
 import { assertNonEmptyPatch, parseJsonRequest } from "@/lib/api/request";
 import { updateScheduledJobRequestSchema } from "@/lib/api/schemas";
 import { requireSession } from "@/lib/auth";
 import { getRepositories } from "@/lib/cloudflare-context";
+import { calculateNextRun, parseNaturalLanguageSchedule } from "@/lib/schedule-parser";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
 	return withApiErrors(async () => {
@@ -16,9 +17,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 		const { id } = await params;
 		const repositories = await getRepositories();
 		const existing = requireWorkspaceRow(await repositories.scheduledJobs.findById(id), user, "Schedule");
+		const timing = resolveScheduleTiming(body, existing);
 		const schedule = await repositories.scheduledJobs.upsert({
 			agentSelector: body.agentSelector ?? parseJsonColumn(existing.agent_selector_json),
-			cron: body.cron ?? existing.cron,
+			cron: timing.cron,
 			enabled: body.enabled ?? (existing.enabled === 1),
 			id: existing.id,
 			lastRunAt: existing.last_run_at,
@@ -26,12 +28,49 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 			machineSelector: body.machineSelector ?? parseJsonColumn(existing.machine_selector_json),
 			name: body.name ?? existing.name,
 			naturalLanguage: body.naturalLanguage ?? existing.natural_language,
-			nextRunAt: body.nextRunAt === undefined ? existing.next_run_at : body.nextRunAt,
+			nextRunAt:
+				body.nextRunAt === undefined
+					? timing.changed
+						? calculateNextRun(timing.cron, timing.timezone)
+						: existing.next_run_at
+					: body.nextRunAt,
 			taskTemplate: body.taskTemplate ?? existing.task_template,
-			timezone: body.timezone ?? existing.timezone,
+			timezone: timing.timezone,
 			workspaceId: existing.workspace_id,
 		});
 
 		return jsonResponse({ schedule });
 	});
+}
+
+function resolveScheduleTiming(
+	body: { cron?: string; naturalLanguage?: string; timezone?: string },
+	existing: { cron: string; natural_language: string; timezone: string },
+): { changed: boolean; cron: string; timezone: string } {
+	const timezone = body.timezone ?? existing.timezone;
+	if (body.cron) {
+		return {
+			changed: body.cron !== existing.cron || timezone !== existing.timezone,
+			cron: body.cron,
+			timezone,
+		};
+	}
+
+	if (body.naturalLanguage) {
+		const parsed = parseNaturalLanguageSchedule(body.naturalLanguage, timezone);
+		if (!parsed) {
+			badRequest("Provide a cron expression or a supported natural-language schedule.", "VALIDATION_ERROR");
+		}
+		return {
+			changed: parsed.cron !== existing.cron || parsed.timezone !== existing.timezone,
+			cron: parsed.cron,
+			timezone: parsed.timezone,
+		};
+	}
+
+	return {
+		changed: timezone !== existing.timezone,
+		cron: existing.cron,
+		timezone,
+	};
 }

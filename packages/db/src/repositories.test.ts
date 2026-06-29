@@ -440,6 +440,15 @@ class MemoryD1 implements QueryableD1 {
 			return limitRows(this.rows("runs").filter((row) => row.session_id === values[0]), values[1]);
 		}
 
+		if (normalized.includes("select count(*) as count from runs where machine_id = ?")) {
+			const activeStatuses = new Set(["queued", "waiting-machine", "running", "waiting-approval", "paused", "verifying"]);
+			return [
+				{
+					count: this.rows("runs").filter((row) => row.machine_id === values[0] && activeStatuses.has(String(row.status))).length,
+				},
+			];
+		}
+
 		if (normalized.includes("from event_index where session_id = ? and seq > ?")) {
 			return limitRows(
 				this.rows("event_index")
@@ -457,8 +466,19 @@ class MemoryD1 implements QueryableD1 {
 			return limitRows(this.rows("approvals").filter((row) => row.workspace_id === values[0]), values[1]);
 		}
 
+		if (normalized.includes("from approvals where run_id = ?")) {
+			return limitRows(this.rows("approvals").filter((row) => row.run_id === values[0]), values[1]);
+		}
+
 		if (normalized.includes("from queue_items where workspace_id = ? and status = ?")) {
 			return limitRows(this.rows("queue_items").filter((row) => row.workspace_id === values[0] && row.status === values[1]), values[2]);
+		}
+
+		if (normalized.includes("from queue_items where workspace_id = ? and created_at >= ?")) {
+			return limitRows(
+				this.rows("queue_items").filter((row) => row.workspace_id === values[0] && String(row.created_at) >= String(values[1])),
+				values[2],
+			);
 		}
 
 		if (normalized.includes("from queue_items where workspace_id = ? order")) {
@@ -718,6 +738,8 @@ describe("AgentDeck D1 repositories", () => {
 		expect(await repositories.queue.findById("queue_01")).toEqual(queueItem);
 		expect(await repositories.queue.listByWorkspace("ws_01", "queued")).toHaveLength(1);
 		expect(await repositories.queue.listByWorkspace("ws_01")).toHaveLength(1);
+		expect(await repositories.queue.listByWorkspaceSince("ws_01", now)).toHaveLength(1);
+		expect(await repositories.queue.listByWorkspaceSince("ws_01", later)).toHaveLength(0);
 		expect(
 			await repositories.queue.update({
 				id: "queue_01",
@@ -766,6 +788,7 @@ describe("AgentDeck D1 repositories", () => {
 		expect(run.status).toBe("running");
 		expect(await repositories.runs.findById("run_01")).toEqual(run);
 		expect(await repositories.runs.listBySession("sess_01")).toHaveLength(1);
+		expect(await repositories.runs.countActiveByMachine("machine_01")).toBe(1);
 		expect(
 			await repositories.runs.updateStatus({
 				completedAt: later,
@@ -777,6 +800,7 @@ describe("AgentDeck D1 repositories", () => {
 				updatedAt: later,
 			}),
 		).toMatchObject({ completed_at: later, status: "completed" });
+		expect(await repositories.runs.countActiveByMachine("machine_01")).toBe(0);
 		expect(await repositories.runs.updateStatus({ id: "missing", status: "failed" })).toBeNull();
 
 		const event: AgentDeckEvent = {
@@ -812,6 +836,7 @@ describe("AgentDeck D1 repositories", () => {
 		});
 		expect(approval.status).toBe("pending");
 		expect(await repositories.approvals.findById("approval_01")).toEqual(approval);
+		expect(await repositories.approvals.listByRun("run_01")).toHaveLength(1);
 		expect(await repositories.approvals.listByWorkspace("ws_01", "pending")).toHaveLength(1);
 		expect(await repositories.approvals.listByWorkspace("ws_01")).toHaveLength(1);
 		expect(

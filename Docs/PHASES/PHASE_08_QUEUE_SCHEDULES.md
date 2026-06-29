@@ -10,9 +10,14 @@
 
 - D1 `queue_items` and `scheduled_jobs` tables exist with full schema.
 - Worker API endpoints for queue and schedule CRUD exist (Phase 02).
-- No Cloudflare Queues binding. No Workflows. No Cron Triggers in `wrangler.jsonc`.
-- No queue consumer worker. No scheduler worker. No workflow code.
-- Queue and schedule data is mock only — nothing actually executes.
+- `AGENTDECK_QUEUE`, `RUN_WORKFLOW`, and the once-per-minute Cron Trigger are bound in `apps/web/wrangler.jsonc`.
+- `apps/web/worker.ts` exposes the OpenNext request handler plus Queue and Scheduled handlers.
+- API-created and scheduled queue items are sent to Cloudflare Queues with a compact validated message contract.
+- The queue consumer starts one idempotent `RunWorkflow` instance per queue item.
+- `RunWorkflow` is a durable saga that selects an eligible online bridge machine, honors schedule/queue policy windows and machine concurrency, dispatches through SessionHub, waits for terminal completion, and writes a decision report.
+- SessionHub exposes an internal `/dispatch` endpoint, sequences `run.dispatched`, forwards dispatch controls to bridge sockets, and syncs terminal/run lifecycle events back into D1.
+- The local bridge accepts run dispatch controls, creates an isolated git worktree, starts the selected harness adapter, runs shared verifier strategies on terminal close, and uploads patch artifacts through the existing privacy-aware R2 path.
+- The scheduler creates deterministic queue items for due scheduled jobs, advances `next_run_at`, and generates morning report artifacts.
 
 ---
 
@@ -105,14 +110,16 @@ stateDiagram-v2
       {
         "queue": "agentdeck-runs",
         "max_batch_size": 1,
-        "max_concurrency: 5
+        "max_concurrency": 5,
+        "max_retries": 3,
+        "dead_letter_queue": "agentdeck-runs-dlq"
       }
     ]
   },
   "workflows": [
     {
-      "name": "RUN_WORKFLOW",
       "binding": "RUN_WORKFLOW",
+      "name": "agentdeck-run-workflow",
       "class_name": "RunWorkflow"
     }
   ],
@@ -476,55 +483,55 @@ export function parseNaturalLanguageSchedule(input: string): { cron: string; tim
 
 ## Testing Strategy
 
-| Level | What | Tool |
-|---|---|---|
-| Unit | Queue policy (allowed hours, concurrency, machine check) | vitest |
-| Unit | Schedule parser (all natural language patterns) | vitest |
-| Unit | Morning report generation | vitest + D1 stub |
-| Unit | Cron next-run calculation | vitest |
-| Integration | Queue -> workflow -> DO dispatch | vitest + miniflare |
-| Integration | Cron trigger -> scheduler -> queue | vitest + miniflare |
-| Integration | Workflow retry on machine offline | vitest + miniflare |
+| Level | What | Tool | Status |
+|---|---|---|---|
+| Unit | Queue policy (allowed hours, concurrency, machine check) | vitest | Implemented |
+| Unit | Schedule parser and cron next-run calculation | vitest | Implemented |
+| Unit | D1 repository additions for queue history, active run counts, approvals | vitest | Implemented |
+| Unit | Bridge dispatch, control forwarding, worktree failure, verifier finalization | vitest | Implemented |
+| Integration | Canonical D1 migration and repository persistence | vitest + Miniflare | Implemented |
+| Integration | Queue -> workflow -> DO dispatch | vitest + Miniflare | Future hardening |
+| Integration | Cron trigger -> scheduler -> queue | vitest + Miniflare | Future hardening |
 
 ---
 
 ## Implementation Steps
 
-1. Add Queues, Workflows, and Cron Triggers bindings to `wrangler.jsonc`
-2. Run `npm run cf-typegen`
-3. Create `apps/web/src/workers/scheduler.ts` (Cron handler)
-4. Create `apps/web/src/workers/run-workflow.ts` (RunWorkflow class)
-5. Create `apps/web/src/workers/queue-consumer.ts` (Queue consumer)
-6. Create `apps/web/src/lib/queue-policy.ts`
-7. Create `apps/web/src/lib/schedule-parser.ts`
-8. Create `apps/web/src/workers/morning-report.ts`
-9. Wire scheduler export in Next.js config or separate worker entry
-10. Write unit tests for policy, parser, report
-11. Write integration tests with miniflare
-12. Run `pnpm typecheck && pnpm lint && pnpm test && pnpm build`
-13. Test: create a queue item, verify workflow dispatches to bridge
+1. [x] Add Queues, Workflows, and Cron Trigger bindings to `apps/web/wrangler.jsonc`
+2. [x] Run `pnpm cf-typegen`
+3. [x] Create `apps/web/src/workers/scheduler.ts` (Cron handler)
+4. [x] Create `apps/web/src/workers/run-workflow.ts` (RunWorkflow class)
+5. [x] Create `apps/web/src/workers/queue-consumer.ts` (Queue consumer)
+6. [x] Create `apps/web/src/lib/queue-policy.ts`
+7. [x] Create `apps/web/src/lib/schedule-parser.ts`
+8. [x] Create `apps/web/src/workers/morning-report.ts`
+9. [x] Wire Queue/Scheduled handlers in `apps/web/worker.ts`
+10. [x] Add SessionHub internal dispatch endpoint and run-status sync
+11. [x] Add bridge run dispatcher with isolated worktree execution
+12. [x] Write focused unit tests for policy, parser, repositories, and bridge dispatch
+13. [x] Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm test:e2e`, `pnpm build:packages`, and `pnpm build`
 
 ---
 
 ## Acceptance Criteria
 
 ```text
-[ ] Cloudflare Queue AGENTDECK_QUEUE is bound and consuming
-[ ] RunWorkflow class is bound and can be started
-[ ] Cron Trigger fires every minute and checks for due schedules
-[ ] Scheduler creates queue items from due scheduled jobs
-[ ] Queue consumer starts a RunWorkflow for each queue item
-[ ] RunWorkflow dispatches to bridge via SessionHub DO
-[ ] RunWorkflow waits for completion with 30-minute timeout
-[ ] RunWorkflow generates decision report on completion
-[ ] RunWorkflow updates queue item status on completion/failure
-[ ] Queue policy enforces allowed hours and concurrency limits
-[ ] Offline machines: queue items stay in "waiting-machine" state
-[ ] Morning report is generated and stored in R2
-[ ] Natural-language schedule parser handles common patterns
-[ ] DLQ catches failed messages after max retries
-[ ] Unit and integration tests pass
-[ ] pnpm build passes
+[x] Cloudflare Queue AGENTDECK_QUEUE is bound and consuming
+[x] RunWorkflow class is bound and can be started
+[x] Cron Trigger fires every minute and checks for due schedules
+[x] Scheduler creates queue items from due scheduled jobs
+[x] Queue consumer starts a RunWorkflow for each queue item
+[x] RunWorkflow dispatches to bridge via SessionHub DO
+[x] RunWorkflow waits for completion with 30-minute timeout
+[x] RunWorkflow generates decision report on completion
+[x] RunWorkflow updates queue item status on completion/failure
+[x] Queue policy enforces allowed hours and concurrency limits
+[x] Offline machines: queue items stay in "waiting-machine" state
+[x] Morning report is generated and stored in R2
+[x] Natural-language schedule parser handles common patterns
+[x] DLQ catches failed messages after max retries
+[x] Unit tests and existing Miniflare-backed repository integration tests pass
+[x] pnpm build passes
 ```
 
 ---

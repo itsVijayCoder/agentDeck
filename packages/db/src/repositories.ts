@@ -128,6 +128,7 @@ export function createAgentDeckRepositories(db: QueryableD1) {
 		},
 		runs: {
 			create: (input: CreateRunInput) => createRun(db, createRunInputSchema.parse(input)),
+			countActiveByMachine: (machineId: string) => countActiveRunsByMachine(db, machineId),
 			findById: (id: string) => firstRow<RunRow>(db, "SELECT * FROM runs WHERE id = ?", [id]),
 			listBySession: (sessionId: string, limit?: number) =>
 				allRows<RunRow>(db, "SELECT * FROM runs WHERE session_id = ? ORDER BY created_at DESC LIMIT ?", [
@@ -149,6 +150,11 @@ export function createAgentDeckRepositories(db: QueryableD1) {
 		approvals: {
 			create: (input: CreateApprovalInput) => createApproval(db, createApprovalInputSchema.parse(input)),
 			findById: (id: string) => firstRow<ApprovalRow>(db, "SELECT * FROM approvals WHERE id = ?", [id]),
+			listByRun: (runId: string, limit?: number) =>
+				allRows<ApprovalRow>(db, "SELECT * FROM approvals WHERE run_id = ? ORDER BY created_at DESC LIMIT ?", [
+					runId,
+					normalizeLimit(limit),
+				]),
 			listByWorkspace: (workspaceId: string, status?: ApprovalStatus, limit?: number) =>
 				status
 					? allRows<ApprovalRow>(
@@ -180,6 +186,12 @@ export function createAgentDeckRepositories(db: QueryableD1) {
 							"SELECT * FROM queue_items WHERE workspace_id = ? ORDER BY priority DESC, run_after ASC, created_at ASC LIMIT ?",
 							[workspaceId, normalizeLimit(limit)],
 						),
+			listByWorkspaceSince: (workspaceId: string, since: string, limit?: number) =>
+				allRows<QueueItemRow>(
+					db,
+					"SELECT * FROM queue_items WHERE workspace_id = ? AND created_at >= ? ORDER BY created_at DESC LIMIT ?",
+					[workspaceId, since, normalizeLimit(limit, 1000)],
+				),
 		},
 		scheduledJobs: {
 			upsert: (input: UpsertScheduledJobInput) => upsertScheduledJob(db, upsertScheduledJobInputSchema.parse(input)),
@@ -436,6 +448,18 @@ async function updateRunStatus(db: QueryableD1, input: UpdateRunStatusInput): Pr
 		],
 	);
 	return firstRow<RunRow>(db, "SELECT * FROM runs WHERE id = ?", [input.id]);
+}
+
+async function countActiveRunsByMachine(db: QueryableD1, machineId: string): Promise<number> {
+	const row = await firstRow<{ count: number }>(
+		db,
+		`SELECT COUNT(*) AS count
+		 FROM runs
+		 WHERE machine_id = ?
+		   AND status IN ('queued', 'waiting-machine', 'running', 'waiting-approval', 'paused', 'verifying')`,
+		[machineId],
+	);
+	return row?.count ?? 0;
 }
 
 async function appendEvent(db: QueryableD1, input: PersistEventInput): Promise<EventIndexRow> {

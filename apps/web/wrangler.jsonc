@@ -58,6 +58,35 @@
 			}
 		]
 	},
+	"queues": {
+		"producers": [
+			{
+				"binding": "AGENTDECK_QUEUE",
+				"queue": "agentdeck-runs"
+			}
+		],
+		"consumers": [
+			{
+				"queue": "agentdeck-runs",
+				"max_batch_size": 1,
+				"max_concurrency": 5,
+				"max_retries": 3,
+				"dead_letter_queue": "agentdeck-runs-dlq"
+			}
+		]
+	},
+	"workflows": [
+		{
+			"binding": "RUN_WORKFLOW",
+			"name": "agentdeck-run-workflow",
+			"class_name": "RunWorkflow"
+		}
+	],
+	"triggers": {
+		"crons": [
+			"* * * * *"
+		]
+	},
 	"migrations": [
 		{
 			"tag": "v1_session_hub",

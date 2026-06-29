@@ -1,4 +1,4 @@
-import type { BrowserControlMessage, BridgeMessage, EventEnvelope } from "@agentdeck/core";
+import type { BridgeControlMessage, BridgeMessage, EventEnvelope } from "@agentdeck/core";
 
 export const SESSION_HUB_CLIENT_ROLES = ["browser", "bridge", "observer"] as const;
 export type SessionHubClientRole = (typeof SESSION_HUB_CLIENT_ROLES)[number];
@@ -35,10 +35,11 @@ export type SessionHubErrorMessage = {
 
 export type SessionHubServerMessage =
 	| EventEnvelope
+	| BridgeControlMessage
 	| SessionHubConnectionEstablished
 	| SessionHubErrorMessage;
 
-export type SessionHubClientMessage = BrowserControlMessage | BridgeMessage | EventEnvelope;
+export type SessionHubClientMessage = BridgeControlMessage | BridgeMessage | EventEnvelope;
 
 export function isSessionHubClientRole(value: string | null): value is SessionHubClientRole {
 	return SESSION_HUB_CLIENT_ROLES.includes(value as SessionHubClientRole);

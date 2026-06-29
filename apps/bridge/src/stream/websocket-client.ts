@@ -15,11 +15,13 @@ import {
 	isBrowserControlMessage,
 } from "../pty/terminal-control.js";
 import { CloudEventSink } from "./event-sink.js";
+import { BridgeRunDispatcher, isRunDispatchControlMessage } from "./run-dispatcher.js";
 
 export type BridgeRuntime = {
 	adapterRegistry: AdapterRegistry;
 	approvalGate: ApprovalGate;
 	close(): void;
+	runDispatcher: BridgeRunDispatcher;
 	sink: CloudEventSink;
 	socket: ReconnectingWebSocket;
 	terminalSessions: TerminalSessionRegistry;
@@ -42,20 +44,37 @@ export async function startBridge(config: BridgeConfig, options: StartBridgeOpti
 	const terminalSessions = options.terminalSessions ?? new TerminalSessionRegistry();
 	const adapterRegistry = options.adapterRegistry ?? createBridgeAdapterRegistry({ terminalSessions });
 	const approvalGate = options.approvalGate ?? new ApprovalGate();
+	let runDispatcher: BridgeRunDispatcher | null = null;
 	const socket = new ReconnectingWebSocket(config, options.sessionId, {
 		onMessage: (message) => {
+			if (isRunDispatchControlMessage(message)) {
+				runDispatcher?.dispatch(message).catch((error) => {
+					console.error(error instanceof Error ? error.message : String(error));
+				});
+				return;
+			}
+
 			if (!isBrowserControlMessage(message)) {
 				return;
 			}
 
 			const handled =
-				handleApprovalControlMessage(message, approvalGate) || handleTerminalControlMessage(message, terminalSessions);
+				handleApprovalControlMessage(message, approvalGate) ||
+				handleTerminalControlMessage(message, terminalSessions) ||
+				handleRunControlMessage(message, runDispatcher);
 			options.onControlMessage?.(message, handled);
 		},
 	});
 	const sink = new CloudEventSink((data) => socket.send(data), {
 		privacyMode: options.privacyMode ?? config.privacyMode,
 		replayBuffer: new JsonlReplayBuffer(getStatePath()),
+	});
+	runDispatcher = new BridgeRunDispatcher({
+		adapterRegistry,
+		config,
+		repoPath: options.repoPath ?? process.env.AGENTDECK_REPO_PATH ?? process.cwd(),
+		sink,
+		...(options.worktreeBaseDir ? { worktreeBaseDir: options.worktreeBaseDir } : {}),
 	});
 
 	socket.setOpenHandler(() => {
@@ -107,6 +126,7 @@ export async function startBridge(config: BridgeConfig, options: StartBridgeOpti
 			clearInterval(heartbeat);
 			socket.close();
 		},
+		runDispatcher,
 		sink,
 		socket,
 		terminalSessions,
@@ -124,6 +144,42 @@ function handleApprovalControlMessage(message: BrowserControlMessage, approvalGa
 		notes: message.notes,
 		status: message.status,
 	});
+}
+
+function handleRunControlMessage(message: BrowserControlMessage, runDispatcher: BridgeRunDispatcher | null): boolean {
+	if (!runDispatcher) {
+		return false;
+	}
+
+	switch (message.type) {
+		case "control.pause":
+			runDispatcher.pause(message.runId).catch((error) => {
+				console.error(error instanceof Error ? error.message : String(error));
+			});
+			return true;
+		case "control.resume":
+			runDispatcher.resume(message.runId).catch((error) => {
+				console.error(error instanceof Error ? error.message : String(error));
+			});
+			return true;
+		case "control.cancel":
+			runDispatcher.cancel(message.runId, message.reason ?? "Cancelled from Mission Control.").catch((error) => {
+				console.error(error instanceof Error ? error.message : String(error));
+			});
+			return true;
+		case "message.follow_up":
+			runDispatcher.sendFollowUp(message.runId, message.content, "follow-up").catch((error) => {
+				console.error(error instanceof Error ? error.message : String(error));
+			});
+			return true;
+		case "message.steer":
+			runDispatcher.sendFollowUp(message.runId, message.content, "steer-now").catch((error) => {
+				console.error(error instanceof Error ? error.message : String(error));
+			});
+			return true;
+		default:
+			return false;
+	}
 }
 
 export class ReconnectingWebSocket {

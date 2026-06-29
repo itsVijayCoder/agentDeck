@@ -30,7 +30,9 @@ export type BridgeConfig = {
 export type BridgeRuntimeOptions = {
 	heartbeatIntervalMs?: number;
 	privacyMode?: PrivacyMode;
+	repoPath?: string;
 	sessionId: string;
+	worktreeBaseDir?: string;
 };
 
 export type BridgeEventDraft<TType extends AgentDeckEvent["type"] = AgentDeckEvent["type"]> = HarnessEventDraft<TType>;

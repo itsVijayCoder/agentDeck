@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { transitionApprovalStatus } from "@agentdeck/core";
+import { isTerminalRunStatus, transitionApprovalStatus, transitionRunStatus } from "@agentdeck/core";
 import type {
 	ApprovalKind,
 	BridgeArtifactUploadMessage,
@@ -8,6 +8,7 @@ import type {
 	AgentDeckEvent,
 	PrivacyMode,
 	RiskLevel,
+	RunStatus,
 } from "@agentdeck/core";
 import {
 	SESSION_HUB_RECENT_EVENT_LIMIT,
@@ -36,6 +37,7 @@ import {
 	visibilityForEvent,
 	type SessionHubEventDraft,
 } from "./session-hub-protocol";
+import { runDispatchControlMessageSchema } from "../lib/phase-08-contracts";
 
 type SessionHubEnv = CloudflareEnv & {
 	AGENTDECK_ARTIFACTS: R2Bucket;
@@ -91,6 +93,11 @@ export class SessionHub extends DurableObject<SessionHubEnv> {
 
 	async fetch(request: Request): Promise<Response> {
 		try {
+			const url = new URL(request.url);
+			if (request.method === "POST" && url.pathname === "/dispatch") {
+				return await this.handleInternalDispatch(request);
+			}
+
 			if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
 				return Response.json({ code: "BAD_MESSAGE", error: "Expected a WebSocket upgrade request." }, { status: 426 });
 			}
@@ -129,6 +136,38 @@ export class SessionHub extends DurableObject<SessionHubEnv> {
 			console.error(JSON.stringify({ error: errorToString(error), message: "session hub websocket setup failed" }));
 			return Response.json({ code: "PERSISTENCE_ERROR", error: "Session hub setup failed." }, { status: 500 });
 		}
+	}
+
+	private async handleInternalDispatch(request: Request): Promise<Response> {
+		const parsed = runDispatchControlMessageSchema.safeParse(await request.json());
+		if (!parsed.success) {
+			return Response.json({ code: "VALIDATION_ERROR", error: "Run dispatch payload is invalid." }, { status: 400 });
+		}
+
+		const message = parsed.data;
+		await this.ensureInitialized(message.sessionId, message.workspaceId);
+		const run = await this.getRepositories().runs.findById(message.runId);
+		if (!run || run.session_id !== message.sessionId) {
+			return Response.json({ code: "NOT_FOUND", error: "Run not found for dispatch." }, { status: 404 });
+		}
+
+		const forwarded = this.forwardToBridge(message);
+		if (forwarded === 0) {
+			return Response.json({ accepted: false, bridgeCount: 0, code: "BRIDGE_UNAVAILABLE" }, { status: 409 });
+		}
+
+		await this.persistAndBroadcast({
+			payload: {
+				agentInstallationId: message.agentInstallationId,
+				machineId: message.machineId,
+			},
+			runId: message.runId,
+			source: "durable-object",
+			type: "run.dispatched",
+			visibility: "metadata",
+		});
+
+		return Response.json({ accepted: true, bridgeCount: forwarded });
 	}
 
 	async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
@@ -374,6 +413,7 @@ export class SessionHub extends DurableObject<SessionHubEnv> {
 			event: { ...envelope, hash } as AgentDeckEvent,
 			objectKey,
 		});
+		await this.syncRunStatus(envelope);
 	}
 
 	private async handleArtifactUpload(ws: WebSocket, upload: BridgeArtifactUploadMessage): Promise<void> {
@@ -569,6 +609,85 @@ export class SessionHub extends DurableObject<SessionHubEnv> {
 	private getRepositories(): AgentDeckRepositories {
 		return createAgentDeckRepositories(this.env.AGENTDECK_DB);
 	}
+
+	private async syncRunStatus(envelope: EventEnvelope): Promise<void> {
+		if (!envelope.runId) {
+			return;
+		}
+
+		const nextStatus = statusFromEnvelope(envelope);
+		if (!nextStatus) {
+			return;
+		}
+
+		const repositories = this.getRepositories();
+		const run = await repositories.runs.findById(envelope.runId);
+		if (!run || run.status === nextStatus) {
+			return;
+		}
+
+		const runTransition = transitionRunStatus(run.status, nextStatus);
+		if (!runTransition.ok) {
+			console.warn(
+				JSON.stringify({
+					from: run.status,
+					message: "ignoring invalid run status event transition",
+					runId: run.id,
+					to: nextStatus,
+				}),
+			);
+			return;
+		}
+
+		await repositories.runs.updateStatus({
+			completedAt: isTerminalRunStatus(nextStatus) ? envelope.createdAt : undefined,
+			id: run.id,
+			startedAt: nextStatus === "running" ? envelope.createdAt : undefined,
+			status: nextStatus,
+		});
+
+		if (run.queue_item_id && (nextStatus === "completed" || nextStatus === "failed" || nextStatus === "cancelled")) {
+			const queueItem = await repositories.queue.findById(run.queue_item_id);
+			if (queueItem) {
+				const queueTransition = transitionRunStatus(queueItem.status, nextStatus);
+				if (queueTransition.ok) {
+					await repositories.queue.update({
+						id: queueItem.id,
+						status: nextStatus,
+					});
+				}
+			}
+		}
+	}
+}
+
+function statusFromEnvelope(envelope: EventEnvelope): RunStatus | null {
+	switch (envelope.type) {
+		case "run.started":
+		case "run.resumed":
+			return "running";
+		case "run.waiting_approval":
+			return "waiting-approval";
+		case "run.paused":
+			return "paused";
+		case "run.verifying":
+			return "verifying";
+		case "run.completed":
+			return "completed";
+		case "run.failed":
+			return "failed";
+		case "run.cancelled":
+			return "cancelled";
+		case "run.status":
+			return isJsonRecord(envelope.payload) && isRunStatus(envelope.payload.status) ? envelope.payload.status : null;
+		case "terminal.closed":
+			if (!isJsonRecord(envelope.payload)) {
+				return null;
+			}
+			return envelope.payload.exitCode === 0 ? "completed" : "failed";
+		default:
+			return null;
+	}
 }
 
 function readAuthorizedClient(request: Request): AuthorizedClient {
@@ -687,6 +806,21 @@ function isApprovalKind(value: unknown): value is ApprovalKind {
 
 function isRiskLevel(value: unknown): value is RiskLevel {
 	return value === "low" || value === "medium" || value === "high" || value === "critical";
+}
+
+function isRunStatus(value: unknown): value is RunStatus {
+	return (
+		value === "draft" ||
+		value === "queued" ||
+		value === "waiting-machine" ||
+		value === "running" ||
+		value === "waiting-approval" ||
+		value === "paused" ||
+		value === "verifying" ||
+		value === "completed" ||
+		value === "failed" ||
+		value === "cancelled"
+	);
 }
 
 function approvalPayloadToRequestedAction(payload: {

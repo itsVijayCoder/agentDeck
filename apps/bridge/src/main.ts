@@ -65,26 +65,35 @@ export async function runCli(argv = process.argv): Promise<void> {
 		.description("Connect the bridge to a SessionHub and wait for control messages.")
 		.argument("[session-id]", "Session id to connect to. Falls back to AGENTDECK_SESSION_ID or config.defaultSessionId.")
 		.option("--privacy-mode <mode>", "Override privacy mode: local-only, metadata-only, or full-sync.")
-		.action(async (sessionIdArg: string | undefined, options: { privacyMode?: BridgeConfig["privacyMode"] }) => {
-			const config = await loadConfig();
-			const sessionId = sessionIdArg ?? process.env.AGENTDECK_SESSION_ID ?? config.defaultSessionId;
-			if (!sessionId) {
-				throw new Error("Missing session id. Run: agentdeck-bridge start <session-id>");
-			}
+		.option("--repo-path <path>", "Repository path used for dispatched queued runs.", process.env.AGENTDECK_REPO_PATH)
+		.option("--worktree-base-dir <path>", "Base directory for AgentDeck run worktrees.", process.env.AGENTDECK_WORKTREE_BASE_DIR)
+		.action(
+			async (
+				sessionIdArg: string | undefined,
+				options: { privacyMode?: BridgeConfig["privacyMode"]; repoPath?: string; worktreeBaseDir?: string },
+			) => {
+				const config = await loadConfig();
+				const sessionId = sessionIdArg ?? process.env.AGENTDECK_SESSION_ID ?? config.defaultSessionId;
+				if (!sessionId) {
+					throw new Error("Missing session id. Run: agentdeck-bridge start <session-id>");
+				}
 
-			const runtime = await startBridge(config, {
-				privacyMode: options.privacyMode ?? config.privacyMode,
-				sessionId,
-			});
-			console.log(`AgentDeck bridge connected to session ${sessionId}.`);
+				const runtime = await startBridge(config, {
+					privacyMode: options.privacyMode ?? config.privacyMode,
+					repoPath: options.repoPath,
+					sessionId,
+					worktreeBaseDir: options.worktreeBaseDir,
+				});
+				console.log(`AgentDeck bridge connected to session ${sessionId}.`);
 
-			const shutdown = () => {
-				runtime.close();
-				process.exit(0);
-			};
-			process.once("SIGINT", shutdown);
-			process.once("SIGTERM", shutdown);
-		});
+				const shutdown = () => {
+					runtime.close();
+					process.exit(0);
+				};
+				process.once("SIGINT", shutdown);
+				process.once("SIGTERM", shutdown);
+			},
+		);
 
 	await program.parseAsync(argv);
 }

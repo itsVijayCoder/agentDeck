@@ -160,6 +160,25 @@ export type BrowserControlMessage =
 	| { type: "message.follow_up"; runId: string; content: string }
 	| { type: "approval.decide"; approvalId: string; status: "approved" | "rejected"; notes?: string; userId?: string };
 
+export type RunDispatchControlMessage = {
+	type: "run.dispatch";
+	agentInstallationId: string;
+	agentKind: AgentKind;
+	machineId: string;
+	privacyMode: PrivacyMode;
+	queueItemId: string;
+	runId: string;
+	scheduledJobId?: string;
+	sessionId: string;
+	targetBranch: string;
+	task: string;
+	workspaceId: string;
+	model?: string;
+	provider?: string;
+};
+
+export type BridgeControlMessage = BrowserControlMessage | RunDispatchControlMessage;
+
 export type BridgeArtifactUploadMessage = {
 	artifactId?: string;
 	data: string;

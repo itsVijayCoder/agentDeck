@@ -4,7 +4,7 @@ import { jsonResponse, withApiErrors } from "@/lib/api/errors";
 import { parseJsonRequest, parseQuery } from "@/lib/api/request";
 import { createQueueItemRequestSchema, listQuerySchema } from "@/lib/api/schemas";
 import { requireSession } from "@/lib/auth";
-import { getRepositories } from "@/lib/cloudflare-context";
+import { getRepositories, getRunQueue } from "@/lib/cloudflare-context";
 
 export async function GET(request: NextRequest) {
 	return withApiErrors(async () => {
@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
 		const user = await requireSession();
 		const body = await parseJsonRequest(request, createQueueItemRequestSchema);
 		const repositories = await getRepositories();
+		const runQueue = await getRunQueue();
 		const queueItem = await repositories.queue.enqueue({
 			agentSelector: body.agentSelector,
 			createdBy: user.userId,
@@ -34,6 +35,10 @@ export async function POST(request: NextRequest) {
 			scheduleWindow: body.scheduleWindow,
 			task: body.task,
 			workspaceId: user.workspaceId,
+		});
+		await runQueue.send({
+			queueItemId: queueItem.id,
+			type: "queue.item",
 		});
 
 		return jsonResponse({ queueItem }, { status: 201 });
