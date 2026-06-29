@@ -2,7 +2,8 @@
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 
-import { detectAgents, pairingAgentsFromProbeResults } from "./agents/detector.js";
+import { pairingAgentsFromProbeResults } from "./agents/detector.js";
+import { probeBridgeAdapters } from "./agents/adapters/registry.js";
 import { pairWithCloud } from "./auth/pairing.js";
 import { loadConfig, saveConfig } from "./config.js";
 import { startBridge } from "./stream/websocket-client.js";
@@ -24,7 +25,7 @@ export async function runCli(argv = process.argv): Promise<void> {
 		.option("--display-name <name>", "Machine display name.")
 		.option("--skip-probe", "Pair without probing installed coding agents.")
 		.action(async (pairingCode: string, options: { cloudUrl: string; displayName?: string; skipProbe?: boolean }) => {
-			const probeResults = options.skipProbe ? [] : await detectAgents();
+			const probeResults = options.skipProbe ? [] : await probeBridgeAdapters();
 			const config = await pairWithCloud(pairingCode, {
 				agents: pairingAgentsFromProbeResults(probeResults),
 				cloudUrl: options.cloudUrl,
@@ -39,7 +40,7 @@ export async function runCli(argv = process.argv): Promise<void> {
 		.description("Detect installed coding agents and auth state.")
 		.option("--json", "Print JSON output.")
 		.action(async (options: { json?: boolean }) => {
-			const results = await detectAgents();
+			const results = await probeBridgeAdapters();
 			if (options.json) {
 				console.log(JSON.stringify(results, null, 2));
 				return;

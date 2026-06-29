@@ -87,6 +87,15 @@ export class TerminalSession {
 		});
 	}
 
+	writeAgentInput(data: string): boolean {
+		if (!this.pty) {
+			return false;
+		}
+
+		this.pty.write(data);
+		return true;
+	}
+
 	requestLease(holderUserId: string, mode: TerminalLeaseMode = "human-control"): { leaseId?: string; ok: boolean; reason?: string } {
 		const transition = transitionTerminalLease(this.leaseMode, mode);
 		if (!transition.ok) {

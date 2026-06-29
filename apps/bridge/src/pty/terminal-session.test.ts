@@ -52,11 +52,12 @@ describe("TerminalSession", () => {
 		const lease = session.requestLease("user-1");
 		expect(lease.ok).toBe(true);
 		expect(session.writeStdin("x", "user-1")).toBe(true);
+		expect(session.writeAgentInput("agent message\n")).toBe(true);
 		session.resize(120, 40);
 		fakePty.exitHandler?.({ exitCode: 0 });
 		session.kill("SIGTERM");
 
-		expect(fakePty.writes).toEqual(["x"]);
+		expect(fakePty.writes).toEqual(["x", "agent message\n"]);
 		expect(fakePty.resized).toEqual([[120, 40]]);
 		expect(fakePty.killedWith).toBe("SIGTERM");
 		expect(session.getHumanInputLog()).toEqual([expect.objectContaining({ data: "x", userId: "user-1" })]);

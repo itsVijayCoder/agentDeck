@@ -2,15 +2,19 @@ import type {
 	AgentCapability,
 	AgentDeckEvent,
 	AgentKind,
-	EventSource,
-	EventVisibility,
 	PrivacyMode,
 	TerminalLeaseMode,
 } from "@agentdeck/core";
+import type {
+	AgentAuthStatus as HarnessAgentAuthStatus,
+	HarnessEventDraft,
+	JsonPrimitive as HarnessJsonPrimitive,
+	JsonValue as HarnessJsonValue,
+} from "@agentdeck/harness";
 
 export const BRIDGE_VERSION = "0.1.0";
 
-export type AgentAuthStatus = "unknown" | "configured" | "missing" | "expired";
+export type AgentAuthStatus = HarnessAgentAuthStatus;
 
 export type BridgeConfig = {
 	cloudUrl: string;
@@ -29,16 +33,10 @@ export type BridgeRuntimeOptions = {
 	sessionId: string;
 };
 
-export type BridgeEventDraft<TType extends AgentDeckEvent["type"] = AgentDeckEvent["type"]> = {
-	payload: JsonValue;
-	runId?: string;
-	source?: EventSource;
-	type: TType;
-	visibility?: EventVisibility;
-};
+export type BridgeEventDraft<TType extends AgentDeckEvent["type"] = AgentDeckEvent["type"]> = HarnessEventDraft<TType>;
 
-export type JsonPrimitive = string | number | boolean | null;
-export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+export type JsonPrimitive = HarnessJsonPrimitive;
+export type JsonValue = HarnessJsonValue;
 
 export type TerminalControlState = {
 	leaseId?: string;

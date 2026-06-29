@@ -8,10 +8,13 @@
 
 ## Current State
 
-- Agent detection exists in the bridge (`detector.ts`) — can find agents on PATH.
-- No adapter implementations exist. No agent has been run through AgentDeck.
-- The `HarnessAdapter` interface is defined in the implementation guide but not yet in code.
-- No event normalization logic exists. Native agent event names would leak directly into the UI.
+- `@agentdeck/harness` exists with the `HarnessAdapter` and `HarnessSessionHandle` contracts, adapter registry, and normalized event-draft helpers.
+- Bridge adapters exist for Claude Code, Codex, OpenCode, Qwen Code, Pi, Aider, and ACP.
+- Pi uses a mode-selection strategy for `sdk`, `rpc`, `json`, and `pty` runner paths. SDK mode is process-backed until a stable Pi SDK dependency is pinned.
+- Pi structured events are normalized into AgentDeck core event types. Unknown native event names are dropped rather than persisted or rendered.
+- PTY-backed adapters reuse the Phase 05 `TerminalSession`, so live terminal output, resize, stdin, and jump-in leases remain on the same path.
+- Bridge startup and CLI probing use the registered adapter interface.
+- The web terminal dock renders normalized agent/message/tool/approval events as structured cards instead of raw terminal text.
 
 ---
 
@@ -831,21 +834,21 @@ class AcpSession implements HarnessSessionHandle {
 ## Acceptance Criteria
 
 ```text
-[ ] @agentdeck/harness package exists with HarnessAdapter interface
-[ ] AdapterRegistry can register and retrieve adapters by kind
-[ ] Claude Code adapter probes and runs in PTY mode
-[ ] Codex adapter probes and runs in PTY mode
-[ ] OpenCode adapter probes and runs in PTY mode
-[ ] Qwen Code adapter probes and runs in PTY mode
-[ ] Aider adapter probes and runs in PTY mode
-[ ] Pi adapter supports 4 modes (SDK, RPC, JSON, PTY)
-[ ] Pi event mapper converts all Pi event types to AgentDeck events
-[ ] Native agent event names never appear in UI or D1
-[ ] Steering messages work for interactive adapters
-[ ] Follow-up messages work for interactive adapters
-[ ] All adapters implement dispose() for cleanup
-[ ] Unit tests pass for all event mappers
-[ ] pnpm build passes
+[x] @agentdeck/harness package exists with HarnessAdapter interface
+[x] AdapterRegistry can register and retrieve adapters by kind
+[x] Claude Code adapter probes and runs in PTY mode
+[x] Codex adapter probes and runs in PTY mode
+[x] OpenCode adapter probes and runs in PTY mode
+[x] Qwen Code adapter probes and runs in PTY mode
+[x] Aider adapter probes and runs in PTY mode
+[x] Pi adapter supports 4 modes (SDK, RPC, JSON, PTY)
+[x] Pi event mapper converts supported Pi event types to AgentDeck events
+[x] Native agent event names never appear in UI or D1
+[x] Steering messages work for interactive adapters
+[x] Follow-up messages work for interactive adapters
+[x] All adapters implement dispose() for cleanup
+[x] Unit tests pass for event mappers, mode selection, registry, probe helpers, JSONL framing, and PTY adapter behavior
+[x] pnpm build passes
 ```
 
 ---

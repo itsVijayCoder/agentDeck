@@ -1,20 +1,9 @@
 import type { AgentCapability, AgentKind } from "@agentdeck/core";
+import type { ProbeResult } from "@agentdeck/harness";
 
 import type { AgentAuthStatus } from "../types.js";
 
-export type AgentInstallSource = "path" | "npm" | "brew" | "pipx" | "cargo" | "winget" | "manual";
-
-export type ProbeResult = {
-	agentKind: AgentKind;
-	authStatus: AgentAuthStatus;
-	capabilities: AgentCapability[];
-	command?: string;
-	found: boolean;
-	installSource?: AgentInstallSource;
-	suggestedFix?: string;
-	version?: string;
-	warnings: string[];
-};
+export type { AgentInstallSource, ProbeResult } from "@agentdeck/harness";
 
 export type AgentCommandSpec = {
 	authPaths: string[];

@@ -997,7 +997,7 @@ kbd {
 
 .of-terminal-dock {
 	display: grid;
-	grid-template-rows: auto auto auto minmax(0, 1fr);
+	grid-template-rows: auto auto auto auto minmax(0, 1fr);
 	min-height: 0;
 	margin: 0 14px 14px;
 	overflow: hidden;
@@ -1148,6 +1148,73 @@ kbd {
 .of-command-policy.is-deny {
 	border-color: rgba(255, 107, 107, 0.3);
 	color: var(--red);
+}
+
+.of-agent-event-strip {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(150px, 1fr));
+	gap: 8px;
+	padding: 8px 10px;
+	border-bottom: 1px solid var(--border);
+	overflow-x: auto;
+}
+
+.of-agent-event-card,
+.of-agent-event-empty {
+	min-width: 150px;
+	padding: 9px 10px;
+	border: 1px solid rgba(148, 163, 184, 0.14);
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.04);
+}
+
+.of-agent-event-card {
+	display: grid;
+	gap: 3px;
+}
+
+.of-agent-event-card span,
+.of-agent-event-empty {
+	color: var(--subtle);
+	font-size: 10px;
+	line-height: 1.35;
+	text-transform: uppercase;
+}
+
+.of-agent-event-card strong {
+	color: var(--foreground);
+	font-size: 12px;
+	line-height: 1.25;
+}
+
+.of-agent-event-card p {
+	margin: 0;
+	color: var(--muted);
+	font-size: 11px;
+	line-height: 1.35;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.of-agent-event-card.is-info {
+	border-color: rgba(53, 213, 255, 0.22);
+}
+
+.of-agent-event-card.is-tool {
+	border-color: rgba(167, 139, 250, 0.24);
+}
+
+.of-agent-event-card.is-approval {
+	border-color: rgba(246, 184, 75, 0.28);
+}
+
+.of-agent-event-card.is-success {
+	border-color: rgba(85, 217, 139, 0.24);
+}
+
+.of-agent-event-card.is-danger {
+	border-color: rgba(255, 107, 107, 0.3);
 }
 
 .of-terminal-pane {

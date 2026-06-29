@@ -1,8 +1,10 @@
 import WebSocket from "ws";
 import type { BrowserControlMessage, BridgeMessage } from "@agentdeck/core";
 import type { SessionHubServerMessage } from "@agentdeck/bridge-protocol";
+import type { AdapterRegistry } from "@agentdeck/harness";
 
-import { detectAgents, pairingAgentsFromProbeResults } from "../agents/detector.js";
+import { pairingAgentsFromProbeResults } from "../agents/detector.js";
+import { createBridgeAdapterRegistry } from "../agents/adapters/registry.js";
 import { getStatePath } from "../config.js";
 import { JsonlReplayBuffer } from "../state/jsonl-replay-buffer.js";
 import type { BridgeConfig, BridgeRuntimeOptions } from "../types.js";
@@ -14,6 +16,7 @@ import {
 import { CloudEventSink } from "./event-sink.js";
 
 export type BridgeRuntime = {
+	adapterRegistry: AdapterRegistry;
 	close(): void;
 	sink: CloudEventSink;
 	socket: ReconnectingWebSocket;
@@ -21,6 +24,7 @@ export type BridgeRuntime = {
 };
 
 export type StartBridgeOptions = BridgeRuntimeOptions & {
+	adapterRegistry?: AdapterRegistry;
 	onControlMessage?: (message: BrowserControlMessage, handled: boolean) => void;
 	terminalSessions?: TerminalSessionRegistry;
 };
@@ -33,6 +37,7 @@ export type ReconnectingWebSocketOptions = {
 
 export async function startBridge(config: BridgeConfig, options: StartBridgeOptions): Promise<BridgeRuntime> {
 	const terminalSessions = options.terminalSessions ?? new TerminalSessionRegistry();
+	const adapterRegistry = options.adapterRegistry ?? createBridgeAdapterRegistry({ terminalSessions });
 	const socket = new ReconnectingWebSocket(config, options.sessionId, {
 		onMessage: (message) => {
 			if (!isBrowserControlMessage(message)) {
@@ -60,7 +65,7 @@ export async function startBridge(config: BridgeConfig, options: StartBridgeOpti
 	});
 	await socket.connect();
 
-	const probeResults = await detectAgents();
+	const probeResults = await Promise.all(adapterRegistry.list().map((adapter) => adapter.probe()));
 	for (const agent of pairingAgentsFromProbeResults(probeResults)) {
 		socket.send(
 			JSON.stringify({
@@ -91,6 +96,7 @@ export async function startBridge(config: BridgeConfig, options: StartBridgeOpti
 	}, options.heartbeatIntervalMs ?? 30_000);
 
 	return {
+		adapterRegistry,
 		close: () => {
 			clearInterval(heartbeat);
 			socket.close();

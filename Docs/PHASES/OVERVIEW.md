@@ -33,13 +33,13 @@ This document is the master index for a 13-phase buildout plan (Phase 00 through
 | Bridge protocol facade | `packages/bridge-protocol/src/index.ts` | — | Complete — shared SessionHub roles, server messages, and replay/payload constants |
 | Local AgentDeck Bridge | `apps/bridge/src/` | — | Complete — pairing, agent detection, PTY/session primitives, policy gate, redaction, reconnecting SessionHub WebSocket, JSONL replay state, worktree helpers |
 | Real terminal and jump-in control | `apps/web/src/components/agentdeck/terminal-*.tsx`, `apps/bridge/src/pty/terminal-control.ts` | — | Complete — xterm.js terminal dock, resize/stdin/lease controls, authenticated audit identity, bridge terminal dispatcher, R2 terminal payload offload |
+| Agent adapter harness | `packages/harness/src/`, `apps/bridge/src/agents/adapters/` | — | Complete — HarnessAdapter contract, registry, Claude/Codex/OpenCode/Qwen/Pi/Aider/ACP adapters, Pi mode strategy, normalized event mapper, structured event UI |
 | Architecture docs | `Docs/` (6 files) | ~6000+ | Complete — Blueprint, Core Contracts, DB Schema, Impl Guide |
 
 ### 1.2 Missing (blocks the full vision)
 
 | Missing component | Impact | Phase |
 |---|---|---|
-| Agent adapters (Claude/Codex/OpenCode/Qwen/Pi) | No real agent runs | Phase 06 |
 | Approval gates + worktrees + verifiers | No safety or verification | Phase 07 |
 | Queues + Workflows + Cron | No overnight/scheduled jobs | Phase 08 |
 | Multi-agent orchestration (judge/synthesis) | No candidate comparison | Phase 09 |

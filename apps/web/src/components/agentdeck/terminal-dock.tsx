@@ -43,6 +43,15 @@ export function TerminalDock({
 		const lastPromptLine = selectedTab?.lines.findLast((line) => line.prompt);
 		return lastPromptLine ? classifyCommandRisk(lastPromptLine.text) : undefined;
 	}, [selectedTab]);
+	const structuredEvents = useMemo(
+		() =>
+			selectedTab
+				? events
+						.filter((event) => event.runId === selectedTab.runId && isStructuredAdapterEvent(event))
+						.slice(-4)
+				: [],
+		[events, selectedTab],
+	);
 
 	const requestReadOnly = useCallback(() => {
 		if (!selectedTab) {
@@ -115,6 +124,7 @@ export function TerminalDock({
 					</button>
 				</div>
 			</div>
+			<AgentEventCards events={structuredEvents} />
 			<TerminalPane
 				key={selectedTab.runId}
 				events={events}
@@ -125,6 +135,173 @@ export function TerminalDock({
 			/>
 		</section>
 	);
+}
+
+function AgentEventCards({ events }: { events: EventEnvelope[] }) {
+	if (events.length === 0) {
+		return (
+			<div className="of-agent-event-strip" aria-label="Structured agent events">
+				<div className="of-agent-event-empty">Structured agent events will appear here as adapters normalize output.</div>
+			</div>
+		);
+	}
+
+	return (
+		<div className="of-agent-event-strip" aria-label="Structured agent events">
+			{events.map((event) => {
+				const card = adapterEventCard(event);
+				return (
+					<article className={`of-agent-event-card is-${card.tone}`} key={event.id}>
+						<span>{card.label}</span>
+						<strong>{card.title}</strong>
+						<p>{card.detail}</p>
+					</article>
+				);
+			})}
+		</div>
+	);
+}
+
+function isStructuredAdapterEvent(event: EventEnvelope): boolean {
+	return (
+		event.type === "agent.started" ||
+		event.type === "agent.ended" ||
+		event.type === "message.assistant_start" ||
+		event.type === "message.assistant_delta" ||
+		event.type === "message.assistant_end" ||
+		event.type === "message.queued" ||
+		event.type === "message.delivered" ||
+		event.type === "tool.start" ||
+		event.type === "tool.delta" ||
+		event.type === "tool.end" ||
+		event.type === "tool.error" ||
+		event.type === "approval.requested"
+	);
+}
+
+function adapterEventCard(event: EventEnvelope): {
+	detail: string;
+	label: string;
+	title: string;
+	tone: "approval" | "danger" | "info" | "success" | "tool";
+} {
+	const payload = isRecord(event.payload) ? event.payload : {};
+	switch (event.type) {
+		case "agent.started":
+			return {
+				detail: stringValue(payload.harnessMode) ?? "Adapter session started",
+				label: "Agent",
+				title: agentLabel(payload.agentKind),
+				tone: "info",
+			};
+		case "agent.ended":
+			return {
+				detail: `Status ${stringValue(payload.status) ?? "completed"}`,
+				label: "Agent",
+				title: `${agentLabel(payload.agentKind)} finished`,
+				tone: payload.status === "failed" ? "danger" : "success",
+			};
+		case "message.assistant_start":
+			return {
+				detail: stringValue(payload.messageId) ?? "Assistant response opened",
+				label: "Message",
+				title: `${agentLabel(payload.agentKind)} response`,
+				tone: "info",
+			};
+		case "message.assistant_delta":
+			return {
+				detail: truncate(stringValue(payload.delta) ?? "Assistant updated the response."),
+				label: "Message",
+				title: "Assistant update",
+				tone: "info",
+			};
+		case "message.assistant_end":
+			return {
+				detail: stringValue(payload.contentRef) ?? "Response finalized",
+				label: "Message",
+				title: "Assistant response complete",
+				tone: "success",
+			};
+		case "message.queued":
+			return {
+				detail: stringValue(payload.deliveryPolicy) ?? "Queued after current turn",
+				label: "Queue",
+				title: "Follow-up queued",
+				tone: "approval",
+			};
+		case "message.delivered":
+			return {
+				detail: stringValue(payload.messageId) ?? "Delivered to adapter",
+				label: "Queue",
+				title: "Message delivered",
+				tone: "success",
+			};
+		case "tool.start":
+			return {
+				detail: `Risk ${stringValue(payload.risk) ?? "medium"}`,
+				label: "Tool",
+				title: stringValue(payload.toolName) ?? "Tool started",
+				tone: "tool",
+			};
+		case "tool.delta":
+			return {
+				detail: truncate(stringValue(payload.delta) ?? "Tool output received."),
+				label: "Tool",
+				title: "Tool output",
+				tone: "tool",
+			};
+		case "tool.end":
+			return {
+				detail: `Status ${stringValue(payload.status) ?? "success"}`,
+				label: "Tool",
+				title: "Tool complete",
+				tone: payload.status === "error" ? "danger" : "success",
+			};
+		case "tool.error":
+			return {
+				detail: truncate(stringValue(payload.error) ?? "Tool failed."),
+				label: "Tool",
+				title: "Tool error",
+				tone: "danger",
+			};
+		case "approval.requested":
+			return {
+				detail: `Risk ${stringValue(payload.risk) ?? "medium"}`,
+				label: "Approval",
+				title: stringValue(payload.title) ?? "Approval requested",
+				tone: "approval",
+			};
+		default:
+			return {
+				detail: "Normalized adapter event",
+				label: "Event",
+				title: "Adapter event",
+				tone: "info",
+			};
+	}
+}
+
+function agentLabel(value: unknown): string {
+	if (typeof value !== "string") {
+		return "Agent";
+	}
+
+	return value
+		.split("-")
+		.map((part) => part[0]?.toUpperCase() + part.slice(1))
+		.join(" ");
+}
+
+function truncate(value: string): string {
+	return value.length > 96 ? `${value.slice(0, 93)}...` : value;
+}
+
+function stringValue(value: unknown): string | undefined {
+	return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function TerminalStatusDot({ status }: { status: TerminalTabStatus }) {
