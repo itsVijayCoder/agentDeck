@@ -8,10 +8,13 @@
 
 ## Current State
 
-- No bridge code exists. No `apps/bridge/` directory.
-- No agent detection, no PTY, no `node-pty`, no `ws` dependency.
-- The policy classifier (`@agentdeck/policy`) and state machines (`@agentdeck/core`) exist but nothing executes them at runtime.
-- The `wrangler.jsonc` has no bridge-related bindings.
+- `apps/bridge/` exists as the local Node.js CLI app and workspace package.
+- The CLI supports `agentdeck-bridge pair`, `agentdeck-bridge probe`, and session-scoped `agentdeck-bridge start <session-id>`.
+- Agent detection probes Claude Code, Codex, OpenCode, Qwen Code, Pi, Aider, and ACP on `PATH` without reading credential contents.
+- `node-pty`, `ws`, `simple-git`, `execa`, `commander`, and bridge-side `zod` validation are installed for the bridge package.
+- The bridge wraps `@agentdeck/policy`, manages PTY sessions, redacts outbound payloads, batches events, and reconnects to the Phase 03 SessionHub WebSocket.
+- Config persists to `~/.agentdeck/config.json`; unsent event batches persist to `~/.agentdeck/state.jsonl`.
+- The bridge connects through the existing Phase 03 route: `/api/sessions/:id/ws?role=bridge&machineId=...&token=...`.
 
 ---
 
@@ -125,14 +128,11 @@ apps/bridge/
       replay-buffer.ts             # Local event buffer for reconnect
     redaction/
       secrets.ts                   # Secret pattern matching + redaction
-    config.ts                      # Config load/save
+    state/
+      jsonl-replay-buffer.ts       # Local JSONL replay queue (~/.agentdeck/state.jsonl)
+    config.ts                      # Config/state path load/save helpers
     types.ts                       # Bridge-local types
-  __tests__/
-    detector.test.ts
-    policy-engine.test.ts
-    redaction.test.ts
-    worktree.test.ts
-    event-sink.test.ts
+    *.test.ts                      # Unit tests colocated with modules
 ```
 
 ### 2. `package.json`
@@ -760,43 +760,46 @@ export async function generateDiff(worktreePath: string): Promise<string> {
 
 ## Implementation Steps
 
-1. Create `apps/bridge/` with `package.json`, `tsconfig.json`
-2. Install dependencies: `node-pty`, `ws`, `simple-git`, `execa`, `commander`
-3. Create `src/config.ts` — load/save `~/.agentdeck/config.json`
-4. Create `src/auth/pairing.ts` — pairing code flow
-5. Create `src/auth/token-store.ts` — token persistence
-6. Create `src/agents/detector.ts` — PATH discovery + version probing
-7. Create `src/agents/types.ts` — `ProbeResult`, `AgentAdapter` interface
-8. Create `src/pty/pty-manager.ts` — node-pty wrapper
-9. Create `src/policy/policy-engine.ts` — wraps `@agentdeck/policy`
-10. Create `src/redaction/secrets.ts` — secret pattern matching
-11. Create `src/stream/event-sink.ts` — buffered event stream with redaction
-12. Create `src/stream/websocket-client.ts` — reconnecting WS to DO
-13. Create `src/repo/worktree.ts` — git worktree management
-14. Create `src/main.ts` — CLI entry point
-15. Write unit tests for all modules
-16. Run `pnpm typecheck && pnpm lint && pnpm test`
-17. Test manually: `agentdeck-bridge pair <code>`, `agentdeck-bridge probe`, `agentdeck-bridge start`
+1. Create `apps/bridge/` with `package.json`, `tsconfig.json` — done.
+2. Install dependencies: `node-pty`, `ws`, `simple-git`, `execa`, `commander` — done.
+3. Create `src/config.ts` — load/save `~/.agentdeck/config.json` and state path helpers — done.
+4. Create `src/auth/pairing.ts` — pairing code flow — done against the current Worker API contract.
+5. Create `src/auth/token-store.ts` — token persistence — done.
+6. Create `src/agents/detector.ts` — PATH discovery + version probing — done.
+7. Create `src/agents/types.ts` — `ProbeResult`, `AgentAdapter` interface — done.
+8. Create `src/pty/pty-manager.ts` — node-pty wrapper — done.
+9. Create `src/pty/terminal-session.ts` — bridge-side terminal lifecycle and lease gate — done for Phase 05 handoff.
+10. Create `src/policy/policy-engine.ts` — wraps `@agentdeck/policy` — done.
+11. Create `src/policy/approval-gate.ts` — async approval wait primitive — done.
+12. Create `src/redaction/secrets.ts` — secret pattern matching — done.
+13. Create `src/stream/event-sink.ts` — buffered event stream with redaction — done.
+14. Create `src/stream/replay-buffer.ts` and `src/state/jsonl-replay-buffer.ts` — local reconnect replay buffers — done.
+15. Create `src/stream/websocket-client.ts` — reconnecting WS to SessionHub — done.
+16. Create `src/repo/worktree.ts` — git worktree management — done.
+17. Create `src/main.ts` — CLI entry point — done.
+18. Write unit tests for all modules — done.
+19. Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm test:e2e`, `pnpm build:packages`, and `pnpm build` — done.
 
 ---
 
 ## Acceptance Criteria
 
 ```text
-[ ] apps/bridge/ exists as a Node.js CLI app
-[ ] agentdeck-bridge pair <code> pairs with cloud and saves config
-[ ] agentdeck-bridge probe detects installed agents (claude, codex, etc.)
-[ ] agentdeck-bridge start connects to SessionHub DO via WebSocket
-[ ] Bridge sends machine.heartbeat every 30 seconds
-[ ] Bridge sends agent.detected events on startup
-[ ] Policy engine evaluates commands using @agentdeck/policy
-[ ] Secret redaction scrubs API keys, tokens, JWTs, private keys before cloud sync
-[ ] Event sink buffers and batches events for efficiency
-[ ] WebSocket reconnects with exponential backoff on disconnect
-[ ] Git worktree creation and cleanup works
-[ ] Config persists to ~/.agentdeck/config.json
-[ ] Unit tests pass with >80% coverage
-[ ] pnpm build passes for all packages
+[x] apps/bridge/ exists as a Node.js CLI app
+[x] agentdeck-bridge pair <code> pairs with cloud and saves config
+[x] agentdeck-bridge probe detects installed agents (claude, codex, etc.)
+[x] agentdeck-bridge start connects to SessionHub DO via WebSocket
+[x] Bridge sends machine.heartbeat every 30 seconds
+[x] Bridge sends agent.detected events on startup
+[x] Policy engine evaluates commands using @agentdeck/policy
+[x] Secret redaction scrubs API keys, tokens, JWTs, private keys before cloud sync
+[x] Event sink buffers and batches events for efficiency
+[x] WebSocket reconnects with exponential backoff on disconnect
+[x] Git worktree creation and cleanup works
+[x] Config persists to ~/.agentdeck/config.json
+[x] Unsent cloud event batches persist to ~/.agentdeck/state.jsonl
+[x] Unit tests pass with >80% coverage
+[x] pnpm build passes for all packages
 ```
 
 ---

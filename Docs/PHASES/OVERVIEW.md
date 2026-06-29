@@ -31,13 +31,13 @@ This document is the master index for a 13-phase buildout plan (Phase 00 through
 | Worker API / BFF routes | `apps/web/src/app/api/` | — | Complete — REST endpoints for workspaces, machines, sessions, approvals, queue, schedules, reports, policies, and artifacts |
 | Durable Object session hub | `apps/web/src/do/session-hub.ts`, `apps/web/src/app/api/sessions/[id]/ws/route.ts` | — | Complete — WebSocket auth gate, DO sequencing, fanout, replay cache, D1 metadata, R2 large payload path |
 | Bridge protocol facade | `packages/bridge-protocol/src/index.ts` | — | Complete — shared SessionHub roles, server messages, and replay/payload constants |
+| Local AgentDeck Bridge | `apps/bridge/src/` | — | Complete — pairing, agent detection, PTY/session primitives, policy gate, redaction, reconnecting SessionHub WebSocket, JSONL replay state, worktree helpers |
 | Architecture docs | `Docs/` (6 files) | ~6000+ | Complete — Blueprint, Core Contracts, DB Schema, Impl Guide |
 
 ### 1.2 Missing (blocks the full vision)
 
 | Missing component | Impact | Phase |
 |---|---|---|
-| Local AgentDeck Bridge | No agent detection or execution | Phase 04 |
 | Real terminal (xterm.js + PTY) | No live terminal streaming | Phase 05 |
 | Agent adapters (Claude/Codex/OpenCode/Qwen/Pi) | No real agent runs | Phase 06 |
 | Approval gates + worktrees + verifiers | No safety or verification | Phase 07 |
@@ -63,10 +63,11 @@ This document is the master index for a 13-phase buildout plan (Phase 00 through
 | `lucide-react` | No | Icons (Phase 11) |
 | `motion` | No | Animation (Phase 11) |
 | `class-variance-authority`, `clsx`, `tailwind-merge` | No | shadcn/ui (Phase 11) |
-| `node-pty` | No | PTY (Phase 04) |
-| `ws` | No | Bridge WebSocket (Phase 04) |
-| `simple-git` | No | Worktree management (Phase 07) |
-| `execa` | No | Process execution (Phase 04) |
+| `node-pty` | Yes | PTY (Phase 04) |
+| `ws` | Yes | Bridge WebSocket (Phase 04) |
+| `simple-git` | Yes | Worktree management (Phase 04/07) |
+| `execa` | Yes | Process execution / agent probing (Phase 04) |
+| `commander` | Yes | Bridge CLI (Phase 04) |
 
 ---
 
