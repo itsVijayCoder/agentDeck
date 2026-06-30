@@ -1,5 +1,5 @@
-import { MissionControlDashboard } from "@/components/agentdeck/mission-control-dashboard";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-	return <MissionControlDashboard />;
+	redirect("/mission-control");
 }

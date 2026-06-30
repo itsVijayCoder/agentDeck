@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+	cacheComponents: true,
 	transpilePackages: ["@agentdeck/ai", "@agentdeck/bridge-protocol", "@agentdeck/core", "@agentdeck/db", "@agentdeck/policy"],
 };
 

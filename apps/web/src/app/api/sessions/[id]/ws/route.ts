@@ -7,8 +7,6 @@ import { requireSession, verifyBridgeConnectionToken } from "@/lib/auth";
 import { getAgentDeckBindings, getRepositories } from "@/lib/cloudflare-context";
 import { SESSION_HUB_HEADERS } from "@/do/session-hub-protocol";
 
-export const runtime = "edge";
-
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
 	return withApiErrors(async () => {
 		if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {

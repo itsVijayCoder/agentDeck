@@ -6,7 +6,9 @@ Guidance for AI coding agents working in this repository.
 
 This repo is a **pnpm monorepo** for AgentDeck Mission Control. It has typed domain models, event contracts, state machines, a policy classifier, D1 persistence contracts, runtime validators, Worker API routes, a Durable Object session hub, Cloudflare Queue/Workflow/Cron orchestration for queued runs and schedules, deterministic multi-agent classification/routing/judging/synthesis, decision report persistence, the local bridge, terminal jump-in control, harness adapter contracts, agent event normalization, approval-gated command policy services, isolated worktree helpers, verifier strategies, patch/artifact upload plumbing, mock data, and the production dashboard UI.
 
-Phase 10 now adds the AI provider abstraction: `@agentdeck/ai` exposes provider adapters for OpenAI, Anthropic, Google, Qwen, DeepSeek, Ollama, and OpenRouter; Cloudflare AI Gateway REST/native gateway URL and header helpers; unified AI streaming events; provider registry/model router fallback; circuit breaker and cost tracker utilities; and an authenticated `/api/ai/providers` status surface. Agents still execute through the bridge unless explicitly wired to this package. Later phases still own LLM-backed judge evaluation, advanced reports, premium multi-screen UI, observability, evals, and team beta features.
+Phase 10 adds the AI provider abstraction: `@agentdeck/ai` exposes provider adapters for OpenAI, Anthropic, Google, Qwen, DeepSeek, Ollama, and OpenRouter; Cloudflare AI Gateway REST/native gateway URL and header helpers; unified AI streaming events; provider registry/model router fallback; circuit breaker and cost tracker utilities; and an authenticated `/api/ai/providers` status surface. Agents still execute through the bridge unless explicitly wired to this package.
+
+Phase 11 adds the premium multi-route Mission Control UI: an App Router shell, `/mission-control`, `/sessions/[id]`, `/agents`, `/queue`, `/schedules`, `/reports`, `/reports/[id]`, `/policies`, and `/settings/machines`; React Flow orchestration graph; Radix-powered command surfaces; Zustand UI state; TanStack Query first-party API warmup with mock fallback; Motion transitions; Lucide icons; and Next.js 16 Cache Components/PPR. Later phases still own observability, evals, and team beta features.
 
 `Docs/IMPLEMENTATION_GUIDE_WITH_PI.md` describes the full planned architecture. Trust the code and current phase docs for what is implemented today.
 
@@ -38,11 +40,13 @@ pnpm cf-typegen     # regenerate apps/web/cloudflare-env.d.ts
 ```text
 apps/
   web/                                  Next.js/OpenNext Mission Control app
-    src/app/                            App Router shell, fonts, metadata, global CSS
+    src/app/                            App Router shell, premium routes, fonts, metadata, global CSS
     src/app/api/                        Worker API/BFF routes, including SessionHub WebSocket gate
-    src/components/agentdeck/          Dashboard UI
+    src/components/agentdeck/          Premium Mission Control UI, terminal dock, route screens
     src/do/                             SessionHub Durable Object + protocol helpers
     src/lib/mock-agentdeck.ts          App-local mock data
+    src/lib/agentdeck-queries.ts       TanStack Query hooks with mock fallback
+    src/store/ui-store.ts              Zustand UI-only state
     src/workers/                       Queue consumer, scheduler, RunWorkflow, morning reports
     e2e/phase-00.spec.ts                Playwright wiring smoke test
     wrangler.jsonc                      Cloudflare deploy config
@@ -70,7 +74,7 @@ infra/migrations/
 - **Verifier strategies are shared.** `@agentdeck/verifier` owns language/tool detection and deterministic test/lint/typecheck/build command execution. Bridge code should use it instead of ad hoc verifier commands.
 - **D1 repositories are the database boundary.** `@agentdeck/db` exposes `createAgentDeckRepositories()`. Use it in future Worker/API code instead of writing ad hoc queries in handlers.
 - **Runtime validators guard D1 inputs.** `@agentdeck/db` exports zod validators for repository/API boundaries. Do not duplicate ad hoc validation in handlers.
-- **Mock data stays in `apps/web/src/lib/mock-agentdeck.ts`.** Do not inline mock data in components. Do not introduce real provider calls, real fetch, or real auth into the mock UI.
+- **Mock data stays in `apps/web/src/lib/mock-agentdeck.ts`.** Do not inline mock data in components. The visible demo UI should remain deterministic against mock data unless a phase explicitly wires a real contract. Phase 11 query hooks may warm first-party Worker API endpoints with mock fallback; do not add provider calls, secret reads, or real auth flows to the mock UI.
 - **Dependency rule**: `@agentdeck/core` depends on no other `@agentdeck/*` package. `@agentdeck/policy` and `@agentdeck/db` may depend on `@agentdeck/core`. Apps may depend on packages; packages must not depend on apps.
 
 ## CSS and Styling
@@ -80,7 +84,7 @@ This is the most likely place to make a mistake.
 - **The dashboard does NOT use Tailwind utility classes.** Tailwind v4 is imported (`@import "tailwindcss"`) but the entire UI uses **custom `of-` prefixed classes** defined in `apps/web/src/app/globals.css`.
 - **Design tokens are CSS variables** in `:root` (`--background`, `--foreground`, `--cyan`, `--violet`, `--amber`, `--green`, `--red`, `--panel`, `--border`, `--radius`, etc.). Reference these variables; do not hardcode hex values that duplicate tokens.
 - **Color semantics**: cyan = active routing, violet = AI synthesis, amber = approval/waiting, green = verified/passed, red = blocked/failed. Color is always a secondary signal — never the only signal.
-- **`@theme inline`** maps a subset of CSS vars into Tailwind's theme (`--color-background`, `--color-foreground`, `--font-sans`, `--font-mono`). Extend this only when you need Tailwind utilities to consume a token.
+- **`@theme inline`** maps selected CSS vars into Tailwind's theme for framework compatibility. The UI still uses `of-*` classes, not utility-class composition.
 - **Responsive breakpoints**: `1240px` (collapse left nav to icons), `860px` (stack to single column). `prefers-reduced-motion` is respected.
 - When adding UI, follow the existing `of-*` class pattern and add styles to `apps/web/src/app/globals.css`. Do not introduce a new styling approach mid-stream.
 

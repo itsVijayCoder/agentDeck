@@ -1,6 +1,6 @@
 # Phase 11 — Premium UI System Redesign
 
-**Objective:** Rebuild the Mission Control UI as a premium, multi-screen, professional command center. Migrate from the single-file mock dashboard to a proper multi-route App Router architecture with shadcn/ui, Tailwind utilities, React Flow, xterm.js, Zustand, TanStack Query, Motion, and Lucide icons. Design like a senior product designer: dark obsidian theme, glass panels, subtle glows, information-rich but not cluttered.
+**Objective:** Rebuild the Mission Control UI as a premium, multi-screen, professional command center. Migrate from the single-file mock dashboard to a proper multi-route App Router architecture with React Flow, xterm.js, Zustand, TanStack Query, Motion, Lucide icons, and accessible Radix command/dropdown surfaces. Design like a senior product designer: dark obsidian theme, glass panels, subtle glows, information-rich but not cluttered.
 
 **Prerequisites:** Phase 02 (Worker API for data), Phase 03 (SessionHub for realtime events).
 
@@ -8,21 +8,24 @@
 
 ## Current State
 
-- Single-file `mission-control-dashboard.tsx` (698 lines) renders the entire UI as one component.
-- Only one route (`/`) exists. No `/sessions/[id]`, `/agents`, `/queue`, `/schedules`, `/reports`, `/policies`, `/settings/machines`.
-- Custom `of-*` CSS classes (262 classes, 1322 lines in `globals.css`). No Tailwind utility classes used.
-- No shadcn/ui, no React Flow, no xterm.js, no Zustand, no TanStack Query, no Motion, no Lucide.
-- All data is mock. No server-state fetching. No realtime WebSocket consumption.
-- State is local `useState` in one component.
+- Implemented on 2026-06-30 as a multi-route App Router shell.
+- `/` redirects to `/mission-control`; routes now exist for `/mission-control`, `/sessions/[id]`, `/agents`, `/queue`, `/schedules`, `/reports`, `/reports/[id]`, `/policies`, and `/settings/machines`.
+- `apps/web/src/components/agentdeck/app-shell.tsx` owns the persistent top command bar, left navigation, right inspector, command palette, diff drawer, and terminal dock.
+- `apps/web/src/components/agentdeck/mission-control-screen.tsx` owns the active run cockpit and React Flow orchestration graph.
+- `apps/web/src/components/agentdeck/route-screens.tsx` owns the remaining route screens.
+- `apps/web/src/store/ui-store.ts` owns UI-only state with Zustand.
+- `apps/web/src/lib/query-provider.tsx` and `apps/web/src/lib/agentdeck-queries.ts` add TanStack Query first-party API warmup with deterministic mock fallback.
+- `apps/web/next.config.ts` enables `cacheComponents: true`; static routes prerender and dynamic session/report detail routes partially prerender.
+- Custom `of-*` CSS classes remain the active styling system per `AGENTS.md`. The original shadcn/Tailwind utility migration target is intentionally deferred/superseded.
 
 ---
 
 ## Target State
 
 ```text
-- 8 routes: /mission-control, /sessions/[id], /agents, /queue, /schedules, /reports, /policies, /settings/machines
-- shadcn/ui components (Radix + Tailwind) for accessible, composable UI
-- Tailwind CSS v4 utility classes (migrate from of-* custom classes)
+- 8+ routes: /mission-control, /sessions/[id], /agents, /queue, /schedules, /reports, /reports/[id], /policies, /settings/machines
+- Radix primitives for accessible command/dropdown surfaces without replacing the `of-*` design system
+- Tailwind CSS v4 remains imported for theme compatibility, but custom `of-*` classes stay authoritative
 - React Flow for interactive agent orchestration graph
 - xterm.js for real terminal rendering (Phase 05)
 - Zustand for client UI state (selected session, terminal tab, command palette)
@@ -33,6 +36,7 @@
 - Responsive: 1240px (collapse nav), 860px (stack)
 - Keyboard-accessible command palette (Cmd+K)
 - Reduced-motion support
+- Next.js 16 Cache Components/PPR enabled where compatible
 ```
 
 ---
@@ -213,29 +217,9 @@ body {
 }
 ```
 
-### 3. shadcn/ui setup
+### 3. Radix primitives and utility compatibility
 
-**`apps/web/components.json`:**
-
-```json
-{
-  "$schema": "https://ui.shadcn.com/schema.json",
-  "style": "new-york",
-  "rsc": true,
-  "tsx": true,
-  "tailwind": {
-    "config": "",
-    "css": "src/app/globals.css",
-    "baseColor": "zinc",
-    "cssVariables": true
-  },
-  "aliases": {
-    "components": "@/components",
-    "utils": "@/lib/utils",
-    "ui": "@/components/ui"
-  }
-}
-```
+Phase 11 uses Radix primitives directly for accessible command palette, dropdown, and tooltip behavior while preserving the repository's `of-*` styling contract. A `cn()` utility is still available for future component composition and package compatibility, but dashboard layout classes remain custom CSS in `apps/web/src/app/globals.css`.
 
 **`apps/web/src/lib/utils.ts`:**
 
@@ -756,7 +740,7 @@ export function EmptyMachinePairingState({ pairingCode }: { pairingCode: string 
 | **Strategy** | Status pill, risk badge, and meter components render differently based on status/risk level. |
 | **Observer** | `useSessionWebSocket` hook observes realtime events. Components re-render on new events. |
 | **Command** | Command palette items are command objects with `id`, `label`, `icon`, `path`. |
-| **Factory** | `cn()` utility merges Tailwind classes. shadcn/ui components are composable factories. |
+| **Factory** | `cn()` utility is available for composable class merging; route screens share primitive renderers. |
 
 ## SOLID / DRY Compliance
 
@@ -787,49 +771,51 @@ export function EmptyMachinePairingState({ pairingCode }: { pairingCode: string 
 ## Implementation Steps
 
 1. Install all UI dependencies
-2. Set up shadcn/ui (`components.json`, `cn()` utility)
-3. Add shadcn/ui base components (button, card, dialog, tabs, select, switch, tooltip, dropdown-menu)
-4. Update `globals.css` — preserve CSS variables, add Tailwind theme mapping, glass-panel utility
+2. Add `cn()` utility compatibility for future shadcn-style components
+3. Add Radix primitives for accessible dialog/dropdown/tooltip surfaces while preserving `of-*` styling
+4. Update `globals.css` — preserve CSS variables, add Tailwind theme mapping, React Flow CSS, route/shell styles
 5. Create `QueryProvider` and wrap in root layout
 6. Create Zustand `useUiStore`
-7. Create query hooks (`useSessions`, `useApprovals`, `useQueue`, `useSchedules`, `useReports`, `useAgents`)
+7. Create query hooks with first-party Worker API warmup and mock fallback
 8. Create `AppShell`, `TopCommandBar`, `LeftNavigation`
-9. Create route pages: `/mission-control`, `/sessions/[id]`, `/agents`, `/queue`, `/schedules`, `/reports`, `/policies`, `/settings/machines`
+9. Create route pages: `/mission-control`, `/sessions/[id]`, `/agents`, `/queue`, `/schedules`, `/reports`, `/reports/[id]`, `/policies`, `/settings/machines`
 10. Create `AgentGraph` with React Flow
 11. Create `CommandPalette` with Cmd+K
 12. Create primitives: `StatusPill`, `RiskBadge`, `ConfidenceMeter`, `CostMeter`
 13. Create `EmptyMachinePairingState`
 14. Create `DiffDrawer` (slide-in panel)
 15. Wire `TerminalDock` + `TerminalPane` (from Phase 05)
-16. Migrate mock data to TanStack Query (keep mock as fallback)
+16. Keep visible UI deterministic from mock data and warm Worker API state with TanStack Query fallback
 17. Add Motion animations (subtle, state-driven)
 18. Add Lucide icons throughout
 19. Test responsive breakpoints (1240px, 860px)
 20. Test reduced-motion
-21. Run `pnpm typecheck && pnpm lint && pnpm test && pnpm build`
+21. Enable Next.js 16 `cacheComponents` and validate static/PPR build output
+22. Run `pnpm typecheck && pnpm lint && pnpm test && pnpm build`
 
 ---
 
 ## Acceptance Criteria
 
 ```text
-[ ] 8 routes exist and are navigable
-[ ] shadcn/ui components are used for dialogs, tabs, selects, tooltips
-[ ] Tailwind utility classes are used (of-* classes migrated or removed)
-[ ] CSS variables preserved in :root
-[ ] React Flow renders agent graph with custom nodes and animated edges
-[ ] xterm.js renders in terminal dock (from Phase 05)
-[ ] Zustand store manages UI state (selected session, terminal tab, palette)
-[ ] TanStack Query fetches from Worker API
-[ ] Command palette opens with Cmd+K and navigates
-[ ] Motion animations are subtle and respect reduced-motion
-[ ] Lucide icons used consistently
-[ ] StatusPill, RiskBadge, ConfidenceMeter, CostMeter render correctly
-[ ] Empty machine pairing state is premium
-[ ] Responsive at 1240px (nav collapses) and 860px (stacks)
-[ ] All pages have proper empty states
-[ ] Dark obsidian theme is consistent
-[ ] pnpm build passes
+[x] 8+ routes exist and are navigable
+[~] shadcn/Tailwind migration superseded by AGENTS.md; Radix primitives are used for accessible command/dropdown/tooltip surfaces
+[~] Tailwind utilities are not used for dashboard layout; custom `of-*` classes remain authoritative
+[x] CSS variables preserved in :root
+[x] React Flow renders agent graph with styled nodes and animated edges
+[x] xterm.js renders in terminal dock (from Phase 05)
+[x] Zustand store manages UI state (selected session/run/graph node, terminal tab, palette, diff drawer)
+[x] TanStack Query warms first-party Worker API state with mock fallback
+[x] Command palette opens with Cmd+K and navigates
+[x] Motion animations are subtle and respect reduced-motion
+[x] Lucide icons used consistently
+[x] RiskBadge, ConfidenceMeter, Metric, candidate rows, and verification cards render consistently
+[x] Empty machine pairing state is premium
+[x] Responsive at 1240px (nav collapses) and 860px (stacks)
+[x] All pages have proper empty states
+[x] Dark obsidian theme is consistent
+[x] Next.js Cache Components enabled; static routes prerender and detail routes partially prerender
+[x] pnpm build passes
 ```
 
 ---
@@ -838,7 +824,7 @@ export function EmptyMachinePairingState({ pairingCode }: { pairingCode: string 
 
 | Risk | Mitigation |
 |---|---|
-| Migration from of-* to Tailwind breaks styles | Do migration incrementally; keep of-* classes until all components migrated; test each route |
+| Migration from of-* to Tailwind breaks styles | Superseded by AGENTS.md; keep `of-*` classes as the production dashboard styling contract |
 | React Flow performance with many nodes | Limit to 20 nodes; use `nodesDraggable={false}` for static graphs |
 | TanStack Query SSR with OpenNext | Use `staleTime` to avoid refetch on hydration; test on Cloudflare |
 | Bundle size grows with all libraries | Use dynamic imports for heavy components (React Flow, xterm); tree-shake Lucide |

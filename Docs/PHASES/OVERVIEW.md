@@ -24,8 +24,9 @@ This document is the master index for a 13-phase buildout plan (Phase 00 through
 | Typed D1 repositories | `packages/db/src/repositories.ts` | 693 | Complete — 12 repos, prepared statements, R2 object_key support |
 | Runtime validators | `packages/db/src/validators.ts` | 390+ | Complete — zod schemas for all D1 input contracts + event envelope validation |
 | Quality gates | `package.json`, package `vitest.config.ts`, `apps/web/playwright.config.ts` | — | Complete — typecheck, eslint, vitest coverage, Playwright skeleton |
-| Mission Control dashboard (mock) | `apps/web/src/components/agentdeck/mission-control-dashboard.tsx` | 698 | Complete — 14 sub-components, custom `of-*` design system |
-| Design system CSS | `apps/web/src/app/globals.css` | 1322 | Complete — 262 `of-*` classes, CSS variables, responsive |
+| Mission Control dashboard (legacy mock) | `apps/web/src/components/agentdeck/mission-control-dashboard.tsx` | 698 | Retained for reference — superseded by Phase 11 multi-route shell |
+| Premium multi-screen UI | `apps/web/src/app/{mission-control,agents,queue,schedules,reports,policies,settings}`, `apps/web/src/components/agentdeck/` | — | Complete — App Router shell, React Flow graph, route screens, command palette, terminal dock, Zustand, TanStack Query warmup, Motion, Lucide, Cache Components |
+| Design system CSS | `apps/web/src/app/globals.css` | — | Complete — custom `of-*` classes, CSS variables, React Flow/xterm imports, responsive |
 | Mock data | `apps/web/src/lib/mock-agentdeck.ts` | 410 | Complete — 5 agents, active run, queue, schedules, reports |
 | Cloudflare control-plane bindings | `apps/web/wrangler.jsonc`, `apps/web/cloudflare-env.d.ts` | — | Complete — D1 + R2 bindings for Phase 02 |
 | Worker API / BFF routes | `apps/web/src/app/api/` | — | Complete — REST endpoints for workspaces, machines, sessions, approvals, queue, schedules, reports, policies, and artifacts |
@@ -44,7 +45,6 @@ This document is the master index for a 13-phase buildout plan (Phase 00 through
 
 | Missing component | Impact | Phase |
 |---|---|---|
-| Premium multi-screen UI (React Flow, shadcn, Zustand, TanStack Query) | Single mock dashboard only | Phase 11 |
 | Observability + evals + team features | No metrics, no beta readiness | Phase 12 |
 
 ### 1.3 Dependency gap (installed vs needed)
@@ -56,13 +56,13 @@ This document is the master index for a 13-phase buildout plan (Phase 00 through
 | `zod` | Yes | Validation (all phases) |
 | `vitest`, `@vitest/coverage-v8`, `@vitest/ui` | Yes | Testing (Phase 00+) |
 | `@playwright/test` | Yes | E2E skeleton (Phase 00+) |
-| `@tanstack/react-query` | No | Server state (Phase 02+) |
-| `zustand` | No | UI state (Phase 11) |
-| `@xyflow/react` | No | Agent graph (Phase 11) |
+| `@tanstack/react-query` | Yes | Server state warmup with mock fallback (Phase 11) |
+| `zustand` | Yes | UI state (Phase 11) |
+| `@xyflow/react` | Yes | Agent graph (Phase 11) |
 | `@xterm/xterm`, `@xterm/addon-fit`, `@xterm/addon-web-links` | Yes | Terminal (Phase 05) |
-| `lucide-react` | No | Icons (Phase 11) |
-| `motion` | No | Animation (Phase 11) |
-| `class-variance-authority`, `clsx`, `tailwind-merge` | No | shadcn/ui (Phase 11) |
+| `lucide-react` | Yes | Icons (Phase 11) |
+| `motion` | Yes | Animation (Phase 11) |
+| `class-variance-authority`, `clsx`, `tailwind-merge` | Yes | UI utility compatibility (Phase 11) |
 | `node-pty` | Yes | PTY (Phase 04) |
 | `ws` | Yes | Bridge WebSocket (Phase 04) |
 | `simple-git` | Yes | Worktree management (Phase 04/07) |
@@ -169,7 +169,7 @@ No package may depend directly on a concrete model provider except provider adap
 | 08 | Queue, Workflows & Schedules | Overnight jobs, cron, morning reports | 02, 07 |
 | 09 | Multi-Agent Orchestration & Decision Reports | Router, judge, synthesis, candidate comparison | 06, 07 |
 | 10 | AI Gateway & Provider Abstraction | Provider adapters, AI Gateway, cost tracking | 02, 06 |
-| 11 | Premium UI System Redesign | Multi-screen, React Flow, shadcn, Zustand, TanStack Query | 02, 03 |
+| 11 | Premium UI System Redesign | Multi-screen App Router shell, React Flow, Radix primitives, Zustand, TanStack Query | 02, 03 |
 | 12 | Observability, Evals & Team Beta | Metrics, OTel, evals, team features, roles | 09, 11 |
 
 ### 3.1 Phase dependency graph
@@ -268,14 +268,14 @@ No risk logic, state transition, or event type is duplicated across packages.
 | Layer | Technology | Rationale |
 |---|---|---|
 | Web framework | Next.js 16 App Router | Already installed, SSR on Workers via OpenNext |
-| UI components | shadcn/ui (Radix + Tailwind) | Accessible, composable, customizable, industry standard |
-| Styling | Tailwind CSS v4 + CSS variables | Already imported; Phase 11 migrates from `of-*` to Tailwind utilities |
-| Server state | TanStack Query v5 | Caching, invalidation, optimistic updates, SSR-compatible |
+| UI components | Radix primitives + custom AgentDeck components | Accessible command/dropdown surfaces while preserving the established design system |
+| Styling | Custom `of-*` classes + CSS variables + Tailwind v4 theme bridge | AGENTS.md requires the dashboard to keep `of-*` classes; Tailwind utilities are not the primary styling surface |
+| Server state | TanStack Query v5 | Client-side first-party API warmup with mock fallback; future real data screens can reuse the hooks |
 | Client state | Zustand | Minimal, no provider boilerplate, good for UI-only state |
 | Agent graph | React Flow (@xyflow/react) | Interactive DAG, custom nodes, animated edges |
 | Terminal | xterm.js (@xterm/xterm) | Industry standard terminal emulator, ANSI support |
 | Animation | Motion (motion.dev) | Spring physics, layout animations, reduced-motion support |
-| Icons | Lucide React | Consistent, tree-shakeable, matches shadcn/ui |
+| Icons | Lucide React | Consistent, tree-shakeable icon set for the command-center UI |
 | Validation | Zod | Runtime schema validation, type inference |
 | Testing | Vitest + Playwright | Fast unit/integration (Vitest), E2E (Playwright) |
 | Monorepo | pnpm workspaces | Fast, disk-efficient, mature workspace protocol |
@@ -297,7 +297,7 @@ No risk logic, state transition, or event type is duplicated across packages.
 | ADR-005 | No auto-merge by default | Mission Control means human-controlled automation, not blind autonomy |
 | ADR-006 | Support MCP/ACP but do not depend on them exclusively | Standards are valuable, but existing CLIs and PTY workflows still matter |
 | ADR-007 | Monorepo with pnpm workspaces | Package isolation, shared contracts, independent deployment |
-| ADR-008 | shadcn/ui + Tailwind utilities for Phase 11 | Accessible, composable, industry standard; migrate from custom `of-*` classes |
+| ADR-008 | Preserve `of-*` dashboard styling while adopting Radix primitives | AGENTS.md makes `of-*` the active UI contract; Radix supplies accessible surfaces without a Tailwind utility migration |
 | ADR-009 | Pi as first-class adapter, not the platform | Pi is embeddable; AgentDeck remains the control plane |
 | ADR-010 | Vitest for unit/integration, Playwright for E2E | Fast, Vite-native, good Cloudflare Workers compatibility |
 
