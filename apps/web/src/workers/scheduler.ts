@@ -4,6 +4,7 @@ import type { AgentDeckRepositories, ScheduledJobRow } from "@agentdeck/db";
 import { type AgentDeckQueueMessage } from "@/lib/phase-08-contracts";
 import { calculateNextRun, shouldGenerateMorningReport } from "@/lib/schedule-parser";
 import { generateMorningReport } from "./morning-report";
+import { enforceRetention, shouldRunRetention } from "./retention";
 
 export type SchedulerEnv = {
 	AGENTDECK_ARTIFACTS: R2Bucket;
@@ -15,6 +16,11 @@ export type SchedulerResult = {
 	dueJobs: number;
 	enqueued: number;
 	morningReports: number;
+	retention?: {
+		archived: number;
+		deleted: number;
+		policies: number;
+	};
 };
 
 export async function runScheduler(env: SchedulerEnv, now = new Date()): Promise<SchedulerResult> {
@@ -32,11 +38,13 @@ export async function runScheduler(env: SchedulerEnv, now = new Date()): Promise
 	const morningReports = shouldGenerateMorningReport(now, "UTC")
 		? await generateWorkspaceMorningReports(env, repositories, now)
 		: 0;
+	const retention = shouldRunRetention(now) ? await enforceRetention(env, now) : undefined;
 
 	return {
 		dueJobs: dueJobs.length,
 		enqueued,
 		morningReports,
+		...(retention ? { retention } : {}),
 	};
 }
 

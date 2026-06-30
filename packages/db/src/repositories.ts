@@ -1,51 +1,71 @@
 import type {
 	AgentInstallationRow,
+	AuditLogRow,
 	ApprovalRow,
 	ArtifactRow,
+	CreateAuditLogInput,
 	CreateApprovalInput,
 	CreateArtifactInput,
 	CreateDecisionReportInput,
+	CreateEvalRunInput,
+	CreateMetricSnapshotInput,
 	CreateQueueItemInput,
 	CreateRunInput,
 	CreateSessionInput,
 	CreateWorkspaceInput,
 	DecisionReportRow,
 	DecideApprovalInput,
+	EvalRunRow,
 	EventIndexRow,
 	JsonValue,
 	MachineRow,
+	MetricSnapshotRow,
 	PersistEventInput,
 	PolicyRuleRow,
 	QueueItemRow,
+	RetentionPolicyRow,
 	RunRow,
 	ScheduledJobRow,
 	SessionRow,
 	SqliteBoolean,
+	UpdateEvalRunInput,
 	UpdateQueueItemInput,
 	UpdateRunStatusInput,
 	UpsertAgentInstallationInput,
 	UpsertMachineInput,
 	UpsertPolicyRuleInput,
+	UpsertRetentionPolicyInput,
 	UpsertScheduledJobInput,
+	UpsertUserInput,
+	UpsertWorkspaceMemberInput,
+	UserRow,
+	WorkspaceMemberRow,
 	WorkspaceRow,
 } from "./types/agentdeck-db";
 import type { ApprovalStatus, RunStatus } from "@agentdeck/core";
 import {
 	createApprovalInputSchema,
 	createArtifactInputSchema,
+	createAuditLogInputSchema,
 	createDecisionReportInputSchema,
+	createEvalRunInputSchema,
+	createMetricSnapshotInputSchema,
 	createQueueItemInputSchema,
 	createRunInputSchema,
 	createSessionInputSchema,
 	createWorkspaceInputSchema,
 	decideApprovalInputSchema,
 	parsePersistEventInput,
+	updateEvalRunInputSchema,
 	updateQueueItemInputSchema,
 	updateRunStatusInputSchema,
 	upsertAgentInstallationInputSchema,
 	upsertMachineInputSchema,
 	upsertPolicyRuleInputSchema,
+	upsertRetentionPolicyInputSchema,
 	upsertScheduledJobInputSchema,
+	upsertUserInputSchema,
+	upsertWorkspaceMemberInputSchema,
 } from "./validators";
 
 type BindValue = string | number | null;
@@ -83,6 +103,28 @@ export function createAgentDeckRepositories(db: QueryableD1) {
 			findById: (id: string) => firstRow<WorkspaceRow>(db, "SELECT * FROM workspaces WHERE id = ?", [id]),
 			list: (limit?: number) =>
 				allRows<WorkspaceRow>(db, "SELECT * FROM workspaces ORDER BY updated_at DESC LIMIT ?", [normalizeLimit(limit)]),
+		},
+		users: {
+			upsert: (input: UpsertUserInput) => upsertUser(db, upsertUserInputSchema.parse(input)),
+			findById: (id: string) => firstRow<UserRow>(db, "SELECT * FROM users WHERE id = ?", [id]),
+			findByEmail: (email: string) => firstRow<UserRow>(db, "SELECT * FROM users WHERE email = ?", [email]),
+		},
+		workspaceMembers: {
+			upsert: (input: UpsertWorkspaceMemberInput) =>
+				upsertWorkspaceMember(db, upsertWorkspaceMemberInputSchema.parse(input)),
+			findById: (id: string) => firstRow<WorkspaceMemberRow>(db, "SELECT * FROM workspace_members WHERE id = ?", [id]),
+			findByWorkspaceUser: (workspaceId: string, userId: string) =>
+				firstRow<WorkspaceMemberRow>(db, "SELECT * FROM workspace_members WHERE workspace_id = ? AND user_id = ?", [
+					workspaceId,
+					userId,
+				]),
+			listByWorkspace: (workspaceId: string, limit?: number) =>
+				allRows<WorkspaceMemberRow>(
+					db,
+					"SELECT * FROM workspace_members WHERE workspace_id = ? ORDER BY created_at DESC LIMIT ?",
+					[workspaceId, normalizeLimit(limit)],
+				),
+			remove: (id: string) => deleteById(db, "workspace_members", id),
 		},
 		machines: {
 			upsert: (input: UpsertMachineInput) => upsertMachine(db, upsertMachineInputSchema.parse(input)),
@@ -243,9 +285,57 @@ export function createAgentDeckRepositories(db: QueryableD1) {
 							"SELECT * FROM policy_rules WHERE workspace_id = ? AND enabled = 1 ORDER BY action ASC",
 							[workspaceId],
 						)
-					: allRows<PolicyRuleRow>(db, "SELECT * FROM policy_rules WHERE workspace_id = ? ORDER BY action ASC", [
+						: allRows<PolicyRuleRow>(db, "SELECT * FROM policy_rules WHERE workspace_id = ? ORDER BY action ASC", [
 							workspaceId,
 						]),
+		},
+		auditLog: {
+			create: (input: CreateAuditLogInput) => createAuditLog(db, createAuditLogInputSchema.parse(input)),
+			listByWorkspace: (workspaceId: string, limit?: number) =>
+				allRows<AuditLogRow>(db, "SELECT * FROM audit_log WHERE workspace_id = ? ORDER BY created_at DESC LIMIT ?", [
+					workspaceId,
+					normalizeLimit(limit, 500),
+				]),
+		},
+		metricSnapshots: {
+			create: (input: CreateMetricSnapshotInput) =>
+				createMetricSnapshot(db, createMetricSnapshotInputSchema.parse(input)),
+			listByWorkspace: (workspaceId: string, from?: string, to?: string, limit?: number) =>
+				allRows<MetricSnapshotRow>(
+					db,
+					`SELECT * FROM metric_snapshots
+					 WHERE workspace_id = ?
+					   AND period_start >= ?
+					   AND period_end <= ?
+					 ORDER BY period_start DESC, metric_name ASC
+					 LIMIT ?`,
+					[workspaceId, from ?? "0000-01-01T00:00:00.000Z", to ?? "9999-12-31T23:59:59.999Z", normalizeLimit(limit, 1000)],
+				),
+		},
+		evalRuns: {
+			create: (input: CreateEvalRunInput) => createEvalRun(db, createEvalRunInputSchema.parse(input)),
+			findById: (id: string) => firstRow<EvalRunRow>(db, "SELECT * FROM eval_runs WHERE id = ?", [id]),
+			listByWorkspace: (workspaceId: string, limit?: number) =>
+				allRows<EvalRunRow>(db, "SELECT * FROM eval_runs WHERE workspace_id = ? ORDER BY created_at DESC LIMIT ?", [
+					workspaceId,
+					normalizeLimit(limit),
+				]),
+			update: (input: UpdateEvalRunInput) => updateEvalRun(db, updateEvalRunInputSchema.parse(input)),
+		},
+		retentionPolicies: {
+			upsert: (input: UpsertRetentionPolicyInput) =>
+				upsertRetentionPolicy(db, upsertRetentionPolicyInputSchema.parse(input)),
+			findById: (id: string) => firstRow<RetentionPolicyRow>(db, "SELECT * FROM retention_policies WHERE id = ?", [id]),
+			listAll: (limit?: number) =>
+				allRows<RetentionPolicyRow>(db, "SELECT * FROM retention_policies ORDER BY workspace_id ASC, resource_type ASC LIMIT ?", [
+					normalizeLimit(limit, 1000),
+				]),
+			listByWorkspace: (workspaceId: string, limit?: number) =>
+				allRows<RetentionPolicyRow>(
+					db,
+					"SELECT * FROM retention_policies WHERE workspace_id = ? ORDER BY resource_type ASC LIMIT ?",
+					[workspaceId, normalizeLimit(limit)],
+				),
 		},
 	};
 }
@@ -268,6 +358,60 @@ async function createWorkspace(db: QueryableD1, input: CreateWorkspaceInput): Pr
 		],
 	);
 	return requireRow(await firstRow<WorkspaceRow>(db, "SELECT * FROM workspaces WHERE id = ?", [input.id]), "Workspace");
+}
+
+async function upsertUser(db: QueryableD1, input: UpsertUserInput): Promise<UserRow> {
+	const createdAt = input.createdAt ?? nowIso();
+	const updatedAt = input.updatedAt ?? createdAt;
+	await runStatement(
+		db,
+		`INSERT INTO users (id, email, display_name, avatar_url, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?)
+		 ON CONFLICT(id) DO UPDATE SET
+			email = excluded.email,
+			display_name = excluded.display_name,
+			avatar_url = excluded.avatar_url,
+			updated_at = excluded.updated_at`,
+		[input.id, input.email, input.displayName ?? null, input.avatarUrl ?? null, createdAt, updatedAt],
+	);
+	return requireRow(await firstRow<UserRow>(db, "SELECT * FROM users WHERE id = ?", [input.id]), "User");
+}
+
+async function upsertWorkspaceMember(
+	db: QueryableD1,
+	input: UpsertWorkspaceMemberInput,
+): Promise<WorkspaceMemberRow> {
+	const invitedAt = input.invitedAt ?? nowIso();
+	const createdAt = input.createdAt ?? invitedAt;
+	await runStatement(
+		db,
+		`INSERT INTO workspace_members (
+			id, workspace_id, user_id, role, invited_by, invited_at, joined_at, created_at
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(workspace_id, user_id) DO UPDATE SET
+			role = excluded.role,
+			invited_by = excluded.invited_by,
+			invited_at = excluded.invited_at,
+			joined_at = excluded.joined_at`,
+		[
+			input.id,
+			input.workspaceId,
+			input.userId,
+			input.role,
+			input.invitedBy ?? null,
+			invitedAt,
+			input.joinedAt ?? null,
+			createdAt,
+		],
+	);
+	return requireRow(
+		await firstRow<WorkspaceMemberRow>(db, "SELECT * FROM workspace_members WHERE workspace_id = ? AND user_id = ?", [
+			input.workspaceId,
+			input.userId,
+		]),
+		"Workspace member",
+	);
 }
 
 async function upsertMachine(db: QueryableD1, input: UpsertMachineInput): Promise<MachineRow> {
@@ -751,6 +895,134 @@ async function upsertPolicyRule(db: QueryableD1, input: UpsertPolicyRuleInput): 
 	return requireRow(await firstRow<PolicyRuleRow>(db, "SELECT * FROM policy_rules WHERE id = ?", [input.id]), "Policy rule");
 }
 
+async function createAuditLog(db: QueryableD1, input: CreateAuditLogInput): Promise<AuditLogRow> {
+	const id = input.id ?? crypto.randomUUID();
+	const createdAt = input.createdAt ?? nowIso();
+	await runStatement(
+		db,
+		`INSERT INTO audit_log (
+			id, workspace_id, actor_id, action, resource_type, resource_id,
+			details_json, ip_address, user_agent, created_at
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		[
+			id,
+			input.workspaceId,
+			input.actorId ?? null,
+			input.action,
+			input.resourceType,
+			input.resourceId ?? null,
+			encodeOptionalJson(input.details),
+			input.ipAddress ?? null,
+			input.userAgent ?? null,
+			createdAt,
+		],
+	);
+	return requireRow(await firstRow<AuditLogRow>(db, "SELECT * FROM audit_log WHERE id = ?", [id]), "Audit log");
+}
+
+async function createMetricSnapshot(db: QueryableD1, input: CreateMetricSnapshotInput): Promise<MetricSnapshotRow> {
+	const id = input.id ?? crypto.randomUUID();
+	await runStatement(
+		db,
+		`INSERT INTO metric_snapshots (
+			id, workspace_id, metric_name, metric_value, labels_json,
+			period_start, period_end, created_at
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		[
+			id,
+			input.workspaceId,
+			input.metricName,
+			input.metricValue,
+			encodeRequiredJson(input.labels ?? {}),
+			input.periodStart,
+			input.periodEnd,
+			input.createdAt ?? nowIso(),
+		],
+	);
+	return requireRow(await firstRow<MetricSnapshotRow>(db, "SELECT * FROM metric_snapshots WHERE id = ?", [id]), "Metric snapshot");
+}
+
+async function createEvalRun(db: QueryableD1, input: CreateEvalRunInput): Promise<EvalRunRow> {
+	const id = input.id ?? crypto.randomUUID();
+	const startedAt = input.startedAt ?? nowIso();
+	await runStatement(
+		db,
+		`INSERT INTO eval_runs (
+			id, workspace_id, dataset_id, agent_kind, model, status, score,
+			results_json, started_at, completed_at, created_at
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		[
+			id,
+			input.workspaceId,
+			input.datasetId,
+			input.agentKind,
+			input.model ?? null,
+			input.status ?? "queued",
+			input.score ?? null,
+			encodeOptionalJson(input.results),
+			startedAt,
+			input.completedAt ?? null,
+			input.createdAt ?? startedAt,
+		],
+	);
+	return requireRow(await firstRow<EvalRunRow>(db, "SELECT * FROM eval_runs WHERE id = ?", [id]), "Eval run");
+}
+
+async function updateEvalRun(db: QueryableD1, input: UpdateEvalRunInput): Promise<EvalRunRow | null> {
+	const existing = await firstRow<EvalRunRow>(db, "SELECT * FROM eval_runs WHERE id = ?", [input.id]);
+	if (!existing) {
+		return null;
+	}
+
+	await runStatement(
+		db,
+		`UPDATE eval_runs SET
+			status = ?,
+			score = ?,
+			results_json = ?,
+			completed_at = ?
+		WHERE id = ?`,
+		[
+			input.status ?? existing.status,
+			input.score === undefined ? existing.score : input.score,
+			input.results === undefined ? existing.results_json : encodeOptionalJson(input.results),
+			input.completedAt === undefined ? existing.completed_at : input.completedAt,
+			input.id,
+		],
+	);
+	return firstRow<EvalRunRow>(db, "SELECT * FROM eval_runs WHERE id = ?", [input.id]);
+}
+
+async function upsertRetentionPolicy(
+	db: QueryableD1,
+	input: UpsertRetentionPolicyInput,
+): Promise<RetentionPolicyRow> {
+	const createdAt = input.createdAt ?? nowIso();
+	const updatedAt = input.updatedAt ?? createdAt;
+	await runStatement(
+		db,
+		`INSERT INTO retention_policies (
+			id, workspace_id, resource_type, retention_days, action, created_at, updated_at
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(workspace_id, resource_type) DO UPDATE SET
+			retention_days = excluded.retention_days,
+			action = excluded.action,
+			updated_at = excluded.updated_at`,
+		[input.id, input.workspaceId, input.resourceType, input.retentionDays, input.action, createdAt, updatedAt],
+	);
+	return requireRow(
+		await firstRow<RetentionPolicyRow>(db, "SELECT * FROM retention_policies WHERE workspace_id = ? AND resource_type = ?", [
+			input.workspaceId,
+			input.resourceType,
+		]),
+		"Retention policy",
+	);
+}
+
 async function runStatement(db: QueryableD1, sql: string, values: BindValue[]): Promise<void> {
 	try {
 		const result = await db.prepare(sql).bind(...values).run();
@@ -763,6 +1035,16 @@ async function runStatement(db: QueryableD1, sql: string, values: BindValue[]): 
 		}
 		throw new AgentDeckDatabaseError("D1 statement failed", { cause });
 	}
+}
+
+async function deleteById(db: QueryableD1, tableName: "workspace_members", id: string): Promise<boolean> {
+	const existing = await firstRow<Record<string, unknown>>(db, `SELECT * FROM ${tableName} WHERE id = ?`, [id]);
+	if (!existing) {
+		return false;
+	}
+
+	await runStatement(db, `DELETE FROM ${tableName} WHERE id = ?`, [id]);
+	return true;
 }
 
 async function firstRow<T>(db: QueryableD1, sql: string, values: BindValue[]): Promise<T | null> {

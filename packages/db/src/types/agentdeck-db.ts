@@ -2,6 +2,7 @@ import type {
 	AgentCapability,
 	AgentKind,
 	ApprovalStatus,
+	MetricName,
 	PrivacyMode,
 	QueuePriority,
 	RiskLevel,
@@ -24,6 +25,42 @@ export type ScheduleLastStatus = "success" | "failed" | "cancelled" | "never-run
 export type ArtifactRedactionStatus = "none" | "pending" | "redacted" | "blocked";
 export type ReportRecommendation = "accept" | "review-carefully" | "reject" | "rerun";
 export type PolicyDecision = "allow" | "approval" | "deny";
+export type WorkspaceMemberRole = "owner" | "member" | "observer";
+export type AuditAction =
+	| "approval.decided"
+	| "terminal.jump_in"
+	| "terminal.release"
+	| "terminal.human_input"
+	| "session.created"
+	| "session.started"
+	| "session.paused"
+	| "session.resumed"
+	| "session.cancelled"
+	| "queue.item_created"
+	| "queue.item_cancelled"
+	| "schedule.created"
+	| "schedule.updated"
+	| "schedule.run_now"
+	| "policy.updated"
+	| "machine.paired"
+	| "machine.revoked"
+	| "member.invited"
+	| "member.removed"
+	| "patch.applied"
+	| "patch.exported"
+	| "eval.started"
+	| "retention.updated";
+export type EvalRunStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
+export type RetentionResourceType =
+	| "terminal-logs"
+	| "transcripts"
+	| "events"
+	| "artifacts"
+	| "reports"
+	| "audit-log"
+	| "metric-snapshots"
+	| "eval-runs";
+export type RetentionAction = "archive" | "delete";
 
 export type WorkspaceRow = {
 	id: string;
@@ -33,6 +70,26 @@ export type WorkspaceRow = {
 	privacy_mode: PrivacyMode;
 	created_at: IsoTimestamp;
 	updated_at: IsoTimestamp;
+};
+
+export type UserRow = {
+	avatar_url: string | null;
+	created_at: IsoTimestamp;
+	display_name: string | null;
+	email: string;
+	id: string;
+	updated_at: IsoTimestamp;
+};
+
+export type WorkspaceMemberRow = {
+	created_at: IsoTimestamp;
+	id: string;
+	invited_at: IsoTimestamp;
+	invited_by: string | null;
+	joined_at: IsoTimestamp | null;
+	role: WorkspaceMemberRole;
+	user_id: string;
+	workspace_id: string;
 };
 
 export type MachineRow = {
@@ -202,6 +259,54 @@ export type PolicyRuleRow = {
 	updated_at: IsoTimestamp;
 };
 
+export type AuditLogRow = {
+	action: AuditAction;
+	actor_id: string | null;
+	created_at: IsoTimestamp;
+	details_json: string | null;
+	id: string;
+	ip_address: string | null;
+	resource_id: string | null;
+	resource_type: string;
+	user_agent: string | null;
+	workspace_id: string;
+};
+
+export type MetricSnapshotRow = {
+	created_at: IsoTimestamp;
+	id: string;
+	labels_json: string;
+	metric_name: MetricName;
+	metric_value: number;
+	period_end: IsoTimestamp;
+	period_start: IsoTimestamp;
+	workspace_id: string;
+};
+
+export type EvalRunRow = {
+	agent_kind: AgentKind;
+	completed_at: IsoTimestamp | null;
+	created_at: IsoTimestamp;
+	dataset_id: string;
+	id: string;
+	model: string | null;
+	results_json: string | null;
+	score: number | null;
+	started_at: IsoTimestamp;
+	status: EvalRunStatus;
+	workspace_id: string;
+};
+
+export type RetentionPolicyRow = {
+	action: RetentionAction;
+	created_at: IsoTimestamp;
+	id: string;
+	resource_type: RetentionResourceType;
+	retention_days: number;
+	updated_at: IsoTimestamp;
+	workspace_id: string;
+};
+
 export type CreateWorkspaceInput = {
 	id: string;
 	name: string;
@@ -210,6 +315,26 @@ export type CreateWorkspaceInput = {
 	privacyMode: PrivacyMode;
 	createdAt?: IsoTimestamp;
 	updatedAt?: IsoTimestamp;
+};
+
+export type UpsertUserInput = {
+	avatarUrl?: string | null;
+	createdAt?: IsoTimestamp;
+	displayName?: string | null;
+	email: string;
+	id: string;
+	updatedAt?: IsoTimestamp;
+};
+
+export type UpsertWorkspaceMemberInput = {
+	createdAt?: IsoTimestamp;
+	id: string;
+	invitedAt?: IsoTimestamp;
+	invitedBy?: string | null;
+	joinedAt?: IsoTimestamp | null;
+	role: WorkspaceMemberRole;
+	userId: string;
+	workspaceId: string;
 };
 
 export type UpsertMachineInput = {
@@ -399,4 +524,60 @@ export type UpsertPolicyRuleInput = {
 	enabled: boolean;
 	createdAt?: IsoTimestamp;
 	updatedAt?: IsoTimestamp;
+};
+
+export type CreateAuditLogInput = {
+	action: AuditAction;
+	actorId?: string | null;
+	createdAt?: IsoTimestamp;
+	details?: JsonValue | null;
+	id?: string;
+	ipAddress?: string | null;
+	resourceId?: string | null;
+	resourceType: string;
+	userAgent?: string | null;
+	workspaceId: string;
+};
+
+export type CreateMetricSnapshotInput = {
+	createdAt?: IsoTimestamp;
+	id?: string;
+	labels?: JsonRecord;
+	metricName: MetricName;
+	metricValue: number;
+	periodEnd: IsoTimestamp;
+	periodStart: IsoTimestamp;
+	workspaceId: string;
+};
+
+export type CreateEvalRunInput = {
+	agentKind: AgentKind;
+	completedAt?: IsoTimestamp | null;
+	createdAt?: IsoTimestamp;
+	datasetId: string;
+	id?: string;
+	model?: string | null;
+	results?: JsonValue | null;
+	score?: number | null;
+	startedAt?: IsoTimestamp;
+	status?: EvalRunStatus;
+	workspaceId: string;
+};
+
+export type UpdateEvalRunInput = {
+	completedAt?: IsoTimestamp | null;
+	id: string;
+	results?: JsonValue | null;
+	score?: number | null;
+	status?: EvalRunStatus;
+};
+
+export type UpsertRetentionPolicyInput = {
+	action: RetentionAction;
+	createdAt?: IsoTimestamp;
+	id: string;
+	resourceType: RetentionResourceType;
+	retentionDays: number;
+	updatedAt?: IsoTimestamp;
+	workspaceId: string;
 };

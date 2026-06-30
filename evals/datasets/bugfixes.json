@@ -1,0 +1,24 @@
+{
+  "id": "bugfix-smoke",
+  "name": "Small Bugfix Smoke",
+  "tasks": [
+    {
+      "id": "bf-001",
+      "prompt": "Fix the off-by-one error in src/utils/range.ts and prove it with tests.",
+      "category": "bugfix",
+      "expectedFilesChanged": ["src/utils/range.ts"],
+      "expectedTestsPass": true,
+      "maxCostUsd": 0.5,
+      "maxRuntimeMs": 300000
+    },
+    {
+      "id": "bf-002",
+      "prompt": "Fix the null handling issue in src/parser/ast.ts without broad parser rewrites.",
+      "category": "bugfix",
+      "expectedFilesChanged": ["src/parser/ast.ts"],
+      "expectedTestsPass": true,
+      "maxCostUsd": 0.75,
+      "maxRuntimeMs": 420000
+    }
+  ]
+}

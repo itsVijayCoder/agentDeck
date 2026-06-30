@@ -1,5 +1,7 @@
 import type { NextRequest } from "next/server";
 
+import { writeAudit } from "@agentdeck/db";
+
 import { jsonResponse, unauthorized, withApiErrors } from "@/lib/api/errors";
 import { parseJsonRequest } from "@/lib/api/request";
 import { completePairingRequestSchema } from "@/lib/api/schemas";
@@ -43,6 +45,14 @@ export async function POST(request: NextRequest) {
 			),
 		);
 		const token = await generateBridgeConnectionToken({ machineId: machine.id, workspaceId: pairing.workspaceId });
+		await writeAudit(repositories, {
+			action: "machine.paired",
+			actorId: pairing.requestedBy,
+			details: { agentCount: agents.length, bridgeVersion: machine.bridge_version, displayName: machine.display_name },
+			resourceId: machine.id,
+			resourceType: "machine",
+			workspaceId: pairing.workspaceId,
+		});
 
 		return jsonResponse({ agents, machine, token }, { status: 201 });
 	});

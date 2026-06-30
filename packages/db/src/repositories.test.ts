@@ -10,6 +10,8 @@ import {
 	type QueryableD1,
 	toSqlBoolean,
 } from "./repositories";
+import { writeAudit } from "./audit";
+import { seedWorkspace } from "./seed";
 
 const now = "2026-06-28T00:00:00.000Z";
 const later = "2026-06-28T00:01:00.000Z";
@@ -17,6 +19,8 @@ const sha256 = "a".repeat(64);
 
 const tableNames = [
 	"workspaces",
+	"users",
+	"workspace_members",
 	"machines",
 	"agent_installations",
 	"sessions",
@@ -28,6 +32,10 @@ const tableNames = [
 	"artifacts",
 	"decision_reports",
 	"policy_rules",
+	"audit_log",
+	"metric_snapshots",
+	"eval_runs",
+	"retention_policies",
 ] as const;
 
 type TableName = (typeof tableNames)[number];
@@ -48,6 +56,30 @@ class MemoryD1 implements QueryableD1 {
 		if (normalized.startsWith("insert into workspaces")) {
 			const [id, name, repository_url, default_branch, privacy_mode, created_at, updated_at] = values;
 			this.put("workspaces", { default_branch, id, name, privacy_mode, repository_url, updated_at, created_at });
+			return;
+		}
+
+		if (normalized.startsWith("insert into users")) {
+			const [id, email, display_name, avatar_url, created_at, updated_at] = values;
+			this.put("users", { avatar_url, created_at, display_name, email, id, updated_at });
+			return;
+		}
+
+		if (normalized.startsWith("insert into workspace_members")) {
+			const [id, workspace_id, user_id, role, invited_by, invited_at, joined_at, created_at] = values;
+			const existing = this
+				.rows("workspace_members")
+				.find((row) => row.workspace_id === workspace_id && row.user_id === user_id);
+			this.put("workspace_members", {
+				created_at,
+				id: existing?.id ?? id,
+				invited_at,
+				invited_by,
+				joined_at,
+				role,
+				user_id,
+				workspace_id,
+			});
 			return;
 		}
 
@@ -386,6 +418,85 @@ class MemoryD1 implements QueryableD1 {
 			return;
 		}
 
+		if (normalized.startsWith("insert into audit_log")) {
+			const [id, workspace_id, actor_id, action, resource_type, resource_id, details_json, ip_address, user_agent, created_at] = values;
+			this.put("audit_log", {
+				action,
+				actor_id,
+				created_at,
+				details_json,
+				id,
+				ip_address,
+				resource_id,
+				resource_type,
+				user_agent,
+				workspace_id,
+			});
+			return;
+		}
+
+		if (normalized.startsWith("insert into metric_snapshots")) {
+			const [id, workspace_id, metric_name, metric_value, labels_json, period_start, period_end, created_at] = values;
+			this.put("metric_snapshots", {
+				created_at,
+				id,
+				labels_json,
+				metric_name,
+				metric_value,
+				period_end,
+				period_start,
+				workspace_id,
+			});
+			return;
+		}
+
+		if (normalized.startsWith("insert into eval_runs")) {
+			const [id, workspace_id, dataset_id, agent_kind, model, status, score, results_json, started_at, completed_at, created_at] =
+				values;
+			this.put("eval_runs", {
+				agent_kind,
+				completed_at,
+				created_at,
+				dataset_id,
+				id,
+				model,
+				results_json,
+				score,
+				started_at,
+				status,
+				workspace_id,
+			});
+			return;
+		}
+
+		if (normalized.startsWith("update eval_runs set")) {
+			const [status, score, results_json, completed_at, id] = values;
+			this.patch("eval_runs", id, { completed_at, results_json, score, status });
+			return;
+		}
+
+		if (normalized.startsWith("insert into retention_policies")) {
+			const [id, workspace_id, resource_type, retention_days, action, created_at, updated_at] = values;
+			const existing = this
+				.rows("retention_policies")
+				.find((row) => row.workspace_id === workspace_id && row.resource_type === resource_type);
+			this.put("retention_policies", {
+				action,
+				created_at,
+				id: existing?.id ?? id,
+				resource_type,
+				retention_days,
+				updated_at,
+				workspace_id,
+			});
+			return;
+		}
+
+		if (normalized === "delete from workspace_members where id = ?") {
+			this.table("workspace_members").delete(String(values[0]));
+			return;
+		}
+
 		throw new Error(`Unhandled SQL: ${normalized}`);
 	}
 
@@ -406,6 +517,14 @@ class MemoryD1 implements QueryableD1 {
 			return [{ seq: seq + 1 }];
 		}
 
+		if (normalized === "select * from users where email = ?") {
+			return this.rows("users").filter((row) => row.email === values[0]);
+		}
+
+		if (normalized === "select * from workspace_members where workspace_id = ? and user_id = ?") {
+			return this.rows("workspace_members").filter((row) => row.workspace_id === values[0] && row.user_id === values[1]);
+		}
+
 		const idMatch = /^select \* from ([a-z_]+) where id = \?$/.exec(normalized);
 		if (idMatch && isTableName(idMatch[1])) {
 			const row = this.table(idMatch[1]).get(String(values[0]));
@@ -414,6 +533,10 @@ class MemoryD1 implements QueryableD1 {
 
 		if (normalized === "select * from workspaces order by updated_at desc limit ?") {
 			return limitRows(this.rows("workspaces"), values[0]);
+		}
+
+		if (normalized.includes("from workspace_members where workspace_id = ?")) {
+			return limitRows(this.rows("workspace_members").filter((row) => row.workspace_id === values[0]), values[1]);
 		}
 
 		if (normalized.includes("from machines where workspace_id = ? and status = ?")) {
@@ -516,6 +639,38 @@ class MemoryD1 implements QueryableD1 {
 
 		if (normalized.includes("from policy_rules where workspace_id = ? order")) {
 			return this.rows("policy_rules").filter((row) => row.workspace_id === values[0]);
+		}
+
+		if (normalized.includes("from audit_log where workspace_id = ?")) {
+			return limitRows(this.rows("audit_log").filter((row) => row.workspace_id === values[0]), values[1]);
+		}
+
+		if (normalized.includes("from metric_snapshots")) {
+			return limitRows(
+				this.rows("metric_snapshots").filter(
+					(row) =>
+						row.workspace_id === values[0] &&
+						String(row.period_start) >= String(values[1]) &&
+						String(row.period_end) <= String(values[2]),
+				),
+				values[3],
+			);
+		}
+
+		if (normalized.includes("from eval_runs where workspace_id = ?")) {
+			return limitRows(this.rows("eval_runs").filter((row) => row.workspace_id === values[0]), values[1]);
+		}
+
+		if (normalized === "select * from retention_policies where workspace_id = ? and resource_type = ?") {
+			return this.rows("retention_policies").filter((row) => row.workspace_id === values[0] && row.resource_type === values[1]);
+		}
+
+		if (normalized.includes("from retention_policies where workspace_id = ?")) {
+			return limitRows(this.rows("retention_policies").filter((row) => row.workspace_id === values[0]), values[1]);
+		}
+
+		if (normalized.includes("from retention_policies order by workspace_id")) {
+			return limitRows(this.rows("retention_policies"), values[0]);
 		}
 
 		throw new Error(`Unhandled SQL: ${normalized}`);
@@ -676,6 +831,31 @@ describe("AgentDeck D1 repositories", () => {
 		expect(await repositories.workspaces.findById("ws_01")).toEqual(workspace);
 		expect(await repositories.workspaces.list()).toHaveLength(1);
 
+		const user = await repositories.users.upsert({
+			createdAt: now,
+			displayName: "Vijay",
+			email: "vijay@example.com",
+			id: "user_01",
+			updatedAt: now,
+		});
+		expect(user.email).toBe("vijay@example.com");
+		expect(await repositories.users.findById("user_01")).toEqual(user);
+		expect(await repositories.users.findByEmail("vijay@example.com")).toEqual(user);
+
+		const member = await repositories.workspaceMembers.upsert({
+			createdAt: now,
+			id: "member_01",
+			invitedAt: now,
+			joinedAt: now,
+			role: "owner",
+			userId: user.id,
+			workspaceId: workspace.id,
+		});
+		expect(member.role).toBe("owner");
+		expect(await repositories.workspaceMembers.findById("member_01")).toEqual(member);
+		expect(await repositories.workspaceMembers.findByWorkspaceUser(workspace.id, user.id)).toEqual(member);
+		expect(await repositories.workspaceMembers.listByWorkspace(workspace.id)).toHaveLength(1);
+
 		const machine = await repositories.machines.upsert({
 			arch: "arm64",
 			bridgeVersion: "0.1.0",
@@ -689,6 +869,7 @@ describe("AgentDeck D1 repositories", () => {
 			workspaceId: "ws_01",
 		});
 		expect(machine.status).toBe("online");
+		expect(await repositories.machines.findById("machine_01")).toEqual(machine);
 		expect(await repositories.machines.listByWorkspace("ws_01", "online")).toHaveLength(1);
 		expect(await repositories.machines.listByWorkspace("ws_01")).toHaveLength(1);
 		expect((await repositories.machines.revoke("machine_01", later))?.status).toBe("revoked");
@@ -718,6 +899,7 @@ describe("AgentDeck D1 repositories", () => {
 			workspaceId: "ws_01",
 		});
 		expect(session.status).toBe("draft");
+		expect(await repositories.sessions.findById("sess_01")).toEqual(session);
 		expect(await repositories.sessions.listByWorkspace("ws_01", "draft")).toHaveLength(1);
 		expect(await repositories.sessions.listByWorkspace("ws_01")).toHaveLength(1);
 		expect((await repositories.sessions.updateStatus("sess_01", "running", later))?.status).toBe("running");
@@ -753,6 +935,7 @@ describe("AgentDeck D1 repositories", () => {
 				updatedAt: later,
 			}),
 		).toMatchObject({ priority: "urgent", schedule_window_json: null, status: "waiting-machine" });
+		expect(await repositories.queue.update({ id: "missing_queue", status: "failed" })).toBeNull();
 
 		const scheduledJob = await repositories.scheduledJobs.upsert({
 			agentSelector: { kind: "codex" },
@@ -904,6 +1087,90 @@ describe("AgentDeck D1 repositories", () => {
 		expect(await repositories.policyRules.findById("policy_01")).toEqual(rule);
 		expect(await repositories.policyRules.listByWorkspace("ws_01")).toHaveLength(1);
 		expect(await repositories.policyRules.listByWorkspace("ws_01", false)).toHaveLength(1);
+
+		const auditEntry = await repositories.auditLog.create({
+			action: "approval.decided",
+			actorId: "user_01",
+			createdAt: now,
+			details: { status: "approved" },
+			id: "audit_01",
+			ipAddress: "127.0.0.1",
+			resourceId: "approval_01",
+			resourceType: "approval",
+			userAgent: "vitest",
+			workspaceId: "ws_01",
+		});
+		expect(parseNullableJsonColumn(auditEntry.details_json)).toEqual({ status: "approved" });
+		expect(await repositories.auditLog.listByWorkspace("ws_01")).toHaveLength(1);
+		await writeAudit(repositories, {
+			action: "terminal.jump_in",
+			actorId: "user_01",
+			resourceId: "run_01",
+			resourceType: "terminal",
+			workspaceId: "ws_01",
+		});
+		await writeAudit(new MemoryD1(), {
+			action: "session.created",
+			resourceId: "session_missing_workspace",
+			resourceType: "session",
+			workspaceId: "ws_missing",
+		});
+		expect(await repositories.auditLog.listByWorkspace("ws_01")).toHaveLength(2);
+
+		const metric = await repositories.metricSnapshots.create({
+			createdAt: now,
+			id: "metric_01",
+			labels: { source: "workflow" },
+			metricName: "run_count",
+			metricValue: 1,
+			periodEnd: later,
+			periodStart: now,
+			workspaceId: "ws_01",
+		});
+		expect(parseJsonColumn(metric.labels_json)).toEqual({ source: "workflow" });
+		expect(await repositories.metricSnapshots.listByWorkspace("ws_01", now, later)).toHaveLength(1);
+
+		const evalRun = await repositories.evalRuns.create({
+			agentKind: "codex",
+			completedAt: later,
+			createdAt: now,
+			datasetId: "bugfix-50",
+			id: "eval_01",
+			model: "gpt-5",
+			results: [{ taskId: "bf-001", status: "passed" }],
+			score: 0.91,
+			startedAt: now,
+			status: "completed",
+			workspaceId: "ws_01",
+		});
+		expect(evalRun.status).toBe("completed");
+		expect(await repositories.evalRuns.findById("eval_01")).toEqual(evalRun);
+		expect(await repositories.evalRuns.listByWorkspace("ws_01")).toHaveLength(1);
+		expect(
+			await repositories.evalRuns.update({
+				id: "eval_01",
+				results: { rerun: true },
+				score: 0.95,
+				status: "completed",
+			}),
+		).toMatchObject({ score: 0.95, status: "completed" });
+		expect(await repositories.evalRuns.update({ id: "missing", status: "failed" })).toBeNull();
+
+		const retentionPolicy = await repositories.retentionPolicies.upsert({
+			action: "archive",
+			createdAt: now,
+			id: "retention_01",
+			resourceType: "events",
+			retentionDays: 90,
+			updatedAt: now,
+			workspaceId: "ws_01",
+		});
+		expect(retentionPolicy.resource_type).toBe("events");
+		expect(await repositories.retentionPolicies.findById("retention_01")).toEqual(retentionPolicy);
+		expect(await repositories.retentionPolicies.listByWorkspace("ws_01")).toHaveLength(1);
+		expect(await repositories.retentionPolicies.listAll()).toHaveLength(1);
+		expect(await repositories.workspaceMembers.remove("member_01")).toBe(true);
+		expect(await repositories.workspaceMembers.remove("member_01")).toBe(false);
 	});
 
 	it("applies repository defaults for optional input fields", async () => {
@@ -919,6 +1186,22 @@ describe("AgentDeck D1 repositories", () => {
 		expect(await repositories.workspaces.list(Number.NaN)).toHaveLength(1);
 		expect(await repositories.workspaces.list(999)).toHaveLength(1);
 		expect(await repositories.workspaces.list(0)).toHaveLength(1);
+
+		const user = await repositories.users.upsert({
+			email: "minimal@example.com",
+			id: "user_min",
+		});
+		expect(user.avatar_url).toBeNull();
+		expect(user.display_name).toBeNull();
+
+		const member = await repositories.workspaceMembers.upsert({
+			id: "member_min",
+			role: "observer",
+			userId: user.id,
+			workspaceId: workspace.id,
+		});
+		expect(member.invited_by).toBeNull();
+		expect(member.joined_at).toBeNull();
 
 		const machine = await repositories.machines.upsert({
 			arch: "x64",
@@ -1097,6 +1380,67 @@ describe("AgentDeck D1 repositories", () => {
 		expect(rule.enabled).toBe(0);
 		expect(await repositories.policyRules.listByWorkspace("ws_min")).toHaveLength(0);
 		expect(await repositories.policyRules.listByWorkspace("ws_min", false)).toHaveLength(1);
+
+		const auditEntry = await repositories.auditLog.create({
+			action: "session.created",
+			resourceType: "session",
+			workspaceId: "ws_min",
+		});
+		expect(auditEntry.actor_id).toBeNull();
+		expect(auditEntry.details_json).toBeNull();
+		expect(auditEntry.ip_address).toBeNull();
+		expect(auditEntry.resource_id).toBeNull();
+		expect(auditEntry.user_agent).toBeNull();
+
+		const metric = await repositories.metricSnapshots.create({
+			metricName: "run_success_rate",
+			metricValue: 1,
+			periodEnd: later,
+			periodStart: now,
+			workspaceId: "ws_min",
+		});
+		expect(parseJsonColumn(metric.labels_json)).toEqual({});
+		expect(await repositories.metricSnapshots.listByWorkspace("ws_min")).toHaveLength(1);
+
+		const evalRun = await repositories.evalRuns.create({
+			agentKind: "codex",
+			datasetId: "minimal",
+			workspaceId: "ws_min",
+		});
+		expect(evalRun.completed_at).toBeNull();
+		expect(evalRun.model).toBeNull();
+		expect(evalRun.results_json).toBeNull();
+		expect(evalRun.score).toBeNull();
+		expect(evalRun.status).toBe("queued");
+		expect(await repositories.evalRuns.update({ id: evalRun.id })).toMatchObject({
+			completed_at: null,
+			results_json: null,
+			score: null,
+			status: "queued",
+		});
+
+		const retentionPolicy = await repositories.retentionPolicies.upsert({
+			action: "delete",
+			id: "retention_min",
+			resourceType: "reports",
+			retentionDays: 30,
+			workspaceId: "ws_min",
+		});
+		expect(retentionPolicy.action).toBe("delete");
+		expect(await repositories.retentionPolicies.listAll(0)).toHaveLength(1);
+		expect(await repositories.retentionPolicies.listByWorkspace("ws_min", 0)).toHaveLength(1);
+	});
+
+	it("seeds a default workspace idempotently", async () => {
+		const db = new MemoryD1();
+		const repositories = createAgentDeckRepositories(db);
+
+		await seedWorkspace(db, "ws_seed");
+		await seedWorkspace(db, "ws_seed");
+
+		expect(await repositories.workspaces.findById("ws_seed")).toMatchObject({ id: "ws_seed" });
+		expect(await repositories.machines.listByWorkspace("ws_seed")).toHaveLength(1);
+		expect(await repositories.policyRules.listByWorkspace("ws_seed", false)).toHaveLength(2);
 	});
 
 	it("rejects invalid repository input before preparing a D1 statement", () => {

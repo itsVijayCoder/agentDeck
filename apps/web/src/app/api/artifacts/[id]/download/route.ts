@@ -1,11 +1,11 @@
 import { requireWorkspaceRow } from "@/lib/api/access";
 import { notFound, withApiErrors } from "@/lib/api/errors";
-import { requireSession } from "@/lib/auth";
+import { authorizeApiRequest } from "@/lib/api/permissions";
 import { getR2, getRepositories } from "@/lib/cloudflare-context";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
 	return withApiErrors(async () => {
-		const user = await requireSession();
+		const user = await authorizeApiRequest("report:export");
 		const { id } = await params;
 		const repositories = await getRepositories();
 		const artifact = requireWorkspaceRow(await repositories.artifacts.findById(id), user, "Artifact");

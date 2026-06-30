@@ -4,19 +4,29 @@ import { useQuery } from "@tanstack/react-query";
 import type {
 	ActiveRun,
 	AgentInstallation,
+	AuditTrailEntry,
 	DecisionReport,
+	EvalRunSummary,
+	ObservabilityMetric,
 	PolicyRule,
 	QueueItem,
+	RetentionPolicy,
 	ScheduledJob,
+	WorkspaceMember,
 	WorkspaceSummary,
 } from "@agentdeck/core";
 import {
 	activeRun,
 	agentInstallations,
+	auditTrail,
 	decisionReport,
+	evalRuns,
+	observabilityMetrics,
 	policyRules,
 	queueItems,
+	retentionPolicies,
 	scheduledJobs,
+	workspaceMembers,
 	workspaceSummary,
 } from "@/lib/mock-agentdeck";
 
@@ -96,5 +106,45 @@ export function useWorkspaceSummary() {
 		initialData: workspaceSummary,
 		queryFn: () => apiFallback(`/api/workspaces/${workspaceSummary.id}`, workspaceSummary),
 		queryKey: ["workspace", workspaceSummary.id],
+	});
+}
+
+export function useObservabilityMetrics() {
+	return useQuery<ObservabilityMetric[]>({
+		initialData: observabilityMetrics,
+		queryFn: () => apiFallback("/api/metrics", observabilityMetrics),
+		queryKey: ["observability-metrics"],
+	});
+}
+
+export function useAuditTrail() {
+	return useQuery<AuditTrailEntry[]>({
+		initialData: auditTrail,
+		queryFn: () => apiFallback("/api/audit", auditTrail),
+		queryKey: ["audit-trail"],
+	});
+}
+
+export function useEvalRuns() {
+	return useQuery<EvalRunSummary[]>({
+		initialData: evalRuns,
+		queryFn: () => apiFallback("/api/evals", evalRuns),
+		queryKey: ["eval-runs"],
+	});
+}
+
+export function useWorkspaceMembers() {
+	return useQuery<WorkspaceMember[]>({
+		initialData: workspaceMembers,
+		queryFn: () => apiFallback("/api/members", workspaceMembers),
+		queryKey: ["workspace-members"],
+	});
+}
+
+export function useRetentionPolicies() {
+	return useQuery<RetentionPolicy[]>({
+		initialData: retentionPolicies,
+		queryFn: () => apiFallback("/api/retention", retentionPolicies),
+		queryKey: ["retention-policies"],
 	});
 }

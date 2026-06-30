@@ -34,6 +34,9 @@ const workspace = {
 
 function createRepositories() {
 	return {
+		auditLog: {
+			create: vi.fn().mockResolvedValue({ id: "audit_01" }),
+		},
 		events: {
 			append: vi.fn().mockResolvedValue({ id: "evt_01" }),
 			nextSeq: vi.fn().mockResolvedValue(0),

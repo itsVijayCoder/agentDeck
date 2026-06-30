@@ -8,8 +8,11 @@ import {
 	policyDecisionSchema,
 	privacyModeSchema,
 	queuePrioritySchema,
+	retentionActionSchema,
+	retentionResourceTypeSchema,
 	riskLevelSchema,
 	runStatusSchema,
+	workspaceMemberRoleSchema,
 } from "@agentdeck/db";
 import { z } from "zod";
 
@@ -179,5 +182,43 @@ export const policyListQuerySchema = z
 			.enum(["false", "true"])
 			.default("true")
 			.transform((value) => value === "true"),
+	})
+	.strict();
+
+export const metricsQuerySchema = z
+	.object({
+		from: z.iso.datetime().optional(),
+		limit: z.coerce.number().int().positive().max(1000).default(200),
+		to: z.iso.datetime().optional(),
+	})
+	.strict();
+
+export const auditQuerySchema = z
+	.object({
+		limit: z.coerce.number().int().positive().max(500).default(100),
+	})
+	.strict();
+
+export const inviteMemberRequestSchema = z
+	.object({
+		displayName: nonBlankStringSchema.optional(),
+		email: z.email(),
+		role: workspaceMemberRoleSchema.default("observer"),
+	})
+	.strict();
+
+export const createEvalRunRequestSchema = z
+	.object({
+		agentKind: agentKindSchema.default("codex"),
+		datasetId: nonBlankStringSchema.default("bugfix-smoke"),
+		model: optionalNullableNonBlankStringSchema,
+	})
+	.strict();
+
+export const updateRetentionPolicyRequestSchema = z
+	.object({
+		action: retentionActionSchema.optional(),
+		resourceType: retentionResourceTypeSchema.optional(),
+		retentionDays: z.number().int().positive().max(3650).optional(),
 	})
 	.strict();

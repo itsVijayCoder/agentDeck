@@ -7,6 +7,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
+	Activity,
 	Bot,
 	CalendarClock,
 	ChevronDown,
@@ -16,6 +17,7 @@ import {
 	Radar,
 	ShieldCheck,
 	SquareStack,
+	Users,
 	X,
 } from "lucide-react";
 import { getPrivacyStorageDecision } from "@agentdeck/policy";
@@ -23,10 +25,15 @@ import { transitionApprovalStatus, type ApprovalRequest, type BrowserControlMess
 import {
 	useActiveRun,
 	useAgentInventory,
+	useAuditTrail,
 	useDecisionReports,
+	useEvalRuns,
+	useObservabilityMetrics,
 	usePolicies,
 	useQueueItems,
+	useRetentionPolicies,
 	useScheduledJobs,
+	useWorkspaceMembers,
 	useWorkspaceSummary,
 } from "@/lib/agentdeck-queries";
 import { useSessionWebSocket } from "@/lib/use-session-websocket";
@@ -52,6 +59,8 @@ const navItems = [
 	{ href: "/queue", icon: GitBranch, id: "queue", label: "Queue" },
 	{ href: "/schedules", icon: CalendarClock, id: "schedules", label: "Schedules" },
 	{ href: "/reports", icon: Files, id: "reports", label: "Reports" },
+	{ href: "/observability", icon: Activity, id: "observability", label: "Observability" },
+	{ href: "/team", icon: Users, id: "team", label: "Team" },
 	{ href: "/policies", icon: ShieldCheck, id: "policies", label: "Policies" },
 	{ href: "/settings/machines", icon: MonitorCog, id: "machines", label: "Machines" },
 ];
@@ -174,6 +183,11 @@ function ApiDataWarmup() {
 	useActiveRun();
 	useAgentInventory();
 	useDecisionReports();
+	useObservabilityMetrics();
+	useAuditTrail();
+	useEvalRuns();
+	useWorkspaceMembers();
+	useRetentionPolicies();
 	usePolicies();
 	useQueueItems();
 	useScheduledJobs();

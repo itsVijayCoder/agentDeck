@@ -3,14 +3,14 @@ import { transitionRunStatus } from "@agentdeck/core";
 
 import { requireWorkspaceRow } from "@/lib/api/access";
 import { conflict, jsonResponse, notFound, withApiErrors } from "@/lib/api/errors";
+import { authorizeApiRequest } from "@/lib/api/permissions";
 import { assertNonEmptyPatch, parseJsonRequest } from "@/lib/api/request";
 import { updateQueueItemRequestSchema } from "@/lib/api/schemas";
-import { requireSession } from "@/lib/auth";
 import { getRepositories } from "@/lib/cloudflare-context";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
 	return withApiErrors(async () => {
-		const user = await requireSession();
+		const user = await authorizeApiRequest("queue:manage");
 		const body = await parseJsonRequest(request, updateQueueItemRequestSchema);
 		assertNonEmptyPatch(body);
 		const { id } = await params;

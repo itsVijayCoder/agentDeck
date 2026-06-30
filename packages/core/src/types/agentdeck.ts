@@ -216,3 +216,47 @@ export type PolicyRule = {
 	reason: string;
 	risk: RiskLevel;
 };
+
+export type ObservabilityMetric = {
+	changeLabel: string;
+	id: string;
+	label: string;
+	status: "healthy" | "warning" | "critical";
+	trend: number[];
+	value: string;
+};
+
+export type AuditTrailEntry = {
+	action: string;
+	actor: string;
+	id: string;
+	resource: string;
+	severity: RiskLevel;
+	timeLabel: string;
+};
+
+export type EvalRunSummary = {
+	agent: string;
+	dataset: string;
+	id: string;
+	latencyLabel: string;
+	score: number;
+	status: "queued" | "running" | "completed" | "failed" | "cancelled";
+};
+
+export type WorkspaceMember = {
+	avatarLabel: string;
+	email: string;
+	id: string;
+	joinedLabel: string;
+	name: string;
+	role: "owner" | "member" | "observer";
+};
+
+export type RetentionPolicy = {
+	action: "archive" | "delete";
+	id: string;
+	resourceType: string;
+	retentionDays: number;
+	status: "active" | "review";
+};

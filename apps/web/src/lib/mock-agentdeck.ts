@@ -1,11 +1,16 @@
 import type {
 	ActiveRun,
 	AgentInstallation,
+	AuditTrailEntry,
 	DecisionReport,
+	EvalRunSummary,
 	NavigationItem,
+	ObservabilityMetric,
 	PolicyRule,
 	QueueItem,
+	RetentionPolicy,
 	ScheduledJob,
+	WorkspaceMember,
 	WorkspaceSummary,
 } from "@agentdeck/core";
 
@@ -16,6 +21,8 @@ export const navigationItems: NavigationItem[] = [
 	{ id: "queue", label: "Queue", count: 4 },
 	{ id: "schedules", label: "Schedules", count: 3 },
 	{ id: "reports", label: "Reports" },
+	{ id: "observability", label: "Observability" },
+	{ id: "team", label: "Team", count: 3 },
 	{ id: "policies", label: "Policies" },
 	{ id: "settings", label: "Settings" },
 ];
@@ -434,5 +441,145 @@ export const policyRules: PolicyRule[] = [
 		defaultDecision: "approval",
 		reason: "Secrets must stay local unless the user explicitly approves.",
 		risk: "critical",
+	},
+];
+
+export const observabilityMetrics: ObservabilityMetric[] = [
+	{
+		changeLabel: "+12% vs yesterday",
+		id: "metric_success",
+		label: "Run success rate",
+		status: "healthy",
+		trend: [78, 82, 80, 86, 91, 89, 92],
+		value: "92%",
+	},
+	{
+		changeLabel: "p95 / 14m",
+		id: "metric_latency",
+		label: "Queue latency",
+		status: "warning",
+		trend: [18, 17, 16, 14, 15, 13, 14],
+		value: "14m",
+	},
+	{
+		changeLabel: "$8.74 today",
+		id: "metric_cost",
+		label: "Cost tracked",
+		status: "healthy",
+		trend: [2, 3, 4, 5, 6, 8, 9],
+		value: "$8.74",
+	},
+	{
+		changeLabel: "2 waiting",
+		id: "metric_approvals",
+		label: "Approval gates",
+		status: "warning",
+		trend: [0, 1, 1, 3, 2, 2, 2],
+		value: "2",
+	},
+];
+
+export const auditTrail: AuditTrailEntry[] = [
+	{
+		action: "approval.decided",
+		actor: "Vijay",
+		id: "audit_approval",
+		resource: "approval_install",
+		severity: "medium",
+		timeLabel: "09:24",
+	},
+	{
+		action: "terminal.jump_in",
+		actor: "Vijay",
+		id: "audit_terminal",
+		resource: "run_auth_refresh_claude",
+		severity: "high",
+		timeLabel: "09:22",
+	},
+	{
+		action: "policy.updated",
+		actor: "Owner",
+		id: "audit_policy",
+		resource: "policy_push",
+		severity: "critical",
+		timeLabel: "Yesterday",
+	},
+];
+
+export const evalRuns: EvalRunSummary[] = [
+	{
+		agent: "Codex",
+		dataset: "bugfix-smoke",
+		id: "eval_bugfix_codex",
+		latencyLabel: "6m 14s",
+		score: 0.91,
+		status: "completed",
+	},
+	{
+		agent: "Claude Code",
+		dataset: "refactor-mini",
+		id: "eval_refactor_claude",
+		latencyLabel: "11m 03s",
+		score: 0.84,
+		status: "completed",
+	},
+	{
+		agent: "Pi",
+		dataset: "sdk-events",
+		id: "eval_pi_sdk",
+		latencyLabel: "queued",
+		score: 0,
+		status: "queued",
+	},
+];
+
+export const workspaceMembers: WorkspaceMember[] = [
+	{
+		avatarLabel: "V",
+		email: "vijay@asthrix.local",
+		id: "member_owner",
+		joinedLabel: "Owner",
+		name: "Vijay",
+		role: "owner",
+	},
+	{
+		avatarLabel: "AR",
+		email: "reviewer@asthrix.local",
+		id: "member_reviewer",
+		joinedLabel: "Invited today",
+		name: "Architecture Reviewer",
+		role: "observer",
+	},
+	{
+		avatarLabel: "QA",
+		email: "qa@asthrix.local",
+		id: "member_qa",
+		joinedLabel: "Joined 2d ago",
+		name: "QA Bot Operator",
+		role: "member",
+	},
+];
+
+export const retentionPolicies: RetentionPolicy[] = [
+	{
+		action: "archive",
+		id: "ret_events",
+		resourceType: "events",
+		retentionDays: 90,
+		status: "active",
+	},
+	{
+		action: "archive",
+		id: "ret_reports",
+		resourceType: "reports",
+		retentionDays: 180,
+		status: "active",
+	},
+	{
+		action: "delete",
+		id: "ret_terminal",
+		resourceType: "terminal-logs",
+		retentionDays: 14,
+		status: "review",
 	},
 ];

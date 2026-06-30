@@ -8,7 +8,7 @@ export const defaultWorkspaceSeed = {
 	repositoryUrl: null,
 } as const;
 
-export async function seedWorkspace(db: QueryableD1, workspaceId = defaultWorkspaceSeed.id): Promise<void> {
+export async function seedWorkspace(db: QueryableD1, workspaceId: string = defaultWorkspaceSeed.id): Promise<void> {
 	const repositories = createAgentDeckRepositories(db);
 	const existingWorkspace = await repositories.workspaces.findById(workspaceId);
 

@@ -1,4 +1,5 @@
 export * from "./classifier.js";
+export * from "./eval-runner.js";
 export * from "./events.js";
 export * from "./judge.js";
 export * from "./report-generator.js";

@@ -2,14 +2,14 @@ import type { NextRequest } from "next/server";
 
 import { requireWorkspaceRow } from "@/lib/api/access";
 import { jsonResponse, withApiErrors } from "@/lib/api/errors";
+import { authorizeApiRequest } from "@/lib/api/permissions";
 import { parseQuery } from "@/lib/api/request";
 import { limitQuerySchema } from "@/lib/api/schemas";
-import { requireSession } from "@/lib/auth";
 import { getRepositories } from "@/lib/cloudflare-context";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
 	return withApiErrors(async () => {
-		const user = await requireSession();
+		const user = await authorizeApiRequest("session:read");
 		const query = parseQuery(request, limitQuerySchema);
 		const { id } = await params;
 		const repositories = await getRepositories();

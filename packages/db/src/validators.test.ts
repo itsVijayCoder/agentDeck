@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { z } from "zod";
 
 import {
+	createAuditLogInputSchema,
 	createApprovalInputSchema,
 	createArtifactInputSchema,
 	createDecisionReportInputSchema,
+	createEvalRunInputSchema,
+	createMetricSnapshotInputSchema,
 	createQueueItemInputSchema,
 	createRunInputSchema,
 	createSessionInputSchema,
@@ -16,12 +19,16 @@ import {
 	agentDeckEventTypes,
 	parsePersistEventInput,
 	persistEventInputSchema,
+	updateEvalRunInputSchema,
 	updateQueueItemInputSchema,
 	updateRunStatusInputSchema,
 	upsertAgentInstallationInputSchema,
 	upsertMachineInputSchema,
 	upsertPolicyRuleInputSchema,
+	upsertRetentionPolicyInputSchema,
 	upsertScheduledJobInputSchema,
+	upsertUserInputSchema,
+	upsertWorkspaceMemberInputSchema,
 } from "./validators";
 import type { AgentDeckEvent } from "@agentdeck/core";
 
@@ -59,6 +66,27 @@ const validSchemaCases: SchemaCase[] = [
 		},
 		name: "CreateWorkspaceInput",
 		schema: createWorkspaceInputSchema,
+	},
+	{
+		input: {
+			avatarUrl: "https://example.com/avatar.png",
+			displayName: "Vijay",
+			email: "vijay@example.com",
+			id: "user_01",
+		},
+		name: "UpsertUserInput",
+		schema: upsertUserInputSchema,
+	},
+	{
+		input: {
+			id: "member_01",
+			joinedAt: now,
+			role: "owner",
+			userId: "user_01",
+			workspaceId: "ws_01",
+		},
+		name: "UpsertWorkspaceMemberInput",
+		schema: upsertWorkspaceMemberInputSchema,
 	},
 	{
 		input: {
@@ -232,6 +260,65 @@ const validSchemaCases: SchemaCase[] = [
 		name: "UpsertPolicyRuleInput",
 		schema: upsertPolicyRuleInputSchema,
 	},
+	{
+		input: {
+			action: "approval.decided",
+			actorId: "user_01",
+			details: { status: "approved" },
+			resourceId: "approval_01",
+			resourceType: "approval",
+			workspaceId: "ws_01",
+		},
+		name: "CreateAuditLogInput",
+		schema: createAuditLogInputSchema,
+	},
+	{
+		input: {
+			labels: { source: "workflow" },
+			metricName: "run_count",
+			metricValue: 1,
+			periodEnd: now,
+			periodStart: now,
+			workspaceId: "ws_01",
+		},
+		name: "CreateMetricSnapshotInput",
+		schema: createMetricSnapshotInputSchema,
+	},
+	{
+		input: {
+			agentKind: "codex",
+			datasetId: "bugfix-50",
+			model: "gpt-5",
+			results: [{ taskId: "bf-001", score: 1 }],
+			score: 1,
+			status: "completed",
+			workspaceId: "ws_01",
+		},
+		name: "CreateEvalRunInput",
+		schema: createEvalRunInputSchema,
+	},
+	{
+		input: {
+			completedAt: now,
+			id: "eval_01",
+			results: { completed: true },
+			score: 0.9,
+			status: "completed",
+		},
+		name: "UpdateEvalRunInput",
+		schema: updateEvalRunInputSchema,
+	},
+	{
+		input: {
+			action: "archive",
+			id: "retention_01",
+			resourceType: "events",
+			retentionDays: 90,
+			workspaceId: "ws_01",
+		},
+		name: "UpsertRetentionPolicyInput",
+		schema: upsertRetentionPolicyInputSchema,
+	},
 ];
 
 describe("D1 input validators", () => {
@@ -240,7 +327,7 @@ describe("D1 input validators", () => {
 	});
 
 	it("covers every D1 input contract exposed by the repository boundary", () => {
-		expect(validSchemaCases).toHaveLength(15);
+		expect(validSchemaCases).toHaveLength(22);
 	});
 
 	it("rejects blank required strings", () => {
@@ -254,6 +341,7 @@ describe("D1 input validators", () => {
 	it("rejects invalid enum values and bounded numbers", () => {
 		expect(createRunInputSchema.safeParse({ confidence: 2, id: "run_01", sessionId: "sess_01", status: "missing", task: "Run" }).success).toBe(false);
 		expect(createQueueItemInputSchema.safeParse({ createdBy: "user_01", id: "queue_01", maxRuntimeMinutes: 0, priority: "normal", task: "Run", workspaceId: "ws_01" }).success).toBe(false);
+		expect(upsertRetentionPolicyInputSchema.safeParse({ action: "archive", id: "retention_01", resourceType: "events", retentionDays: 0, workspaceId: "ws_01" }).success).toBe(false);
 	});
 
 	it("rejects invalid ISO timestamps", () => {

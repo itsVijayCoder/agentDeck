@@ -1,12 +1,12 @@
 import { createDefaultProviderRegistry } from "@agentdeck/ai";
 
 import { jsonResponse, withApiErrors } from "@/lib/api/errors";
+import { authorizeApiRequest } from "@/lib/api/permissions";
 import { getAiGatewayRuntimeConfig } from "@/lib/ai-gateway-config";
-import { requireSession } from "@/lib/auth";
 
 export async function GET() {
 	return withApiErrors(async () => {
-		await requireSession();
+		await authorizeApiRequest("session:read");
 
 		const gateway = getAiGatewayRuntimeConfig();
 		const registry = createDefaultProviderRegistry();

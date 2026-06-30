@@ -1990,6 +1990,195 @@ kbd {
 	font-size: 11px;
 }
 
+.of-observability-grid {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 10px;
+}
+
+.of-observability-card {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 96px;
+	gap: 12px;
+	align-items: end;
+	min-height: 128px;
+	padding: 12px;
+	border: 1px solid rgba(148, 163, 184, 0.14);
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.04);
+}
+
+.of-observability-card.is-healthy {
+	border-color: rgba(85, 217, 139, 0.22);
+}
+
+.of-observability-card.is-warning {
+	border-color: rgba(246, 184, 75, 0.28);
+}
+
+.of-observability-card.is-critical {
+	border-color: rgba(255, 107, 107, 0.32);
+}
+
+.of-observability-card span,
+.of-observability-card small,
+.of-observability-list span,
+.of-eval-row span,
+.of-audit-list small,
+.of-retention-list span,
+.of-member-list span,
+.of-member-list small,
+.of-permission-matrix span {
+	color: var(--muted);
+	font-size: 12px;
+	line-height: 1.35;
+}
+
+.of-observability-card strong {
+	display: block;
+	margin: 6px 0;
+	font-size: 28px;
+	line-height: 1;
+}
+
+.of-sparkline {
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+	align-items: end;
+	gap: 4px;
+	height: 72px;
+}
+
+.of-sparkline i {
+	display: block;
+	min-height: 8px;
+	border-radius: 999px 999px 3px 3px;
+	background: linear-gradient(180deg, rgba(53, 213, 255, 0.95), rgba(85, 217, 139, 0.58));
+}
+
+.of-observability-list,
+.of-eval-list,
+.of-audit-list,
+.of-retention-list,
+.of-member-list,
+.of-permission-matrix {
+	display: grid;
+	gap: 10px;
+}
+
+.of-observability-list div,
+.of-eval-row,
+.of-retention-list article,
+.of-member-list article,
+.of-permission-matrix div {
+	display: grid;
+	gap: 4px;
+	padding: 10px;
+	border: 1px solid rgba(148, 163, 184, 0.14);
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.04);
+}
+
+.of-observability-list div,
+.of-eval-row,
+.of-retention-list article {
+	grid-template-columns: minmax(0, 1fr) max-content;
+	align-items: center;
+}
+
+.of-observability-list strong,
+.of-eval-row strong,
+.of-retention-list strong,
+.of-member-list strong,
+.of-permission-matrix strong {
+	font-size: 13px;
+}
+
+.of-observability-list em,
+.of-retention-list em,
+.of-member-list em,
+.of-eval-row b {
+	font-style: normal;
+	font-size: 11px;
+	font-weight: 800;
+	text-transform: uppercase;
+}
+
+.of-observability-list em {
+	color: var(--cyan);
+}
+
+.of-eval-row b {
+	color: var(--green);
+}
+
+.of-eval-row.is-queued b,
+.of-retention-list article.is-review em {
+	color: var(--amber);
+}
+
+.of-audit-list article {
+	display: grid;
+	grid-template-columns: 64px minmax(0, 1fr) max-content;
+	gap: 10px;
+	align-items: center;
+	padding: 10px;
+	border: 1px solid rgba(148, 163, 184, 0.14);
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.04);
+}
+
+.of-audit-list > article > span {
+	color: var(--subtle);
+	font-family: var(--font-geist-mono), monospace;
+	font-size: 11px;
+}
+
+.of-audit-list strong {
+	display: block;
+	font-size: 13px;
+}
+
+.of-member-list article {
+	grid-template-columns: 38px minmax(0, 1fr) max-content;
+	align-items: center;
+}
+
+.of-member-identity {
+	min-width: 0;
+}
+
+.of-member-list strong,
+.of-member-list span {
+	display: block;
+	overflow-wrap: anywhere;
+}
+
+.of-member-avatar {
+	display: grid;
+	place-items: center;
+	width: 38px;
+	height: 38px;
+	border: 1px solid rgba(53, 213, 255, 0.34);
+	border-radius: 999px;
+	background: rgba(53, 213, 255, 0.09);
+	color: var(--cyan);
+	font-weight: 800;
+	font-size: 12px;
+}
+
+.of-member-list em {
+	display: block;
+	color: var(--cyan);
+	text-align: right;
+}
+
+.of-member-list small {
+	display: block;
+	margin-top: 3px;
+	text-align: right;
+}
+
 .of-icon-button {
 	display: grid;
 	place-items: center;
@@ -2095,6 +2284,7 @@ kbd {
 	}
 
 	.of-report-grid.wide,
+	.of-observability-grid,
 	.of-protected-paths,
 	.of-message-tree {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2138,6 +2328,8 @@ kbd {
 	.of-route-grid.three,
 	.of-route-band,
 	.of-agent-grid-wide,
+	.of-observability-grid,
+	.of-observability-card,
 	.of-provider-grid,
 	.of-protected-paths,
 	.of-message-tree {
@@ -2245,6 +2437,20 @@ kbd {
 
 	.of-artifact-list article {
 		grid-template-columns: 20px minmax(0, 1fr);
+	}
+
+	.of-audit-list article,
+	.of-member-list article {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.of-member-avatar {
+		display: none;
+	}
+
+	.of-member-list em,
+	.of-member-list small {
+		text-align: left;
 	}
 
 	.of-artifact-list .of-verdict {

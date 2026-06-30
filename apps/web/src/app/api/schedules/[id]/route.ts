@@ -1,17 +1,18 @@
 import type { NextRequest } from "next/server";
 import { parseJsonColumn } from "@agentdeck/db";
 
+import { auditApiAction } from "@/lib/api/audit";
 import { requireWorkspaceRow } from "@/lib/api/access";
 import { badRequest, jsonResponse, withApiErrors } from "@/lib/api/errors";
+import { authorizeApiRequest } from "@/lib/api/permissions";
 import { assertNonEmptyPatch, parseJsonRequest } from "@/lib/api/request";
 import { updateScheduledJobRequestSchema } from "@/lib/api/schemas";
-import { requireSession } from "@/lib/auth";
 import { getRepositories } from "@/lib/cloudflare-context";
 import { calculateNextRun, parseNaturalLanguageSchedule } from "@/lib/schedule-parser";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
 	return withApiErrors(async () => {
-		const user = await requireSession();
+		const user = await authorizeApiRequest("schedule:manage");
 		const body = await parseJsonRequest(request, updateScheduledJobRequestSchema);
 		assertNonEmptyPatch(body);
 		const { id } = await params;
@@ -37,6 +38,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 			taskTemplate: body.taskTemplate ?? existing.task_template,
 			timezone: timing.timezone,
 			workspaceId: existing.workspace_id,
+		});
+		await auditApiAction({
+			action: "schedule.updated",
+			details: { cron: schedule.cron, enabled: schedule.enabled === 1 },
+			repositories,
+			request,
+			resourceId: schedule.id,
+			resourceType: "schedule",
+			user,
 		});
 
 		return jsonResponse({ schedule });

@@ -16,9 +16,12 @@ async function createMigratedDatabase(): Promise<D1Database> {
 	});
 
 	const db = await miniflare.getD1Database("AGENTDECK_DB");
-	const migration = await readFile(new URL("../migrations/0001_agentdeck_core.sql", import.meta.url), "utf8");
-	for (const statement of splitSqlStatements(migration)) {
-		await db.prepare(statement).run();
+	const migrations = ["0001_agentdeck_core.sql", "0002_observability_team.sql"];
+	for (const migrationName of migrations) {
+		const migration = await readFile(new URL(`../migrations/${migrationName}`, import.meta.url), "utf8");
+		for (const statement of splitSqlStatements(migration)) {
+			await db.prepare(statement).run();
+		}
 	}
 	return db;
 }
@@ -73,10 +76,29 @@ describe("AgentDeck repositories with Miniflare D1", () => {
 		};
 
 		await repositories.events.append({ event });
+		await repositories.users.upsert({
+			email: "vijay@example.com",
+			id: "user_miniflare",
+		});
+		await repositories.workspaceMembers.upsert({
+			id: "member_miniflare",
+			role: "owner",
+			userId: "user_miniflare",
+			workspaceId: workspace.id,
+		});
+		await repositories.auditLog.create({
+			action: "session.created",
+			actorId: "user_miniflare",
+			resourceId: session.id,
+			resourceType: "session",
+			workspaceId: workspace.id,
+		});
 
 		await expect(repositories.sessions.listByWorkspace(workspace.id)).resolves.toHaveLength(1);
 		await expect(repositories.events.listBySession(session.id, -1, 10)).resolves.toMatchObject([
 			{ id: event.id, seq: 0, type: "session.created" },
 		]);
+		await expect(repositories.workspaceMembers.listByWorkspace(workspace.id)).resolves.toHaveLength(1);
+		await expect(repositories.auditLog.listByWorkspace(workspace.id)).resolves.toHaveLength(1);
 	});
 });

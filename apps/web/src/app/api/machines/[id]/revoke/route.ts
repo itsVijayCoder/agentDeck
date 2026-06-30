@@ -1,11 +1,12 @@
+import { auditApiAction } from "@/lib/api/audit";
 import { jsonResponse, notFound, withApiErrors } from "@/lib/api/errors";
 import { requireWorkspaceRow } from "@/lib/api/access";
-import { requireSession } from "@/lib/auth";
+import { authorizeApiRequest } from "@/lib/api/permissions";
 import { getRepositories } from "@/lib/cloudflare-context";
 
-export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
 	return withApiErrors(async () => {
-		const user = await requireSession();
+		const user = await authorizeApiRequest("machine:manage");
 		const { id } = await params;
 		const repositories = await getRepositories();
 		const existing = requireWorkspaceRow(await repositories.machines.findById(id), user, "Machine");
@@ -13,6 +14,15 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 		if (!machine) {
 			notFound("Machine not found.");
 		}
+		await auditApiAction({
+			action: "machine.revoked",
+			details: { displayName: existing.display_name },
+			repositories,
+			request,
+			resourceId: machine.id,
+			resourceType: "machine",
+			user,
+		});
 
 		return jsonResponse({ machine });
 	});

@@ -22,6 +22,17 @@ export async function POST(request: NextRequest) {
 			userId: `user_${crypto.randomUUID()}`,
 			workspaceId: workspace.id,
 		};
+		await repositories.users.upsert({
+			email: `${user.userId}@agentdeck.local`,
+			id: user.userId,
+		});
+		await repositories.workspaceMembers.upsert({
+			id: `member_${crypto.randomUUID()}`,
+			joinedAt: new Date().toISOString(),
+			role: user.role,
+			userId: user.userId,
+			workspaceId: workspace.id,
+		});
 
 		await createBrowserSession(user);
 

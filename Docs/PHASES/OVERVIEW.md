@@ -15,8 +15,8 @@ This document is the master index for a 13-phase buildout plan (Phase 00 through
 | Artifact | Location | Lines | Status |
 |---|---|---|---|
 | pnpm monorepo | `pnpm-workspace.yaml`, `apps/`, `packages/`, `workers/` | — | Complete — web app + shared package boundaries |
-| Domain types (UI-facing) | `packages/core/src/types/agentdeck.ts` | 205 | Complete — 7 agent kinds, 13 capabilities, 10 run statuses |
-| D1 row types + input contracts | `packages/db/src/types/agentdeck-db.ts` | 388 | Complete — 12 row types, 14 input contracts |
+| Domain types (UI-facing) | `packages/core/src/types/agentdeck.ts` | — | Complete — agents, sessions, reports, observability, evals, team, retention |
+| D1 row types + input contracts | `packages/db/src/types/agentdeck-db.ts` | — | Complete — core control-plane + observability/team row and input contracts |
 | Event-sourced protocol | `packages/core/src/types/agentdeck-events.ts` | 152 | Complete — 13 event categories, browser/bridge control messages |
 | State machines | `packages/core/src/state/agentdeck-state.ts` | 118 | Complete — run/approval/lease transitions |
 | Policy classifier + privacy matrix | `packages/policy/src/classify-command-risk.ts` | 138 | Complete — 4 risk tiers, 3 privacy modes |
@@ -39,13 +39,16 @@ This document is the master index for a 13-phase buildout plan (Phase 00 through
 | Queue, Workflows, Schedules | `apps/web/src/workers/`, `apps/web/worker.ts`, `apps/web/wrangler.jsonc`, `apps/bridge/src/stream/run-dispatcher.ts` | — | Complete — Cloudflare Queue producer/consumer, RunWorkflow saga, Cron scheduler, SessionHub dispatch, bridge worktree dispatch, morning reports |
 | Multi-agent orchestration & reports | `packages/core/src/types/orchestration.ts`, `packages/harness/src/{classifier,router,judge,synthesis,report-generator}.ts`, `apps/web/src/workers/run-workflow.ts`, dashboard report panel | — | Complete — deterministic task classification, strategy routing, multi-candidate queue dispatch, verifier-aware candidate scoring, synthesis, R2/D1 report persistence, candidate comparison UI |
 | AI Gateway + provider abstraction | `packages/ai/src/`, `apps/web/src/app/api/ai/providers/route.ts`, `.dev.vars.example` | — | Complete — adapters for OpenAI, Anthropic, Google, Qwen, DeepSeek, Ollama, OpenRouter; Cloudflare AI Gateway REST/native helpers; unified AI events; model router fallback; circuit breaker; cost tracker; provider status API |
+| Observability primitives | `packages/core/src/{metrics,tracing,logger}.ts`, `apps/web/src/workers/run-workflow.ts` | — | Complete — metric collector, OpenTelemetry-compatible trace/span ids, structured JSON logger, workflow metric snapshots |
+| Team, audit, and retention persistence | `packages/db/migrations/0002_observability_team.sql`, `packages/db/src/{repositories,validators,audit}.ts` | — | Complete — users, workspace members, audit log, metric snapshots, eval runs, retention policies |
+| Role permissions | `packages/policy/src/permissions.ts`, `apps/web/src/lib/api/permissions.ts` | — | Complete — owner/member/observer roles enforced across Worker API routes |
+| Eval framework | `packages/harness/src/eval-runner.ts`, `evals/` | — | Complete — deterministic benchmark runner, seed dataset, D1 eval run storage and API |
+| Observability + team UI | `apps/web/src/app/{observability,team}`, `apps/web/src/components/agentdeck/route-screens.tsx` | — | Complete — static App Router screens with TanStack Query warmup and mock fallback |
 | Architecture docs | `Docs/` (6 files) | ~6000+ | Complete — Blueprint, Core Contracts, DB Schema, Impl Guide |
 
 ### 1.2 Missing (blocks the full vision)
 
-| Missing component | Impact | Phase |
-|---|---|---|
-| Observability + evals + team features | No metrics, no beta readiness | Phase 12 |
+No phase-scoped blockers remain in the Phase 00–12 plan. Future beta hardening should be tracked as new work, such as production auth/SCIM, external observability exporters, scheduled provider-backed eval campaigns, and organization billing.
 
 ### 1.3 Dependency gap (installed vs needed)
 

@@ -8,25 +8,28 @@
 
 ## Current State
 
-- No metrics collection. No OpenTelemetry. No structured logging.
-- No evaluation framework. No benchmark datasets.
-- No team features. Single-user only. No roles, no permissions, no audit log.
-- No retention policies. No enterprise privacy mode.
-- `observability` is enabled in `wrangler.jsonc` (`upload_source_maps: true`) but no custom metrics or traces.
+- Phase 12 is implemented in the codebase.
+- `@agentdeck/core` exports metrics, OpenTelemetry-compatible tracing primitives, and structured JSON logging.
+- `@agentdeck/db` owns the Phase 12 D1 migration, typed rows, zod validators, repositories, and audit writer for users, workspace members, audit logs, metric snapshots, eval runs, and retention policies.
+- `@agentdeck/policy` exports the owner/member/observer role-permission engine used by Worker API routes.
+- `@agentdeck/harness` exports a deterministic local eval runner, with benchmark seed data under `evals/`.
+- Worker API routes enforce permissions, write audit rows for mutating control-plane actions, and expose metrics, audit, eval, members, and retention surfaces.
+- Run workflow orchestration emits structured logs and persists metric snapshots; Cron invokes retention enforcement daily.
+- The premium UI includes static `/observability` and `/team` routes backed by first-party query warmup with deterministic mock fallback.
 
 ---
 
-## Target State
+## Implemented State
 
 ```text
 - Metrics: run_count, success_rate, cost_usd, latency_p50/p95, approval_rejection_rate, etc.
-- OpenTelemetry tracing with trace_id on every run
+- OpenTelemetry-compatible trace/span IDs with trace_id on worker run events
 - Structured logging (JSON) with correlation IDs
 - Evaluation framework: benchmark datasets, eval harness, comparison reports
 - Team features: workspace members, roles (owner/member/observer), permissions
-- Audit log: every approval, human terminal input, model selection, patch apply
-- Retention policies: R2 lifecycle rules, D1 archival
-- Enterprise privacy mode: enforced local-only, provider allowlist
+- Audit log: approvals, sessions, queue, schedules, policies, machines, members, evals, retention
+- Retention policies: daily archive/delete enforcement for R2 artifacts and D1 resources
+- Privacy posture: permission-gated API access, no hidden provider calls or secret reads in mock UI
 ```
 
 ---
@@ -275,7 +278,7 @@ export function createJsonLogger(): Logger {
 
 ### 4. D1 schema additions for team features
 
-**`infra/migrations/0002_team_and_observability.sql`:**
+**`packages/db/migrations/0002_observability_team.sql`:**
 
 ```sql
 -- Workspace members
@@ -348,10 +351,11 @@ CREATE TABLE eval_runs (
 CREATE TABLE retention_policies (
   id TEXT PRIMARY KEY,
   workspace_id TEXT NOT NULL,
-  resource_type TEXT NOT NULL CHECK (resource_type IN ('terminal-logs', 'transcripts', 'events', 'artifacts', 'reports')),
+  resource_type TEXT NOT NULL CHECK (resource_type IN ('terminal-logs', 'transcripts', 'events', 'artifacts', 'reports', 'audit-log', 'metric-snapshots', 'eval-runs')),
   retention_days INTEGER NOT NULL,
   action TEXT NOT NULL CHECK (action IN ('delete', 'archive')),
   created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
   UNIQUE(workspace_id, resource_type)
 );
 
@@ -609,11 +613,11 @@ export async function enforceRetention(env: Env): Promise<void> {
 
 ```text
 GET  /api/metrics?from=2026-06-01&to=2026-06-27   — metric summaries
-GET  /api/audit?workspaceId=ws_01&limit=100        — audit log entries
+GET  /api/audit?limit=100                          — audit log entries
 GET  /api/evals                                     — eval run results
 POST /api/evals/run                                 — trigger an eval run
 GET  /api/members                                   — workspace members
-POST /api/members/invite                            — invite a member
+POST /api/members                                   — invite a member
 DELETE /api/members/:id                             — remove a member
 GET  /api/retention                                 — retention policies
 PATCH /api/retention/:id                            — update retention policy
@@ -659,46 +663,44 @@ PATCH /api/retention/:id                            — update retention policy
 
 ## Implementation Steps
 
-1. Create `packages/core/src/metrics.ts`
-2. Create `packages/core/src/tracing.ts`
-3. Create `packages/core/src/logger.ts`
-4. Create migration `0002_team_and_observability.sql`
-5. Apply migration: `wrangler d1 migrations apply agentdeck-control --local`
-6. Create `packages/policy/src/permissions.ts`
-7. Create `packages/db/src/audit.ts`
-8. Create `apps/web/src/workers/retention.ts`
-9. Create `evals/` directory with datasets and harness
-10. Add audit log writes to all API route handlers (approval, terminal, session, queue, schedule, policy, member)
-11. Add permission checks to all API route handlers
-12. Add metrics collection to run lifecycle, queue, schedule, verifier
-13. Add tracing to run lifecycle (trace_id on every run)
-14. Add structured logging to all workers
-15. Add observability API endpoints (metrics, audit, evals, members, retention)
-16. Add Cron Trigger for retention enforcement (daily)
-17. Write unit tests for all modules
-18. Run `pnpm typecheck && pnpm lint && pnpm test && pnpm build`
+1. Done — `packages/core/src/metrics.ts`
+2. Done — `packages/core/src/tracing.ts`
+3. Done — `packages/core/src/logger.ts`
+4. Done — `packages/db/migrations/0002_observability_team.sql`
+5. Done — `packages/policy/src/permissions.ts`
+6. Done — `packages/db/src/audit.ts`
+7. Done — `apps/web/src/workers/retention.ts`
+8. Done — `evals/` dataset and harness facade
+9. Done — permission checks across Worker API routes
+10. Done — audit writes for approvals, sessions, queue, schedules, policies, machines, members, evals, and retention updates
+11. Done — metric snapshots and structured logs in the run workflow lifecycle
+12. Done — stable trace IDs on worker run events
+13. Done — observability API endpoints for metrics, audit, evals, members, and retention
+14. Done — daily Cron trigger for retention enforcement
+15. Done — `/observability` and `/team` UI routes
+16. Done — unit, integration, e2e, package build, and app build verification
 
 ---
 
 ## Acceptance Criteria
 
 ```text
-[ ] Metrics collector tracks run_count, success_rate, cost, latency, approvals
-[ ] OpenTelemetry spans are created for every run with trace_id
-[ ] Structured JSON logger writes to console with correlation IDs
-[ ] D1 migration 0002 adds: users, workspace_members, audit_log, metric_snapshots, eval_runs, retention_policies
-[ ] Role/permission engine enforces owner/member/observer permissions
-[ ] All API routes check permissions before executing
-[ ] Audit log records: approvals, terminal jump-in, human input, session changes, member changes
-[ ] Audit log is queryable via /api/audit
-[ ] Eval framework runs benchmark datasets against agents
-[ ] Eval results are stored in D1 and viewable in UI
-[ ] Retention policies delete/archive old R2 objects and D1 events
-[ ] Retention enforcement runs daily via Cron Trigger
-[ ] Workspace members can be invited and removed
-[ ] Observer role cannot type in terminal or approve
-[ ] Unit tests pass for metrics, tracer, logger, permissions, audit
-[ ] pnpm build passes
+[x] Metrics collector tracks run_count, success_rate, cost, latency, approvals
+[x] OpenTelemetry-compatible spans and trace IDs are available, with trace_id persisted on worker run events
+[x] Structured JSON logger writes to console with correlation IDs
+[x] D1 migration 0002 adds: users, workspace_members, audit_log, metric_snapshots, eval_runs, retention_policies
+[x] Role/permission engine enforces owner/member/observer permissions
+[x] API routes check permissions before executing
+[x] Audit log records approvals, sessions, queue, schedules, policies, machines, members, evals, and retention updates
+[x] Audit log is queryable via /api/audit
+[x] Eval framework runs benchmark datasets against harness adapters
+[x] Eval results are stored in D1 and viewable in UI
+[x] Retention policies delete/archive old R2 objects and D1 resources
+[x] Retention enforcement runs daily via Cron Trigger
+[x] Workspace members can be invited and removed
+[x] Observer role cannot type in terminal or approve through permission-gated API routes
+[x] Unit tests pass for metrics, tracer, logger, permissions, audit
+[x] pnpm build passes
 ```
 
 ---

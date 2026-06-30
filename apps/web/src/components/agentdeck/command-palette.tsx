@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import * as Dialog from "@radix-ui/react-dialog";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
+	Activity,
 	Bot,
 	CalendarClock,
 	Files,
@@ -14,6 +15,7 @@ import {
 	Search,
 	ShieldCheck,
 	SquareStack,
+	Users,
 } from "lucide-react";
 import { useUiStore } from "@/store/ui-store";
 
@@ -24,6 +26,8 @@ const commands = [
 	{ icon: GitBranch, id: "queue", label: "Open Build Queue", path: "/queue" },
 	{ icon: CalendarClock, id: "schedules", label: "Open Schedules", path: "/schedules" },
 	{ icon: Files, id: "reports", label: "Open Reports", path: "/reports" },
+	{ icon: Activity, id: "observability", label: "Open Observability", path: "/observability" },
+	{ icon: Users, id: "team", label: "Open Team", path: "/team" },
 	{ icon: ShieldCheck, id: "policies", label: "Open Policies", path: "/policies" },
 	{ icon: MonitorCog, id: "machines", label: "Open Machine Settings", path: "/settings/machines" },
 ];

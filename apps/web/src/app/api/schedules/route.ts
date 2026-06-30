@@ -1,15 +1,16 @@
 import type { NextRequest } from "next/server";
 
+import { auditApiAction } from "@/lib/api/audit";
 import { badRequest, jsonResponse, withApiErrors } from "@/lib/api/errors";
+import { authorizeApiRequest } from "@/lib/api/permissions";
 import { parseJsonRequest, parseQuery } from "@/lib/api/request";
 import { limitQuerySchema, upsertScheduledJobRequestSchema } from "@/lib/api/schemas";
-import { requireSession } from "@/lib/auth";
 import { getRepositories } from "@/lib/cloudflare-context";
 import { calculateNextRun, parseNaturalLanguageSchedule } from "@/lib/schedule-parser";
 
 export async function GET(request: NextRequest) {
 	return withApiErrors(async () => {
-		const user = await requireSession();
+		const user = await authorizeApiRequest("session:read");
 		const query = parseQuery(request, limitQuerySchema);
 		const repositories = await getRepositories();
 		const schedules = await repositories.scheduledJobs.listByWorkspace(user.workspaceId, query.limit);
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
 	return withApiErrors(async () => {
-		const user = await requireSession();
+		const user = await authorizeApiRequest("schedule:manage");
 		const body = await parseJsonRequest(request, upsertScheduledJobRequestSchema);
 		const scheduleTiming = resolveScheduleTiming(body);
 		const repositories = await getRepositories();
@@ -36,6 +37,15 @@ export async function POST(request: NextRequest) {
 			taskTemplate: body.taskTemplate,
 			timezone: scheduleTiming.timezone,
 			workspaceId: user.workspaceId,
+		});
+		await auditApiAction({
+			action: "schedule.created",
+			details: { cron: schedule.cron, enabled: schedule.enabled === 1, naturalLanguage: schedule.natural_language },
+			repositories,
+			request,
+			resourceId: schedule.id,
+			resourceType: "schedule",
+			user,
 		});
 
 		return jsonResponse({ schedule }, { status: 201 });

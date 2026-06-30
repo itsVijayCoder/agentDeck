@@ -4,11 +4,13 @@ Guidance for AI coding agents working in this repository.
 
 ## Current State
 
-This repo is a **pnpm monorepo** for AgentDeck Mission Control. It has typed domain models, event contracts, state machines, a policy classifier, D1 persistence contracts, runtime validators, Worker API routes, a Durable Object session hub, Cloudflare Queue/Workflow/Cron orchestration for queued runs and schedules, deterministic multi-agent classification/routing/judging/synthesis, decision report persistence, the local bridge, terminal jump-in control, harness adapter contracts, agent event normalization, approval-gated command policy services, isolated worktree helpers, verifier strategies, patch/artifact upload plumbing, mock data, and the production dashboard UI.
+This repo is a **pnpm monorepo** for AgentDeck Mission Control. It has typed domain models, event contracts, state machines, a policy classifier, role permissions, D1 persistence contracts, runtime validators, Worker API routes, a Durable Object session hub, Cloudflare Queue/Workflow/Cron orchestration for queued runs and schedules, deterministic multi-agent classification/routing/judging/synthesis, decision report persistence, the local bridge, terminal jump-in control, harness adapter contracts, agent event normalization, approval-gated command policy services, isolated worktree helpers, verifier strategies, patch/artifact upload plumbing, observability primitives, eval contracts, team/audit/retention surfaces, mock data, and the production dashboard UI.
 
 Phase 10 adds the AI provider abstraction: `@agentdeck/ai` exposes provider adapters for OpenAI, Anthropic, Google, Qwen, DeepSeek, Ollama, and OpenRouter; Cloudflare AI Gateway REST/native gateway URL and header helpers; unified AI streaming events; provider registry/model router fallback; circuit breaker and cost tracker utilities; and an authenticated `/api/ai/providers` status surface. Agents still execute through the bridge unless explicitly wired to this package.
 
-Phase 11 adds the premium multi-route Mission Control UI: an App Router shell, `/mission-control`, `/sessions/[id]`, `/agents`, `/queue`, `/schedules`, `/reports`, `/reports/[id]`, `/policies`, and `/settings/machines`; React Flow orchestration graph; Radix-powered command surfaces; Zustand UI state; TanStack Query first-party API warmup with mock fallback; Motion transitions; Lucide icons; and Next.js 16 Cache Components/PPR. Later phases still own observability, evals, and team beta features.
+Phase 11 adds the premium multi-route Mission Control UI: an App Router shell, `/mission-control`, `/sessions/[id]`, `/agents`, `/queue`, `/schedules`, `/reports`, `/reports/[id]`, `/policies`, and `/settings/machines`; React Flow orchestration graph; Radix-powered command surfaces; Zustand UI state; TanStack Query first-party API warmup with mock fallback; Motion transitions; Lucide icons; and Next.js 16 Cache Components/PPR.
+
+Phase 12 adds beta-readiness surfaces: `@agentdeck/core` metrics/tracing/logger primitives; `@agentdeck/policy` owner/member/observer permissions; `@agentdeck/db` users, workspace members, audit logs, metric snapshots, eval runs, and retention policies; `@agentdeck/harness` eval runner contracts; authenticated `/api/metrics`, `/api/audit`, `/api/evals`, `/api/members`, and `/api/retention`; daily retention enforcement; structured workflow logs and metric snapshots; and static `/observability` and `/team` routes.
 
 `Docs/IMPLEMENTATION_GUIDE_WITH_PI.md` describes the full planned architecture. Trust the code and current phase docs for what is implemented today.
 
@@ -47,17 +49,17 @@ apps/
     src/lib/mock-agentdeck.ts          App-local mock data
     src/lib/agentdeck-queries.ts       TanStack Query hooks with mock fallback
     src/store/ui-store.ts              Zustand UI-only state
-    src/workers/                       Queue consumer, scheduler, RunWorkflow, morning reports
+    src/workers/                       Queue consumer, scheduler, RunWorkflow, morning reports, retention
     e2e/phase-00.spec.ts                Playwright wiring smoke test
     wrangler.jsonc                      Cloudflare deploy config
     cloudflare-env.d.ts                 Generated Cloudflare env types
 packages/
-  core/                                 Domain types, events, state machines
-  harness/                              Agent adapter SDK, registry, event draft helpers, orchestration helpers
-  policy/                               Command risk + privacy storage decisions
+  core/                                 Domain types, events, state machines, metrics, tracing, logging
+  harness/                              Agent adapter SDK, registry, event draft helpers, orchestration helpers, eval runner
+  policy/                               Command risk, privacy storage decisions, role permissions
   ai/                                   Provider adapters, AI Gateway helpers, cost tracking
   verifier/                             Test/build/lint/typecheck detector strategies
-  db/                                   D1 repositories, input validators, migrations
+  db/                                   D1 repositories, input validators, migrations, audit writer
   config/                               Shared tsconfig and ESLint presets
   bridge-protocol/                      Shared SessionHub protocol roles/messages/constants
   ui/                                   Placeholder for Phase 11 shared UI/tokens
@@ -71,9 +73,11 @@ infra/migrations/
 - **Types are the contract.** `@agentdeck/core` owns domain and event types. Add shared types there before app-local shapes.
 - **State machines are authoritative.** `@agentdeck/core` exports legal transitions for `RunStatus`, `ApprovalStatus`, and `TerminalLeaseMode`. Use `transitionRunStatus()`, `transitionApprovalStatus()`, `transitionTerminalLease()` — do not invent new transitions or bypass these.
 - **Policy classifier is authoritative.** `@agentdeck/policy` exports `classifyCommandRisk()` and privacy storage decisions. Reuse it; do not duplicate risk logic.
+- **Role permissions are authoritative.** `@agentdeck/policy` exports `hasPermission()` and `requirePermission()`. API routes should use `authorizeApiRequest()` rather than hand-rolled role checks.
 - **Verifier strategies are shared.** `@agentdeck/verifier` owns language/tool detection and deterministic test/lint/typecheck/build command execution. Bridge code should use it instead of ad hoc verifier commands.
 - **D1 repositories are the database boundary.** `@agentdeck/db` exposes `createAgentDeckRepositories()`. Use it in future Worker/API code instead of writing ad hoc queries in handlers.
 - **Runtime validators guard D1 inputs.** `@agentdeck/db` exports zod validators for repository/API boundaries. Do not duplicate ad hoc validation in handlers.
+- **Audit writes go through `@agentdeck/db`.** Use `writeAudit()` or the app-local `auditApiAction()` helper for control-plane mutations; do not insert audit rows ad hoc.
 - **Mock data stays in `apps/web/src/lib/mock-agentdeck.ts`.** Do not inline mock data in components. The visible demo UI should remain deterministic against mock data unless a phase explicitly wires a real contract. Phase 11 query hooks may warm first-party Worker API endpoints with mock fallback; do not add provider calls, secret reads, or real auth flows to the mock UI.
 - **Dependency rule**: `@agentdeck/core` depends on no other `@agentdeck/*` package. `@agentdeck/policy` and `@agentdeck/db` may depend on `@agentdeck/core`. Apps may depend on packages; packages must not depend on apps.
 

@@ -1,10 +1,14 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
+	Activity,
+	BarChart3,
 	Bot,
 	CalendarClock,
 	CheckCircle2,
 	Clock3,
+	ClipboardList,
+	DatabaseZap,
 	FileCode2,
 	Files,
 	GitBranch,
@@ -14,15 +18,22 @@ import {
 	ShieldCheck,
 	SquareStack,
 	Terminal,
+	UserPlus,
+	Users,
 } from "lucide-react";
 import type { QueueItem, RunStatus } from "@agentdeck/core";
 import {
 	activeRun,
 	agentInstallations,
+	auditTrail,
 	decisionReport,
+	evalRuns,
+	observabilityMetrics,
 	policyRules,
 	queueItems,
+	retentionPolicies,
 	scheduledJobs,
+	workspaceMembers,
 	workspaceSummary,
 } from "@/lib/mock-agentdeck";
 import { CandidateRow, Metric, RiskBadge, VerificationBadge, VerificationCard } from "./primitives";
@@ -35,6 +46,205 @@ const queueColumns: Array<{ label: string; status: RunStatus }> = [
 	{ label: "Completed", status: "completed" },
 	{ label: "Failed", status: "failed" },
 ];
+
+export function ObservabilityScreen() {
+	return (
+		<div className="of-page">
+			<PageHeader
+				description="Metrics, trace coverage, audit evidence, eval readiness, and retention health for beta operations."
+				icon={<Activity aria-hidden="true" size={20} />}
+				title="Observability"
+			/>
+			<div className="of-observability-grid">
+				{observabilityMetrics.map((metric) => (
+					<article className={`of-observability-card is-${metric.status}`} key={metric.id}>
+						<div>
+							<span>{metric.label}</span>
+							<strong>{metric.value}</strong>
+							<small>{metric.changeLabel}</small>
+						</div>
+						<div className="of-sparkline" aria-hidden="true">
+							{metric.trend.map((value, index) => (
+								<i key={`${metric.id}-${index}`} style={{ height: `${Math.max(12, value)}%` }} />
+							))}
+						</div>
+					</article>
+				))}
+			</div>
+			<div className="of-route-grid two">
+				<section className="of-panel">
+					<div className="of-panel-heading">
+						<div>
+							<h2>Trace and log coverage</h2>
+							<p>Worker-originated events now persist stable trace IDs and JSON log context.</p>
+						</div>
+						<BarChart3 aria-hidden="true" size={18} />
+					</div>
+					<div className="of-observability-list">
+						<div>
+							<strong>run.workflow</strong>
+							<span>queue item, run IDs, recommendation, cost, latency</span>
+							<em>traced</em>
+						</div>
+						<div>
+							<strong>session hub</strong>
+							<span>bridge dispatch, replay, terminal lease, artifact upload</span>
+							<em>json logs</em>
+						</div>
+						<div>
+							<strong>retention cron</strong>
+							<span>daily archive/delete policy pass via scheduler</span>
+							<em>scheduled</em>
+						</div>
+					</div>
+				</section>
+				<section className="of-panel">
+					<div className="of-panel-heading">
+						<div>
+							<h2>Eval runs</h2>
+							<p>Benchmark scores from the bridge-backed harness.</p>
+						</div>
+						<ClipboardList aria-hidden="true" size={18} />
+					</div>
+					<div className="of-eval-list">
+						{evalRuns.map((run) => (
+							<article className={`of-eval-row is-${run.status}`} key={run.id}>
+								<div>
+									<strong>{run.dataset}</strong>
+									<span>
+										{run.agent} / {run.latencyLabel}
+									</span>
+								</div>
+								<b>{run.status === "queued" ? "Queued" : `${Math.round(run.score * 100)}%`}</b>
+							</article>
+						))}
+					</div>
+				</section>
+			</div>
+			<div className="of-route-grid two">
+				<section className="of-panel">
+					<div className="of-panel-heading">
+						<div>
+							<h2>Audit trail</h2>
+							<p>Approval, terminal, policy, and member actions stay queryable.</p>
+						</div>
+						<ShieldCheck aria-hidden="true" size={18} />
+					</div>
+					<div className="of-audit-list">
+						{auditTrail.map((entry) => (
+							<article key={entry.id}>
+								<span>{entry.timeLabel}</span>
+								<div>
+									<strong>{entry.action}</strong>
+									<small>
+										{entry.actor} / {entry.resource}
+									</small>
+								</div>
+								<RiskBadge risk={entry.severity} />
+							</article>
+						))}
+					</div>
+				</section>
+				<section className="of-panel">
+					<div className="of-panel-heading">
+						<div>
+							<h2>Retention policies</h2>
+							<p>R2 objects and D1 rows are archived or deleted by explicit policy.</p>
+						</div>
+						<DatabaseZap aria-hidden="true" size={18} />
+					</div>
+					<div className="of-retention-list">
+						{retentionPolicies.map((policy) => (
+							<article className={`is-${policy.status}`} key={policy.id}>
+								<div>
+									<strong>{policy.resourceType}</strong>
+									<span>
+										{policy.action} after {policy.retentionDays} days
+									</span>
+								</div>
+								<em>{policy.status}</em>
+							</article>
+						))}
+					</div>
+				</section>
+			</div>
+		</div>
+	);
+}
+
+export function TeamScreen() {
+	return (
+		<div className="of-page">
+			<PageHeader
+				description="Workspace roles, permission boundaries, invite state, and enterprise privacy defaults."
+				icon={<Users aria-hidden="true" size={20} />}
+				title="Team beta"
+			/>
+			<div className="of-route-grid two">
+				<section className="of-panel">
+					<div className="of-panel-heading">
+						<div>
+							<h2>Workspace members</h2>
+							<p>Owner controls policy and machines; members operate runs; observers read audit evidence.</p>
+						</div>
+						<UserPlus aria-hidden="true" size={18} />
+					</div>
+					<div className="of-member-list">
+						{workspaceMembers.map((member) => (
+							<article className={`is-${member.role}`} key={member.id}>
+								<div className="of-member-avatar">{member.avatarLabel}</div>
+								<div className="of-member-identity">
+									<strong>{member.name}</strong>
+									<div>
+										<span>{member.email}</span>
+									</div>
+								</div>
+								<div>
+									<em>{member.role}</em>
+									<small>{member.joinedLabel}</small>
+								</div>
+							</article>
+						))}
+					</div>
+				</section>
+				<section className="of-panel">
+					<div className="of-panel-heading">
+						<div>
+							<h2>Permission engine</h2>
+							<p>Route handlers now authorize through the shared policy package.</p>
+						</div>
+					</div>
+					<div className="of-permission-matrix">
+						<div>
+							<strong>Owner</strong>
+							<span>Policies, machines, members, schedules, queue, approvals</span>
+						</div>
+						<div>
+							<strong>Member</strong>
+							<span>Sessions, terminal jump-in, approvals, queue, report export</span>
+						</div>
+						<div>
+							<strong>Observer</strong>
+							<span>Session read and audit review only</span>
+						</div>
+					</div>
+				</section>
+			</div>
+			<section className="of-route-band">
+				<div>
+					<LockKeyhole aria-hidden="true" size={18} />
+					<strong>Enterprise privacy mode</strong>
+					<span>Local-only workspaces can enforce retention and provider allowlists without syncing raw terminal logs.</span>
+				</div>
+				<div>
+					<ShieldCheck aria-hidden="true" size={18} />
+					<strong>Audit-first collaboration</strong>
+					<span>Approvals, terminal input, model selection, policy changes, and member actions are append-only records.</span>
+				</div>
+			</section>
+		</div>
+	);
+}
 
 export function AgentInventoryScreen() {
 	return (

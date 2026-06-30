@@ -3,6 +3,7 @@ import { isSessionHubClientRole } from "@agentdeck/bridge-protocol";
 
 import { requireWorkspaceRow } from "@/lib/api/access";
 import { badRequest, forbidden, jsonResponse, notFound, unauthorized, withApiErrors } from "@/lib/api/errors";
+import { assertApiPermission } from "@/lib/api/permissions";
 import { requireSession, verifyBridgeConnectionToken } from "@/lib/auth";
 import { getAgentDeckBindings, getRepositories } from "@/lib/cloudflare-context";
 import { SESSION_HUB_HEADERS } from "@/do/session-hub-protocol";
@@ -34,6 +35,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			await authorizeBridge(request, session.workspace_id, headers);
 		} else {
 			const user = await requireSession();
+			assertApiPermission(user, "session:read");
 			requireWorkspaceRow(session, user, "Session");
 			headers.set(SESSION_HUB_HEADERS.userId, user.userId);
 		}

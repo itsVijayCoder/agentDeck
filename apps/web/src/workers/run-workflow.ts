@@ -14,7 +14,7 @@ import type {
 	RunStatus,
 	TaskClassification,
 } from "@agentdeck/core";
-import { isTerminalRunStatus, transitionRunStatus } from "@agentdeck/core";
+import { createJsonLogger, isTerminalRunStatus, transitionRunStatus } from "@agentdeck/core";
 import {
 	classifyTask,
 	generateDecisionReportDetail,
@@ -94,10 +94,31 @@ const maxDispatchAttempts = 32;
 const dispatchRetryDelay = "15 minutes";
 const runPollDelay = "1 minute";
 const maxPatchSummaryBytes = 256 * 1024;
+const logger = createJsonLogger("info");
 
 export class RunWorkflow extends WorkflowEntrypoint<RunWorkflowEnv, RunWorkflowParams> {
 	override async run(event: Readonly<WorkflowEvent<RunWorkflowParams>>, step: WorkflowStep): Promise<RunWorkflowResult> {
-		return runQueueWorkflow(this.env, event.payload, step);
+		logger.info("run workflow started", {
+			queueItemId: event.payload.queueItemId,
+			scheduledJobId: event.payload.scheduledJobId,
+			traceId: traceIdForStableInput(event.payload.queueItemId),
+		});
+		try {
+			const result = await runQueueWorkflow(this.env, event.payload, step);
+			logger.info("run workflow finished", {
+				queueItemId: event.payload.queueItemId,
+				status: result.status,
+				traceId: traceIdForStableInput(event.payload.queueItemId),
+			});
+			return result;
+		} catch (error) {
+			logger.error("run workflow failed", {
+				error,
+				queueItemId: event.payload.queueItemId,
+				traceId: traceIdForStableInput(event.payload.queueItemId),
+			});
+			throw error;
+		}
 	}
 }
 
@@ -616,6 +637,12 @@ async function markDispatchedRunning(env: RunWorkflowEnv, queueItemId: string, r
 	const repositories = createAgentDeckRepositories(env.AGENTDECK_DB);
 	await transitionQueueItemStatus(repositories, queueItemId, "running");
 	await transitionRunToStatus(repositories, runId, "running");
+	await recordMetricSnapshot(repositories, {
+		labels: { queueItemId, runId },
+		metricName: "run_count",
+		metricValue: 1,
+		workspaceId: await workspaceIdForRun(repositories, runId),
+	});
 	await appendWorkerEvent(repositories, {
 		payload: { queueItemId, runId },
 		runId,
@@ -648,6 +675,26 @@ async function markQueueFinal(
 	const repositories = createAgentDeckRepositories(env.AGENTDECK_DB);
 	const completed = report && report.recommendation !== "rerun" && report.recommendation !== "reject";
 	await transitionQueueItemStatus(repositories, queueItemId, completed ? "completed" : "failed");
+	if (report) {
+		await recordMetricSnapshot(repositories, {
+			labels: { queueItemId, recommendation: report.recommendation },
+			metricName: completed ? "run_success_count" : "run_failure_count",
+			metricValue: 1,
+			workspaceId: report.workspaceId,
+		});
+		await recordMetricSnapshot(repositories, {
+			labels: { queueItemId },
+			metricName: "cost_usd_by_workspace",
+			metricValue: report.costUsd,
+			workspaceId: report.workspaceId,
+		});
+		await recordMetricSnapshot(repositories, {
+			labels: { queueItemId },
+			metricName: "latency_p95_ms",
+			metricValue: report.latencyMs,
+			workspaceId: report.workspaceId,
+		});
+	}
 	await appendWorkerEvent(repositories, {
 		payload: completed
 			? { queueItemId, reportId }
@@ -818,11 +865,55 @@ async function appendWorkerEvent(
 			seq,
 			sessionId,
 			source: "worker",
+			traceId: traceIdForStableInput(input.runId ?? sessionId),
 			type: input.type,
 			visibility: "metadata",
 			workspaceId,
 		} as AgentDeckEvent,
 	});
+}
+
+async function recordMetricSnapshot(
+	repositories: AgentDeckRepositories,
+	input: {
+		labels: Record<string, string>;
+		metricName: Parameters<AgentDeckRepositories["metricSnapshots"]["create"]>[0]["metricName"];
+		metricValue: number;
+		workspaceId: string | null;
+	},
+): Promise<void> {
+	if (!input.workspaceId || !Number.isFinite(input.metricValue)) {
+		return;
+	}
+
+	const now = new Date().toISOString();
+	await repositories.metricSnapshots.create({
+		labels: input.labels,
+		metricName: input.metricName,
+		metricValue: input.metricValue,
+		periodEnd: now,
+		periodStart: now,
+		workspaceId: input.workspaceId,
+	});
+}
+
+async function workspaceIdForRun(repositories: AgentDeckRepositories, runId: string): Promise<string | null> {
+	const run = await repositories.runs.findById(runId);
+	if (!run) {
+		return null;
+	}
+	const session = await repositories.sessions.findById(run.session_id);
+	return session?.workspace_id ?? null;
+}
+
+function traceIdForStableInput(value: string): string {
+	let hash = 0x811c9dc5;
+	for (let index = 0; index < value.length; index += 1) {
+		hash ^= value.charCodeAt(index);
+		hash = Math.imul(hash, 0x01000193);
+	}
+	const hex = (hash >>> 0).toString(16).padStart(8, "0");
+	return `${hex}${hex}${hex}${hex}`;
 }
 
 async function collectHumanInterventions(

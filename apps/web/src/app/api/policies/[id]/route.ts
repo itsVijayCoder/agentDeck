@@ -1,16 +1,17 @@
 import type { NextRequest } from "next/server";
 import { parseJsonColumn } from "@agentdeck/db";
 
+import { auditApiAction } from "@/lib/api/audit";
 import { requireWorkspaceRow } from "@/lib/api/access";
 import { jsonResponse, withApiErrors } from "@/lib/api/errors";
+import { authorizeApiRequest } from "@/lib/api/permissions";
 import { assertNonEmptyPatch, parseJsonRequest } from "@/lib/api/request";
 import { updatePolicyRuleRequestSchema } from "@/lib/api/schemas";
-import { requireSession } from "@/lib/auth";
 import { getRepositories } from "@/lib/cloudflare-context";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
 	return withApiErrors(async () => {
-		const user = await requireSession();
+		const user = await authorizeApiRequest("policy:manage");
 		const body = await parseJsonRequest(request, updatePolicyRuleRequestSchema);
 		assertNonEmptyPatch(body);
 		const { id } = await params;
@@ -25,6 +26,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 			reason: body.reason ?? existing.reason,
 			risk: body.risk ?? existing.risk,
 			workspaceId: existing.workspace_id,
+		});
+		await auditApiAction({
+			action: "policy.updated",
+			details: { action: policy.action, defaultDecision: policy.default_decision, risk: policy.risk },
+			repositories,
+			request,
+			resourceId: policy.id,
+			resourceType: "policy",
+			user,
 		});
 
 		return jsonResponse({ policy });

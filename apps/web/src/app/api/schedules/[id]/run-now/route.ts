@@ -1,13 +1,14 @@
 import { parseJsonColumn } from "@agentdeck/db";
 
+import { auditApiAction } from "@/lib/api/audit";
 import { requireWorkspaceRow } from "@/lib/api/access";
 import { jsonResponse, withApiErrors } from "@/lib/api/errors";
-import { requireSession } from "@/lib/auth";
+import { authorizeApiRequest } from "@/lib/api/permissions";
 import { getRepositories, getRunQueue } from "@/lib/cloudflare-context";
 
-export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
 	return withApiErrors(async () => {
-		const user = await requireSession();
+		const user = await authorizeApiRequest("schedule:manage");
 		const { id } = await params;
 		const repositories = await getRepositories();
 		const runQueue = await getRunQueue();
@@ -27,6 +28,15 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 			queueItemId: queueItem.id,
 			scheduledJobId: schedule.id,
 			type: "queue.item",
+		});
+		await auditApiAction({
+			action: "schedule.run_now",
+			details: { queueItemId: queueItem.id },
+			repositories,
+			request,
+			resourceId: schedule.id,
+			resourceType: "schedule",
+			user,
 		});
 
 		return jsonResponse({ queueItem, schedule }, { status: 201 });
