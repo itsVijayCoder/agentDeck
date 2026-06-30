@@ -2,7 +2,20 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
 	cacheComponents: true,
-	transpilePackages: ["@agentdeck/ai", "@agentdeck/bridge-protocol", "@agentdeck/core", "@agentdeck/db", "@agentdeck/policy"],
+	env: {
+		NEXT_PUBLIC_AGENTDECK_DATA_MODE: process.env.AGENTDECK_DATA_MODE ?? process.env.NEXT_PUBLIC_AGENTDECK_DATA_MODE ?? "live",
+	},
+	transpilePackages: [
+		"@agentdeck/ai",
+		"@agentdeck/bridge-protocol",
+		"@agentdeck/config",
+		"@agentdeck/core",
+		"@agentdeck/db",
+		"@agentdeck/harness",
+		"@agentdeck/policy",
+		"@agentdeck/ui",
+		"@agentdeck/verifier",
+	],
 };
 
 export default nextConfig;

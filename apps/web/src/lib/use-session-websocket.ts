@@ -47,18 +47,6 @@ export function useSessionWebSocket(sessionId: string | null): SessionWebSocketS
 			return;
 		}
 
-		if (isLocalNextDevHost(window.location)) {
-			reconnectTimerRef.current = setTimeout(() => {
-				setConnected(false);
-				setError({
-					code: "BRIDGE_UNAVAILABLE",
-					message: "SessionHub WebSocket disabled in local Next dev.",
-					type: "error",
-				});
-			}, 0);
-			return;
-		}
-
 		manuallyClosedRef.current = false;
 		const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 		const url = new URL(`${protocol}//${window.location.host}/api/sessions/${encodeURIComponent(sessionId)}/ws`);
@@ -164,8 +152,4 @@ function isEventEnvelope(message: SessionHubServerMessage): message is EventEnve
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function isLocalNextDevHost(location: Location): boolean {
-	return process.env.NODE_ENV === "development" && (location.hostname === "localhost" || location.hostname === "127.0.0.1");
 }

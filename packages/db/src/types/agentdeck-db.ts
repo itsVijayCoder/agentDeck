@@ -37,6 +37,7 @@ export type AuditAction =
 	| "session.resumed"
 	| "session.cancelled"
 	| "queue.item_created"
+	| "queue.item_dispatched"
 	| "queue.item_cancelled"
 	| "schedule.created"
 	| "schedule.updated"
@@ -185,6 +186,7 @@ export type ApprovalRow = {
 export type QueueItemRow = {
 	id: string;
 	workspace_id: string;
+	session_id: string | null;
 	created_by: string;
 	task: string;
 	priority: QueuePriority;
@@ -439,6 +441,7 @@ export type DecideApprovalInput = {
 export type CreateQueueItemInput = {
 	id: string;
 	workspaceId: string;
+	sessionId?: string | null;
 	createdBy: string;
 	task: string;
 	priority: QueuePriority;
@@ -455,6 +458,7 @@ export type CreateQueueItemInput = {
 
 export type UpdateQueueItemInput = {
 	id: string;
+	sessionId?: string | null;
 	priority?: QueuePriority;
 	status?: RunStatus;
 	runAfter?: IsoTimestamp | null;

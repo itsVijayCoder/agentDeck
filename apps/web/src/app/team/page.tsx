@@ -5,10 +5,6 @@ export const metadata: Metadata = {
 	title: "Team | AgentDeck",
 };
 
-export const unstable_instant = {
-	prefetch: "static",
-};
-
 export default function TeamPage() {
 	return <TeamScreen />;
 }

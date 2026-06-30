@@ -4,7 +4,7 @@
 **Source of intent:** `Docs/IMPLEMENTATION_GUIDE_WITH_PI.md` (4172 lines)
 **Source of truth for current state:** the codebase itself + `AGENTS.md`
 
-This document is the master index for a 13-phase buildout plan (Phase 00 through Phase 12). Each phase has its own detailed MD file in this directory. Every phase file contains HLD, LLD, design patterns, SOLID/DRY analysis, implementation steps, testing strategy, and acceptance criteria.
+This document is the master index for a 14-phase buildout plan (Phase 00 through Phase 13). Each phase has its own detailed MD file in this directory. Every phase file contains HLD, LLD, design patterns, SOLID/DRY analysis, implementation steps, testing strategy, and acceptance criteria.
 
 ---
 
@@ -44,11 +44,12 @@ This document is the master index for a 13-phase buildout plan (Phase 00 through
 | Role permissions | `packages/policy/src/permissions.ts`, `apps/web/src/lib/api/permissions.ts` | — | Complete — owner/member/observer roles enforced across Worker API routes |
 | Eval framework | `packages/harness/src/eval-runner.ts`, `evals/` | — | Complete — deterministic benchmark runner, seed dataset, D1 eval run storage and API |
 | Observability + team UI | `apps/web/src/app/{observability,team}`, `apps/web/src/components/agentdeck/route-screens.tsx` | — | Complete — static App Router screens with TanStack Query warmup and mock fallback |
+| Real local E2E product flow | `apps/web/src/components/agentdeck/{setup-screen,new-task-dialog,machine-pairing-panel}.tsx`, `apps/web/src/lib/agentdeck-queries.ts`, `apps/web/src/lib/api/local-dispatch.ts`, `packages/db/migrations/0003_queue_session_link.sql` | — | Complete — live data mode by default, setup, task creation, session-linked queue items, bridge pairing UI, dev local dispatch, live API screens |
 | Architecture docs | `Docs/` (6 files) | ~6000+ | Complete — Blueprint, Core Contracts, DB Schema, Impl Guide |
 
 ### 1.2 Missing (blocks the full vision)
 
-No phase-scoped blockers remain in the Phase 00–12 plan. Future beta hardening should be tracked as new work, such as production auth/SCIM, external observability exporters, scheduled provider-backed eval campaigns, and organization billing.
+No phase-scoped blockers remain in the Phase 00–13 plan. Future beta hardening should be tracked as new work, such as production auth/SCIM, external observability exporters, scheduled provider-backed eval campaigns, organization billing, hosted onboarding, and additional bridge packaging.
 
 ### 1.3 Dependency gap (installed vs needed)
 
@@ -59,7 +60,7 @@ No phase-scoped blockers remain in the Phase 00–12 plan. Future beta hardening
 | `zod` | Yes | Validation (all phases) |
 | `vitest`, `@vitest/coverage-v8`, `@vitest/ui` | Yes | Testing (Phase 00+) |
 | `@playwright/test` | Yes | E2E skeleton (Phase 00+) |
-| `@tanstack/react-query` | Yes | Server state warmup with mock fallback (Phase 11) |
+| `@tanstack/react-query` | Yes | Server state, live API mutations, explicit mock mode (Phase 11/13) |
 | `zustand` | Yes | UI state (Phase 11) |
 | `@xyflow/react` | Yes | Agent graph (Phase 11) |
 | `@xterm/xterm`, `@xterm/addon-fit`, `@xterm/addon-web-links` | Yes | Terminal (Phase 05) |
@@ -174,6 +175,7 @@ No package may depend directly on a concrete model provider except provider adap
 | 10 | AI Gateway & Provider Abstraction | Provider adapters, AI Gateway, cost tracking | 02, 06 |
 | 11 | Premium UI System Redesign | Multi-screen App Router shell, React Flow, Radix primitives, Zustand, TanStack Query | 02, 03 |
 | 12 | Observability, Evals & Team Beta | Metrics, OTel, evals, team features, roles | 09, 11 |
+| 13 | Real Local E2E Product Flow | Live setup, task creation, bridge pairing, dev local dispatch, no silent mock fallback | 02, 03, 04, 05, 07, 08, 09, 11, 12 |
 
 ### 3.1 Phase dependency graph
 
@@ -192,6 +194,7 @@ flowchart LR
   P10[Phase 10<br/>AI Gateway]
   P11[Phase 11<br/>Premium UI]
   P12[Phase 12<br/>Observability & Team]
+  P13[Phase 13<br/>Real Local E2E]
 
   P00 --> P01
   P01 --> P02
@@ -211,6 +214,15 @@ flowchart LR
   P03 --> P11
   P09 --> P12
   P11 --> P12
+  P02 --> P13
+  P03 --> P13
+  P04 --> P13
+  P05 --> P13
+  P07 --> P13
+  P08 --> P13
+  P09 --> P13
+  P11 --> P13
+  P12 --> P13
 ```
 
 ### 3.2 Parallelization opportunities

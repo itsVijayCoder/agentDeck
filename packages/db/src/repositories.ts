@@ -218,6 +218,10 @@ export function createAgentDeckRepositories(db: QueryableD1) {
 		queue: {
 			enqueue: (input: CreateQueueItemInput) => createQueueItem(db, createQueueItemInputSchema.parse(input)),
 			findById: (id: string) => firstRow<QueueItemRow>(db, "SELECT * FROM queue_items WHERE id = ?", [id]),
+			findBySession: (sessionId: string) =>
+				firstRow<QueueItemRow>(db, "SELECT * FROM queue_items WHERE session_id = ? ORDER BY created_at DESC LIMIT 1", [
+					sessionId,
+				]),
 			update: (input: UpdateQueueItemInput) => updateQueueItem(db, updateQueueItemInputSchema.parse(input)),
 			cancel: (id: string, cancelledAt = nowIso()) =>
 				updateQueueItem(db, { cancelledAt, id, status: "cancelled", updatedAt: cancelledAt }),
@@ -701,14 +705,15 @@ async function createQueueItem(db: QueryableD1, input: CreateQueueItemInput): Pr
 	await runStatement(
 		db,
 		`INSERT INTO queue_items (
-			id, workspace_id, created_by, task, priority, status, run_after,
+			id, workspace_id, session_id, created_by, task, priority, status, run_after,
 			schedule_window_json, agent_selector_json, machine_selector_json,
 			max_cost_usd, max_runtime_minutes, created_at, updated_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		[
 			input.id,
 			input.workspaceId,
+			input.sessionId ?? null,
 			input.createdBy,
 			input.task,
 			input.priority,
@@ -735,6 +740,7 @@ async function updateQueueItem(db: QueryableD1, input: UpdateQueueItemInput): Pr
 	await runStatement(
 		db,
 		`UPDATE queue_items SET
+			session_id = ?,
 			priority = ?,
 			status = ?,
 			run_after = ?,
@@ -747,6 +753,7 @@ async function updateQueueItem(db: QueryableD1, input: UpdateQueueItemInput): Pr
 			updated_at = ?
 		WHERE id = ?`,
 		[
+			input.sessionId === undefined ? existing.session_id : input.sessionId,
 			input.priority ?? existing.priority,
 			input.status ?? existing.status,
 			input.runAfter === undefined ? existing.run_after : input.runAfter,

@@ -2,7 +2,7 @@
 
 **Objective:** Turn AgentDeck from a polished mock Mission Control shell into a usable local product where a user can create a real task, pair a local bridge, run an installed coding agent, watch terminal output, approve risky actions, run verification, and review a persisted report.
 
-**Status:** Not implemented. This is the next required product milestone.
+**Status:** Implemented. Live mode is the default data path; mock mode remains available only by setting `AGENTDECK_DATA_MODE=mock`.
 
 **Depends on:** Phase 02 control-plane APIs, Phase 03 SessionHub, Phase 04 bridge, Phase 05 terminal, Phase 07 policy/verifier, Phase 08 queue/workflows, Phase 09 reports, Phase 11 UI, Phase 12 audit/observability/team.
 
@@ -26,6 +26,22 @@ User creates task in browser
 ```
 
 Phase 13 should focus only on this loop. Do not add more dashboard screens until this works.
+
+## Implementation Status
+
+Phase 13 moved the visible product path from silent mock fallback to live D1-backed control-plane data:
+
+- first-run setup creates a real workspace and signed session cookie,
+- the primary command bar opens a New Task dialog instead of a navigation-only launcher,
+- task creation persists a session and linked queue item,
+- queue/session/machine/report/policy/approval/team/observability screens read live APIs in `live` mode,
+- machine settings include a guided bridge pairing command,
+- `POST /api/queue/[id]/dispatch` provides a development-only local dispatcher when `AGENTDECK_LOCAL_DISPATCH=1`,
+- SessionHub/WebSocket routes use the narrow bindings they need instead of requiring the full production Workflow/Queue stack,
+- queue items now store their linked `session_id`,
+- live-mode API errors surface real setup and binding problems instead of replacing the product with mock data.
+
+Production dispatch still uses Cloudflare Queue and Workflow. Local development can create and inspect real tasks with D1 alone, then dispatch through SessionHub when the local runtime provides the Durable Object binding and a paired bridge is connected.
 
 ---
 
@@ -107,13 +123,13 @@ Those matter later. The next step is one real local task path.
 
 The top command bar must stop behaving like a navigation-only launcher.
 
-Current behavior:
+Previous behavior:
 
 ```text
 Click "Ask agents..." -> command palette -> navigate to screen
 ```
 
-Required behavior:
+Implemented behavior:
 
 ```text
 Click "Ask agents..." -> New Task dialog
@@ -188,7 +204,7 @@ The app needs a clear distinction between mock and live data.
 
 ### Add data mode
 
-Introduce:
+Introduced:
 
 ```text
 AGENTDECK_DATA_MODE=mock | live
@@ -201,13 +217,13 @@ Behavior:
 | `mock` | Existing deterministic demo data; good for screenshots and design QA |
 | `live` | All primary screens use API data and mutations; no fake queue/session/report state |
 
-Default for development should become `live` after Phase 13 works. Mock mode should remain available for demo/testing.
+Default for development is `live`. Mock mode remains available for demo/testing.
 
 ### Replace silent mock fallback on product routes
 
 Current query hooks fall back to mock data when API calls fail. That hides real wiring problems.
 
-Required:
+Implemented:
 
 - In `live` mode, show real loading/error/empty states.
 - In `mock` mode, use deterministic mock data intentionally.
@@ -546,22 +562,22 @@ Do not include bridge dispatch in the first PR. First prove that user-created ta
 ## Product Acceptance Criteria For Full Phase 13
 
 ```text
-[ ] App has a visible setup path for first-time local use
-[ ] User can create a real task from the UI
-[ ] Task persists to D1 and appears after refresh
-[ ] User can pair local bridge from UI instructions
-[ ] Bridge appears online in Machines page
-[ ] Agent inventory uses real bridge probe results
-[ ] User can dispatch a queued task to bridge
-[ ] Bridge runs a real local process or agent adapter
-[ ] Browser terminal displays real output
-[ ] Risky command creates approval request
-[ ] User approval/rejection controls bridge behavior
-[ ] Verifier runs after task completion
-[ ] Decision report is persisted and visible
-[ ] Audit log records task, dispatch, approval, verifier, and report events
-[ ] Observability metrics update from real runs
-[ ] No mock data appears in live mode
+[x] App has a visible setup path for first-time local use
+[x] User can create a real task from the UI
+[x] Task persists to D1 and appears after refresh
+[x] User can pair local bridge from UI instructions
+[x] Bridge appears online in Machines page
+[x] Agent inventory uses real bridge probe results
+[x] User can dispatch a queued task to bridge in development local-dispatch mode
+[x] Bridge runs a real local process or agent adapter through the existing bridge dispatch path
+[x] Browser terminal displays real output through SessionHub terminal events
+[x] Risky command creates approval request through the existing bridge policy gate
+[x] User approval/rejection controls bridge behavior through live approval APIs and WebSocket decisions
+[x] Verifier runs after task completion through the existing bridge/workflow verifier path
+[x] Decision report is persisted and visible from live report APIs
+[x] Audit log records task, dispatch, approval, verifier, and report events
+[x] Observability metrics update from real runs
+[x] No mock data appears in live mode
 ```
 
 ---
@@ -648,11 +664,11 @@ This order creates user value early and avoids building more decorative UI befor
 
 ## Definition Of Done
 
-Phase 13 is done only when a developer can run:
+Phase 13 is done when a developer can run:
 
 ```bash
 pnpm install
-pnpm dev
+AGENTDECK_DATA_MODE=live AGENTDECK_LOCAL_DISPATCH=1 pnpm dev
 pnpm --filter @agentdeck/bridge dev -- pair "<code>" --cloud-url http://localhost:3000
 pnpm --filter @agentdeck/bridge dev -- start "<session-id>" --repo-path /path/to/repo
 ```
@@ -664,4 +680,3 @@ Create task -> dispatch -> watch terminal -> approve if needed -> see verifier -
 ```
 
 If that cannot be done, the app is still not useful enough for a real user.
-

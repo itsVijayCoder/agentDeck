@@ -12,7 +12,13 @@ export async function GET(request: NextRequest) {
 		const query = parseQuery(request, machineListQuerySchema);
 		const repositories = await getRepositories();
 		const machines = await repositories.machines.listByWorkspace(user.workspaceId, query.status, query.limit);
+		const machinesWithAgents = await Promise.all(
+			machines.map(async (machine) => ({
+				...machine,
+				agents: await repositories.agentInstallations.listByMachine(machine.id),
+			})),
+		);
 
-		return jsonResponse({ machines });
+		return jsonResponse({ machines: machinesWithAgents });
 	});
 }

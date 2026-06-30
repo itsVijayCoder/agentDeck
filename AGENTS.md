@@ -4,13 +4,15 @@ Guidance for AI coding agents working in this repository.
 
 ## Current State
 
-This repo is a **pnpm monorepo** for AgentDeck Mission Control. It has typed domain models, event contracts, state machines, a policy classifier, role permissions, D1 persistence contracts, runtime validators, Worker API routes, a Durable Object session hub, Cloudflare Queue/Workflow/Cron orchestration for queued runs and schedules, deterministic multi-agent classification/routing/judging/synthesis, decision report persistence, the local bridge, terminal jump-in control, harness adapter contracts, agent event normalization, approval-gated command policy services, isolated worktree helpers, verifier strategies, patch/artifact upload plumbing, observability primitives, eval contracts, team/audit/retention surfaces, mock data, and the production dashboard UI.
+This repo is a **pnpm monorepo** for AgentDeck Mission Control. It has typed domain models, event contracts, state machines, a policy classifier, role permissions, D1 persistence contracts, runtime validators, Worker API routes, a Durable Object session hub, Cloudflare Queue/Workflow/Cron orchestration for queued runs and schedules, deterministic multi-agent classification/routing/judging/synthesis, decision report persistence, the local bridge, terminal jump-in control, harness adapter contracts, agent event normalization, approval-gated command policy services, isolated worktree helpers, verifier strategies, patch/artifact upload plumbing, observability primitives, eval contracts, team/audit/retention surfaces, explicit mock mode, live local task creation, bridge pairing, dev local dispatch, and the production dashboard UI.
 
 Phase 10 adds the AI provider abstraction: `@agentdeck/ai` exposes provider adapters for OpenAI, Anthropic, Google, Qwen, DeepSeek, Ollama, and OpenRouter; Cloudflare AI Gateway REST/native gateway URL and header helpers; unified AI streaming events; provider registry/model router fallback; circuit breaker and cost tracker utilities; and an authenticated `/api/ai/providers` status surface. Agents still execute through the bridge unless explicitly wired to this package.
 
 Phase 11 adds the premium multi-route Mission Control UI: an App Router shell, `/mission-control`, `/sessions/[id]`, `/agents`, `/queue`, `/schedules`, `/reports`, `/reports/[id]`, `/policies`, and `/settings/machines`; React Flow orchestration graph; Radix-powered command surfaces; Zustand UI state; TanStack Query first-party API warmup with mock fallback; Motion transitions; Lucide icons; and Next.js 16 Cache Components/PPR.
 
 Phase 12 adds beta-readiness surfaces: `@agentdeck/core` metrics/tracing/logger primitives; `@agentdeck/policy` owner/member/observer permissions; `@agentdeck/db` users, workspace members, audit logs, metric snapshots, eval runs, and retention policies; `@agentdeck/harness` eval runner contracts; authenticated `/api/metrics`, `/api/audit`, `/api/evals`, `/api/members`, and `/api/retention`; daily retention enforcement; structured workflow logs and metric snapshots; and static `/observability` and `/team` routes.
+
+Phase 13 makes the product path live by default: `AGENTDECK_DATA_MODE=live` shows setup instead of fake dashboard data, the command bar creates real sessions and session-linked queue items, `/setup` creates a signed workspace session, machines expose guided bridge pairing, `/api/queue/[id]/dispatch` provides a development-only local dispatcher with `AGENTDECK_LOCAL_DISPATCH=1`, and live mode surfaces API/binding errors instead of silently falling back to mock data.
 
 `Docs/IMPLEMENTATION_GUIDE_WITH_PI.md` describes the full planned architecture. Trust the code and current phase docs for what is implemented today.
 
@@ -34,6 +36,7 @@ pnpm cf-typegen     # regenerate apps/web/cloudflare-env.d.ts
 - `pnpm lint` uses the ESLint CLI directly because Next.js 16 removed `next lint`.
 - `pnpm test` runs package-level Vitest suites with V8 coverage thresholds for shared contracts.
 - Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm test:e2e`, and `pnpm build` before considering any task complete. Run `pnpm build:packages` when package exports or build config changed.
+- Local product testing should use `AGENTDECK_DATA_MODE=live AGENTDECK_LOCAL_DISPATCH=1 pnpm dev` after D1 migrations and `.dev.vars` are configured. Use `AGENTDECK_DATA_MODE=mock` only for deterministic design/demo review.
 
 ## Architecture
 
@@ -46,8 +49,9 @@ apps/
     src/app/api/                        Worker API/BFF routes, including SessionHub WebSocket gate
     src/components/agentdeck/          Premium Mission Control UI, terminal dock, route screens
     src/do/                             SessionHub Durable Object + protocol helpers
+    src/lib/api/local-dispatch.ts       Dev-only queue-to-SessionHub dispatcher
     src/lib/mock-agentdeck.ts          App-local mock data
-    src/lib/agentdeck-queries.ts       TanStack Query hooks with mock fallback
+    src/lib/agentdeck-queries.ts       TanStack Query hooks with live API mode and explicit mock mode
     src/store/ui-store.ts              Zustand UI-only state
     src/workers/                       Queue consumer, scheduler, RunWorkflow, morning reports, retention
     e2e/phase-00.spec.ts                Playwright wiring smoke test
@@ -78,7 +82,8 @@ infra/migrations/
 - **D1 repositories are the database boundary.** `@agentdeck/db` exposes `createAgentDeckRepositories()`. Use it in future Worker/API code instead of writing ad hoc queries in handlers.
 - **Runtime validators guard D1 inputs.** `@agentdeck/db` exports zod validators for repository/API boundaries. Do not duplicate ad hoc validation in handlers.
 - **Audit writes go through `@agentdeck/db`.** Use `writeAudit()` or the app-local `auditApiAction()` helper for control-plane mutations; do not insert audit rows ad hoc.
-- **Mock data stays in `apps/web/src/lib/mock-agentdeck.ts`.** Do not inline mock data in components. The visible demo UI should remain deterministic against mock data unless a phase explicitly wires a real contract. Phase 11 query hooks may warm first-party Worker API endpoints with mock fallback; do not add provider calls, secret reads, or real auth flows to the mock UI.
+- **Data mode is explicit.** `AGENTDECK_DATA_MODE=live` is the default and must not silently fall back to mock data when an API call fails. `AGENTDECK_DATA_MODE=mock` is the only path that should show deterministic mock data.
+- **Mock data stays in `apps/web/src/lib/mock-agentdeck.ts`.** Do not inline mock data in components. The visible demo UI should remain deterministic in mock mode only; do not add provider calls, secret reads, or real auth flows to the mock UI.
 - **Dependency rule**: `@agentdeck/core` depends on no other `@agentdeck/*` package. `@agentdeck/policy` and `@agentdeck/db` may depend on `@agentdeck/core`. Apps may depend on packages; packages must not depend on apps.
 
 ## CSS and Styling
@@ -124,6 +129,7 @@ chore: update project metadata
 - D1 migration history lives in `packages/db/migrations`. Add a real `AGENTDECK_DB` binding with `migrations_dir: "../../packages/db/migrations"` after a D1 database is created.
 - `apps/web/next.config.ts` calls `initOpenNextCloudflareForDev()` to enable `getCloudflareContext()` in `pnpm dev`.
 - `.dev.vars` holds local secrets for dev (gitignored). `.dev.vars.example` and `apps/web/.dev.vars.example` are templates.
+- Plain `pnpm dev` may not provide every Cloudflare runtime feature. Keep DB-only routes dependent only on D1, artifact routes dependent only on R2, and SessionHub routes dependent only on the Durable Object binding. The dev local dispatcher must remain development-only and must not replace the production Queue/Workflow path.
 
 ## Reference Docs
 

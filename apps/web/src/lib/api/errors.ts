@@ -54,6 +54,18 @@ export function handleApiError(error: unknown): NextResponse {
 		);
 	}
 
+	if (error instanceof Error && process.env.NODE_ENV !== "production") {
+		const safeMessages = [
+			"AGENTDECK_SESSION_SECRET is required",
+			"AgentDeck Cloudflare bindings are not configured",
+			"D1_ERROR",
+			"no such table",
+		];
+		if (safeMessages.some((message) => error.message.includes(message))) {
+			return NextResponse.json({ code: "INTERNAL_ERROR", error: error.message }, { status: 500 });
+		}
+	}
+
 	return NextResponse.json({ code: "INTERNAL_ERROR", error: "Internal server error." }, { status: 500 });
 }
 

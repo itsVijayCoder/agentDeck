@@ -6,7 +6,7 @@ import { ArrowUpRight, Clock3, GitBranch, ShieldAlert } from "lucide-react";
 import { useUiStore } from "@/store/ui-store";
 import { AgentFlowGraph } from "./agent-flow-graph";
 import { CandidateRow, Metric, RiskBadge } from "./primitives";
-import { activeRun, decisionReport } from "@/lib/mock-agentdeck";
+import { useActiveRun, useDecisionReports } from "@/lib/agentdeck-queries";
 
 const patchPreview = `diff --git a/src/auth/session.ts b/src/auth/session.ts
 @@
@@ -16,11 +16,35 @@ const patchPreview = `diff --git a/src/auth/session.ts b/src/auth/session.ts
 +  }`;
 
 export function MissionControlScreen() {
-	const run = activeRun;
-	const selectedGraphNodeId = useUiStore((state) => state.selectedGraphNodeId) ?? run.graphNodes[0]?.id ?? "task";
+	const activeRunQuery = useActiveRun();
+	const reportsQuery = useDecisionReports();
+	const run = activeRunQuery.data;
+	const decisionReport = reportsQuery.data?.[0];
+	const selectedGraphNodeId = useUiStore((state) => state.selectedGraphNodeId) ?? run?.graphNodes[0]?.id ?? "task";
 	const setSelectedGraphNode = useUiStore((state) => state.setSelectedGraphNode);
 	const setDiffDrawer = useUiStore((state) => state.setDiffDrawer);
 	const setActiveTerminalTab = useUiStore((state) => state.setActiveTerminalTab);
+	if (activeRunQuery.isLoading) {
+		return <div className="of-empty-state">Loading mission state...</div>;
+	}
+
+	if (!run) {
+		return (
+			<div className="of-page">
+				<section className="of-hero-panel">
+					<div className="of-hero-copy">
+						<div className="of-run-state">
+							<span className="of-dot" />
+							<span>No active local run</span>
+						</div>
+						<h1>Start a real agent task</h1>
+						<p>Use the command bar to create a task, pair a bridge, dispatch it, and watch live terminal evidence here.</p>
+					</div>
+				</section>
+			</div>
+		);
+	}
+
 	const progress = deriveRunProgress(run.status);
 
 	return (
@@ -57,10 +81,10 @@ export function MissionControlScreen() {
 						<button className="of-secondary-action" onClick={() => setDiffDrawer(true, patchPreview, "Candidate patch")} type="button">
 							View Patch
 						</button>
-						<Link className="of-secondary-action" href={`/reports/${decisionReport.id}`}>
+						{decisionReport ? <Link className="of-secondary-action" href={`/reports/${decisionReport.id}`}>
 							Open Report
 							<ArrowUpRight aria-hidden="true" size={13} />
-						</Link>
+						</Link> : null}
 					</div>
 				</div>
 			</section>
@@ -115,9 +139,9 @@ export function MissionControlScreen() {
 							<span>Score</span>
 							<span>Evidence</span>
 						</div>
-						{decisionReport.candidateComparison?.map((candidate, index) => (
+						{decisionReport?.candidateComparison?.length ? decisionReport.candidateComparison.map((candidate, index) => (
 							<CandidateRow candidate={candidate} key={candidate.id} rank={index + 1} />
-						))}
+						)) : <div className="of-empty-state">Candidate evidence appears after a run completes.</div>}
 					</div>
 				</section>
 			</div>

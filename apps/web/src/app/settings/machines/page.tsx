@@ -5,10 +5,6 @@ export const metadata: Metadata = {
 	title: "Machines | AgentDeck",
 };
 
-export const unstable_instant = {
-	prefetch: "static",
-};
-
 export default function MachinesPage() {
 	return <MachineSettingsScreen />;
 }

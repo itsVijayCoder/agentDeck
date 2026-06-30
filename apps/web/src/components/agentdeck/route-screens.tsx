@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
@@ -17,26 +19,27 @@ import {
 	MonitorCog,
 	ShieldCheck,
 	SquareStack,
-	Terminal,
 	UserPlus,
 	Users,
 } from "lucide-react";
 import type { QueueItem, RunStatus } from "@agentdeck/core";
 import {
-	activeRun,
-	agentInstallations,
-	auditTrail,
-	decisionReport,
-	evalRuns,
-	observabilityMetrics,
-	policyRules,
-	queueItems,
-	retentionPolicies,
-	scheduledJobs,
-	workspaceMembers,
-	workspaceSummary,
-} from "@/lib/mock-agentdeck";
-import { CandidateRow, Metric, RiskBadge, VerificationBadge, VerificationCard } from "./primitives";
+	useAgentInventory,
+	useAuditTrail,
+	useDecisionReports,
+	useDispatchQueueItem,
+	useEvalRuns,
+	useObservabilityMetrics,
+	usePolicies,
+	useQueueItems,
+	useRetentionPolicies,
+	useScheduledJobs,
+	useSessionDetail,
+	useWorkspaceMembers,
+	useWorkspaceSummary,
+} from "@/lib/agentdeck-queries";
+import { MachinePairingPanel } from "./machine-pairing-panel";
+import { CandidateRow, Metric, RiskBadge, VerificationBadge } from "./primitives";
 
 const queueColumns: Array<{ label: string; status: RunStatus }> = [
 	{ label: "Queued", status: "queued" },
@@ -48,6 +51,15 @@ const queueColumns: Array<{ label: string; status: RunStatus }> = [
 ];
 
 export function ObservabilityScreen() {
+	const metrics = useObservabilityMetrics();
+	const evalRunQuery = useEvalRuns();
+	const audit = useAuditTrail();
+	const retention = useRetentionPolicies();
+	const observabilityMetrics = metrics.data ?? [];
+	const evalRuns = evalRunQuery.data ?? [];
+	const auditTrail = audit.data ?? [];
+	const retentionPolicies = retention.data ?? [];
+
 	return (
 		<div className="of-page">
 			<PageHeader
@@ -56,7 +68,7 @@ export function ObservabilityScreen() {
 				title="Observability"
 			/>
 			<div className="of-observability-grid">
-				{observabilityMetrics.map((metric) => (
+				{observabilityMetrics.length ? observabilityMetrics.map((metric) => (
 					<article className={`of-observability-card is-${metric.status}`} key={metric.id}>
 						<div>
 							<span>{metric.label}</span>
@@ -69,7 +81,7 @@ export function ObservabilityScreen() {
 							))}
 						</div>
 					</article>
-				))}
+				)) : <div className="of-empty-state">No metric snapshots recorded yet.</div>}
 			</div>
 			<div className="of-route-grid two">
 				<section className="of-panel">
@@ -107,7 +119,7 @@ export function ObservabilityScreen() {
 						<ClipboardList aria-hidden="true" size={18} />
 					</div>
 					<div className="of-eval-list">
-						{evalRuns.map((run) => (
+						{evalRuns.length ? evalRuns.map((run) => (
 							<article className={`of-eval-row is-${run.status}`} key={run.id}>
 								<div>
 									<strong>{run.dataset}</strong>
@@ -117,7 +129,7 @@ export function ObservabilityScreen() {
 								</div>
 								<b>{run.status === "queued" ? "Queued" : `${Math.round(run.score * 100)}%`}</b>
 							</article>
-						))}
+						)) : <div className="of-empty-state">No eval runs recorded.</div>}
 					</div>
 				</section>
 			</div>
@@ -131,7 +143,7 @@ export function ObservabilityScreen() {
 						<ShieldCheck aria-hidden="true" size={18} />
 					</div>
 					<div className="of-audit-list">
-						{auditTrail.map((entry) => (
+						{auditTrail.length ? auditTrail.map((entry) => (
 							<article key={entry.id}>
 								<span>{entry.timeLabel}</span>
 								<div>
@@ -142,7 +154,7 @@ export function ObservabilityScreen() {
 								</div>
 								<RiskBadge risk={entry.severity} />
 							</article>
-						))}
+						)) : <div className="of-empty-state">No audit entries yet.</div>}
 					</div>
 				</section>
 				<section className="of-panel">
@@ -154,7 +166,7 @@ export function ObservabilityScreen() {
 						<DatabaseZap aria-hidden="true" size={18} />
 					</div>
 					<div className="of-retention-list">
-						{retentionPolicies.map((policy) => (
+						{retentionPolicies.length ? retentionPolicies.map((policy) => (
 							<article className={`is-${policy.status}`} key={policy.id}>
 								<div>
 									<strong>{policy.resourceType}</strong>
@@ -164,7 +176,7 @@ export function ObservabilityScreen() {
 								</div>
 								<em>{policy.status}</em>
 							</article>
-						))}
+						)) : <div className="of-empty-state">No retention policies configured.</div>}
 					</div>
 				</section>
 			</div>
@@ -173,6 +185,9 @@ export function ObservabilityScreen() {
 }
 
 export function TeamScreen() {
+	const membersQuery = useWorkspaceMembers();
+	const workspaceMembers = membersQuery.data ?? [];
+
 	return (
 		<div className="of-page">
 			<PageHeader
@@ -190,7 +205,7 @@ export function TeamScreen() {
 						<UserPlus aria-hidden="true" size={18} />
 					</div>
 					<div className="of-member-list">
-						{workspaceMembers.map((member) => (
+						{workspaceMembers.length ? workspaceMembers.map((member) => (
 							<article className={`is-${member.role}`} key={member.id}>
 								<div className="of-member-avatar">{member.avatarLabel}</div>
 								<div className="of-member-identity">
@@ -204,7 +219,7 @@ export function TeamScreen() {
 									<small>{member.joinedLabel}</small>
 								</div>
 							</article>
-						))}
+						)) : <div className="of-empty-state">No workspace members found.</div>}
 					</div>
 				</section>
 				<section className="of-panel">
@@ -247,6 +262,9 @@ export function TeamScreen() {
 }
 
 export function AgentInventoryScreen() {
+	const agents = useAgentInventory();
+	const agentInstallations = agents.data ?? [];
+
 	return (
 		<div className="of-page">
 			<PageHeader
@@ -255,7 +273,7 @@ export function AgentInventoryScreen() {
 				title="Agent inventory"
 			/>
 			<div className="of-agent-grid of-agent-grid-wide">
-				{agentInstallations.map((agent) => (
+				{agentInstallations.length ? agentInstallations.map((agent) => (
 					<article className={`of-agent-card is-${agent.status}`} key={agent.id}>
 						<div className="of-agent-header">
 							<div className="of-agent-icon">{agent.name.slice(0, 2)}</div>
@@ -280,7 +298,7 @@ export function AgentInventoryScreen() {
 							))}
 						</div>
 					</article>
-				))}
+				)) : <div className="of-empty-state">Pair a bridge to detect installed agents.</div>}
 			</div>
 		</div>
 	);
@@ -294,32 +312,29 @@ export function MachineSettingsScreen() {
 				icon={<MonitorCog aria-hidden="true" size={20} />}
 				title="Machine settings"
 			/>
-			<section className="of-empty-pairing">
-				<div className="of-empty-pairing-icon">
-					<Terminal aria-hidden="true" size={26} />
+			<MachinePairingPanel />
+			<div className="of-route-band compact">
+				<div>
+					<LockKeyhole aria-hidden="true" size={16} />
+					<strong>Local-first</strong>
+					<span>Raw terminal logs stay local unless privacy mode allows sync.</span>
 				</div>
-				<h2>Pair your local machine</h2>
-				<p>A local bridge is required before AgentDeck can detect terminal agents or execute worktree jobs.</p>
-				<code>pnpm bridge pair ASTX-7429</code>
-				<div className="of-route-band compact">
-					<div>
-						<LockKeyhole aria-hidden="true" size={16} />
-						<strong>Local-first</strong>
-						<span>Raw terminal logs stay local unless privacy mode allows sync.</span>
-					</div>
-					<div>
-						<ShieldCheck aria-hidden="true" size={16} />
-						<strong>Human-controlled</strong>
-						<span>Risky commands stay approval-gated.</span>
-					</div>
+				<div>
+					<ShieldCheck aria-hidden="true" size={16} />
+					<strong>Human-controlled</strong>
+					<span>Risky commands stay approval-gated.</span>
 				</div>
-			</section>
+			</div>
 		</div>
 	);
 }
 
 export function PoliciesScreen() {
 	const providers = ["OpenAI", "Anthropic", "Google", "Qwen", "DeepSeek", "Ollama", "OpenRouter"];
+	const workspace = useWorkspaceSummary();
+	const policies = usePolicies();
+	const summary = workspace.data;
+	const policyRules = policies.data ?? [];
 
 	return (
 		<div className="of-page">
@@ -333,13 +348,13 @@ export function PoliciesScreen() {
 					<div className="of-panel-heading">
 						<div>
 							<h2>Privacy mode</h2>
-							<p>Current workspace: {workspaceSummary.name}</p>
+							<p>Current workspace: {summary?.name ?? "No workspace"}</p>
 						</div>
-						<span className="of-live-chip">{workspaceSummary.privacyMode}</span>
+						<span className="of-live-chip">{summary?.privacyMode ?? "unconfigured"}</span>
 					</div>
 					<div className="of-policy-mode-grid">
 						{["local-only", "metadata-only", "full-sync"].map((mode) => (
-							<article className={mode === workspaceSummary.privacyMode ? "of-policy-mode is-active" : "of-policy-mode"} key={mode}>
+							<article className={mode === summary?.privacyMode ? "of-policy-mode is-active" : "of-policy-mode"} key={mode}>
 								<strong>{mode}</strong>
 								<span>
 									{mode === "local-only"
@@ -374,7 +389,7 @@ export function PoliciesScreen() {
 					</div>
 				</div>
 				<div className="of-policy-list">
-					{policyRules.map((rule) => (
+					{policyRules.length ? policyRules.map((rule) => (
 						<article className={`of-policy-row is-${rule.defaultDecision}`} key={rule.id}>
 							<div>
 								<strong>{rule.action}</strong>
@@ -385,7 +400,7 @@ export function PoliciesScreen() {
 								<small>{rule.defaultDecision}</small>
 							</div>
 						</article>
-					))}
+					)) : <div className="of-empty-state">No policy rules configured.</div>}
 				</div>
 			</section>
 			<section className="of-panel">
@@ -407,6 +422,10 @@ export function PoliciesScreen() {
 }
 
 export function QueueScreen() {
+	const queue = useQueueItems();
+	const dispatch = useDispatchQueueItem();
+	const items = queue.data ?? [];
+
 	return (
 		<div className="of-page">
 			<PageHeader
@@ -416,17 +435,28 @@ export function QueueScreen() {
 			/>
 			<div className="of-queue-board">
 				{queueColumns.map((column) => {
-					const items = queueItems.filter((item) => item.status === column.status);
+					const columnItems = items.filter((item) => item.status === column.status);
 					return (
 						<section className="of-panel of-queue-column" key={column.status}>
 							<div className="of-panel-heading compact">
 								<div>
 									<h2>{column.label}</h2>
-									<p>{items.length} runs</p>
+									<p>{columnItems.length} runs</p>
 								</div>
 							</div>
 							<div className="of-stack">
-								{items.length ? items.map((item) => <QueueCard item={item} key={item.id} />) : <div className="of-empty-state">No runs.</div>}
+								{columnItems.length ? (
+									columnItems.map((item) => (
+										<QueueCard
+											dispatching={dispatch.isPending}
+											item={item}
+											key={item.id}
+											onDispatch={() => dispatch.mutate(item.id)}
+										/>
+									))
+								) : (
+									<div className="of-empty-state">No runs.</div>
+								)}
 							</div>
 						</section>
 					);
@@ -449,6 +479,10 @@ export function QueueScreen() {
 }
 
 export function ReportsScreen() {
+	const reportsQuery = useDecisionReports();
+	const reports = reportsQuery.data ?? [];
+	const report = reports[0];
+
 	return (
 		<div className="of-page">
 			<PageHeader
@@ -456,25 +490,25 @@ export function ReportsScreen() {
 				icon={<Files aria-hidden="true" size={20} />}
 				title="Reports"
 			/>
-			<section className="of-panel">
+			{report ? <section className="of-panel">
 				<div className="of-panel-heading">
 					<div>
-						<h2>{decisionReport.summary}</h2>
-						<p>{decisionReport.recommendation.replace("-", " ")}</p>
+						<h2>{report.summary}</h2>
+						<p>{report.recommendation.replace("-", " ")}</p>
 					</div>
-					<Link className="of-secondary-action" href={`/reports/${decisionReport.id}`}>
+					<Link className="of-secondary-action" href={`/reports/${report.id}`}>
 						Open detail
 					</Link>
 				</div>
 				<div className="of-report-grid wide">
-					<Metric label="Agents" value={decisionReport.agentsUsed.length.toString()} />
-					<Metric label="Files" value={decisionReport.filesChanged.toString()} />
-					<Metric label="Commands" value={decisionReport.commandsRun.toString()} />
-					<Metric label="Human input" value={decisionReport.humanInterventions.toString()} />
-					<Metric label="Cost" value={`$${decisionReport.costUsd.toFixed(2)}`} />
-					<Metric label="Latency" value={decisionReport.latencyLabel} />
+					<Metric label="Agents" value={report.agentsUsed.length.toString()} />
+					<Metric label="Files" value={report.filesChanged.toString()} />
+					<Metric label="Commands" value={report.commandsRun.toString()} />
+					<Metric label="Human input" value={report.humanInterventions.toString()} />
+					<Metric label="Cost" value={`$${report.costUsd.toFixed(2)}`} />
+					<Metric label="Latency" value={report.latencyLabel} />
 				</div>
-			</section>
+			</section> : <div className="of-empty-state">No decision reports yet.</div>}
 			<section className="of-panel">
 				<div className="of-panel-heading">
 					<div>
@@ -488,9 +522,9 @@ export function ReportsScreen() {
 						<span>Score</span>
 						<span>Evidence</span>
 					</div>
-					{decisionReport.candidateComparison?.map((candidate, index) => (
+					{report?.candidateComparison?.length ? report.candidateComparison.map((candidate, index) => (
 						<CandidateRow candidate={candidate} key={candidate.id} rank={index + 1} />
-					))}
+					)) : <div className="of-empty-state">No candidate evidence recorded.</div>}
 				</div>
 			</section>
 		</div>
@@ -498,26 +532,29 @@ export function ReportsScreen() {
 }
 
 export function ReportDetailScreen({ reportId }: { reportId: string }) {
+	const reportsQuery = useDecisionReports();
+	const report = (reportsQuery.data ?? []).find((item) => item.id === reportId) ?? reportsQuery.data?.[0];
+
 	return (
 		<div className="of-page">
 			<PageHeader
-				description={`Report ${reportId} / session ${decisionReport.sessionId}`}
+				description={report ? `Report ${reportId} / session ${report.sessionId}` : `Report ${reportId}`}
 				icon={<FileCode2 aria-hidden="true" size={20} />}
 				title="Decision report detail"
 			/>
-			<section className="of-panel">
+			{report ? <section className="of-panel">
 				<div className="of-panel-heading">
 					<div>
-						<h2>Recommendation: {decisionReport.recommendation.replace("-", " ")}</h2>
-						<p>{decisionReport.summary}</p>
+						<h2>Recommendation: {report.recommendation.replace("-", " ")}</h2>
+						<p>{report.summary}</p>
 					</div>
 				</div>
 				<div className="of-route-grid three">
-					<Metric label="Confidence" value={`${Math.round(decisionReport.confidence * 100)}%`} />
-					<Metric label="Files changed" value={decisionReport.filesChanged.toString()} />
-					<Metric label="Commands" value={decisionReport.commandsRun.toString()} />
+					<Metric label="Confidence" value={`${Math.round(report.confidence * 100)}%`} />
+					<Metric label="Files changed" value={report.filesChanged.toString()} />
+					<Metric label="Commands" value={report.commandsRun.toString()} />
 				</div>
-			</section>
+			</section> : <div className="of-empty-state">Report not found.</div>}
 			<section className="of-panel">
 				<div className="of-panel-heading">
 					<div>
@@ -526,9 +563,7 @@ export function ReportDetailScreen({ reportId }: { reportId: string }) {
 					</div>
 				</div>
 				<div className="of-stack">
-					{activeRun.verification.map((result) => (
-						<VerificationCard key={result.id} result={result} />
-					))}
+					<div className="of-empty-state">Open the linked session for verifier event replay.</div>
 				</div>
 			</section>
 		</div>
@@ -536,6 +571,9 @@ export function ReportDetailScreen({ reportId }: { reportId: string }) {
 }
 
 export function SchedulesScreen() {
+	const schedulesQuery = useScheduledJobs();
+	const scheduledJobs = schedulesQuery.data ?? [];
+
 	return (
 		<div className="of-page">
 			<PageHeader
@@ -552,7 +590,7 @@ export function SchedulesScreen() {
 						</div>
 					</div>
 					<div className="of-schedule-list standalone">
-						{scheduledJobs.map((job) => (
+						{scheduledJobs.length ? scheduledJobs.map((job) => (
 							<article className={job.enabled ? "of-schedule-row is-enabled" : "of-schedule-row"} key={job.id}>
 								<div>
 									<strong>{job.name}</strong>
@@ -562,7 +600,7 @@ export function SchedulesScreen() {
 								</div>
 								<span>{job.nextRunLabel}</span>
 							</article>
-						))}
+						)) : <div className="of-empty-state">No schedules configured.</div>}
 					</div>
 				</section>
 				<section className="of-panel">
@@ -593,10 +631,21 @@ export function SchedulesScreen() {
 }
 
 export function SessionDetailScreen({ sessionId }: { sessionId: string }) {
+	const session = useSessionDetail(sessionId);
+	const run = session.data;
+
+	if (session.isLoading) {
+		return <div className="of-empty-state">Loading session...</div>;
+	}
+
+	if (!run) {
+		return <div className="of-empty-state">Session has no persisted run data yet.</div>;
+	}
+
 	return (
 		<div className="of-page">
 			<PageHeader
-				description={`${activeRun.title} / ${sessionId}`}
+				description={`${run.title} / ${sessionId}`}
 				icon={<SquareStack aria-hidden="true" size={20} />}
 				title="Session detail"
 			/>
@@ -609,7 +658,7 @@ export function SessionDetailScreen({ sessionId }: { sessionId: string }) {
 						</div>
 					</div>
 					<div className="of-timeline">
-						{activeRun.timeline.map((event) => (
+						{run.timeline.map((event) => (
 							<article className={`of-timeline-event is-${event.status}`} key={event.id}>
 								<span>{event.timeLabel}</span>
 								<div>
@@ -629,13 +678,13 @@ export function SessionDetailScreen({ sessionId }: { sessionId: string }) {
 						</div>
 					</div>
 					<div className="of-replay-list">
-						{activeRun.terminalTabs[0]?.lines.map((line) => (
+						{run.terminalTabs[0]?.lines.length ? run.terminalTabs[0].lines.map((line) => (
 							<code className={`is-${line.tone ?? "default"}`} key={line.id}>
 								<span>{line.timestamp}</span>
 								{line.prompt ? <strong>{line.prompt}</strong> : null}
 								{line.text}
 							</code>
-						))}
+						)) : <div className="of-empty-state">Terminal output appears after dispatch.</div>}
 					</div>
 				</section>
 			</div>
@@ -650,9 +699,9 @@ export function SessionDetailScreen({ sessionId }: { sessionId: string }) {
 					<div className="of-message-tree">
 						<span>user.task</span>
 						<span>router.plan</span>
-						<span>claude.tool.start</span>
+						<span>bridge.dispatch</span>
 						<span>verifier.result</span>
-						<span>judge.pending</span>
+						<span>report.pending</span>
 					</div>
 				</section>
 				<section className="of-panel">
@@ -663,22 +712,16 @@ export function SessionDetailScreen({ sessionId }: { sessionId: string }) {
 						</div>
 					</div>
 					<div className="of-artifact-list">
-						<article>
-							<CheckCircle2 aria-hidden="true" size={16} />
-							<div>
-								<strong>candidate-a.patch</strong>
-								<span>OpenCode / verification passed</span>
-							</div>
-							<VerificationBadge status="passed" />
-						</article>
-						<article>
-							<Clock3 aria-hidden="true" size={16} />
-							<div>
-								<strong>decision-report.md</strong>
-								<span>Synthesis still collecting evidence</span>
-							</div>
-							<VerificationBadge status="warning" />
-						</article>
+						{run.verification.map((result) => (
+							<article key={result.id}>
+								{result.status === "passed" ? <CheckCircle2 aria-hidden="true" size={16} /> : <Clock3 aria-hidden="true" size={16} />}
+								<div>
+									<strong>{result.label}</strong>
+									<span>{result.summary}</span>
+								</div>
+								<VerificationBadge status={result.status} />
+							</article>
+						))}
 					</div>
 				</section>
 			</div>
@@ -698,7 +741,15 @@ function PageHeader({ description, icon, title }: { description: string; icon: R
 	);
 }
 
-function QueueCard({ item }: { item: QueueItem }) {
+function QueueCard({
+	dispatching,
+	item,
+	onDispatch,
+}: {
+	dispatching: boolean;
+	item: QueueItem;
+	onDispatch: () => void;
+}) {
 	return (
 		<article className="of-queue-card">
 			<div>
@@ -715,6 +766,11 @@ function QueueCard({ item }: { item: QueueItem }) {
 				<span>{item.scheduleWindow}</span>
 				<RiskBadge risk={item.risk} />
 			</div>
+			{item.status === "queued" || item.status === "waiting-machine" ? (
+				<button className="of-secondary-action small" disabled={dispatching} onClick={onDispatch} type="button">
+					Dispatch
+				</button>
+			) : null}
 		</article>
 	);
 }

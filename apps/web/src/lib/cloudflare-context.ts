@@ -12,8 +12,22 @@ export type AgentDeckBindings = CloudflareEnv & {
 	SESSION_HUB: DurableObjectNamespace<SessionHub>;
 };
 
-export async function getAgentDeckBindings(): Promise<AgentDeckBindings> {
+export type LocalDispatchBindings = Pick<AgentDeckBindings, "AGENTDECK_DB" | "SESSION_HUB">;
+
+async function getCloudflareEnv(): Promise<CloudflareEnv> {
 	const { env } = await getCloudflareContext({ async: true });
+	return env;
+}
+
+function requireBinding<T>(binding: T | undefined | null, name: keyof AgentDeckBindings): T {
+	if (!binding) {
+		throw new Error(`AgentDeck Cloudflare binding ${name} is not configured.`);
+	}
+	return binding;
+}
+
+export async function getAgentDeckBindings(): Promise<AgentDeckBindings> {
+	const env = await getCloudflareEnv();
 
 	if (!env.AGENTDECK_DB || !env.AGENTDECK_ARTIFACTS || !env.AGENTDECK_QUEUE || !env.RUN_WORKFLOW || !env.SESSION_HUB) {
 		throw new Error("AgentDeck Cloudflare bindings are not configured.");
@@ -23,16 +37,29 @@ export async function getAgentDeckBindings(): Promise<AgentDeckBindings> {
 }
 
 export async function getRepositories(): Promise<AgentDeckRepositories> {
-	const env = await getAgentDeckBindings();
-	return createAgentDeckRepositories(env.AGENTDECK_DB);
+	const env = await getCloudflareEnv();
+	return createAgentDeckRepositories(requireBinding(env.AGENTDECK_DB, "AGENTDECK_DB"));
 }
 
 export async function getR2(): Promise<R2Bucket> {
-	const env = await getAgentDeckBindings();
-	return env.AGENTDECK_ARTIFACTS;
+	const env = await getCloudflareEnv();
+	return requireBinding(env.AGENTDECK_ARTIFACTS, "AGENTDECK_ARTIFACTS");
 }
 
 export async function getRunQueue(): Promise<Queue<AgentDeckQueueMessage>> {
-	const env = await getAgentDeckBindings();
-	return env.AGENTDECK_QUEUE;
+	const env = await getCloudflareEnv();
+	return requireBinding(env.AGENTDECK_QUEUE, "AGENTDECK_QUEUE");
+}
+
+export async function getSessionHub(): Promise<DurableObjectNamespace<SessionHub>> {
+	const env = await getCloudflareEnv();
+	return requireBinding(env.SESSION_HUB, "SESSION_HUB");
+}
+
+export async function getLocalDispatchBindings(): Promise<LocalDispatchBindings> {
+	const env = await getCloudflareEnv();
+	return {
+		AGENTDECK_DB: requireBinding(env.AGENTDECK_DB, "AGENTDECK_DB"),
+		SESSION_HUB: requireBinding(env.SESSION_HUB, "SESSION_HUB"),
+	};
 }

@@ -16,6 +16,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 		const { id } = await params;
 		const repositories = await getRepositories();
 		const existing = requireWorkspaceRow(await repositories.queue.findById(id), user, "Queue item");
+		if (body.sessionId) {
+			const session = requireWorkspaceRow(await repositories.sessions.findById(body.sessionId), user, "Session");
+			if (session.workspace_id !== existing.workspace_id) {
+				conflict("Queue item session does not belong to the current workspace.");
+			}
+		}
 
 		if (body.status) {
 			const transition = transitionRunStatus(existing.status, body.status);
@@ -33,6 +39,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 			priority: body.priority,
 			runAfter: body.runAfter,
 			scheduleWindow: body.scheduleWindow,
+			sessionId: body.sessionId,
 			status: body.status,
 		});
 		if (!queueItem) {

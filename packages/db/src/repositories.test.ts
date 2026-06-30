@@ -263,6 +263,7 @@ class MemoryD1 implements QueryableD1 {
 			const [
 				id,
 				workspace_id,
+				session_id,
 				created_by,
 				task,
 				priority,
@@ -288,6 +289,7 @@ class MemoryD1 implements QueryableD1 {
 				priority,
 				run_after,
 				schedule_window_json,
+				session_id,
 				status,
 				task,
 				updated_at,
@@ -298,6 +300,7 @@ class MemoryD1 implements QueryableD1 {
 
 		if (normalized.startsWith("update queue_items set")) {
 			const [
+				session_id,
 				priority,
 				status,
 				run_after,
@@ -319,6 +322,7 @@ class MemoryD1 implements QueryableD1 {
 				priority,
 				run_after,
 				schedule_window_json,
+				session_id,
 				status,
 				updated_at,
 			});
@@ -599,6 +603,10 @@ class MemoryD1 implements QueryableD1 {
 
 		if (normalized.includes("from queue_items where workspace_id = ? and status = ?")) {
 			return limitRows(this.rows("queue_items").filter((row) => row.workspace_id === values[0] && row.status === values[1]), values[2]);
+		}
+
+		if (normalized.includes("from queue_items where session_id = ?")) {
+			return limitRows(this.rows("queue_items").filter((row) => row.session_id === values[0]), values[1]);
 		}
 
 		if (normalized.includes("from queue_items where workspace_id = ? and created_at >= ?")) {

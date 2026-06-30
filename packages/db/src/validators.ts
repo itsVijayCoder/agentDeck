@@ -89,6 +89,7 @@ export const auditActionSchema = z.enum([
 	"session.resumed",
 	"session.cancelled",
 	"queue.item_created",
+	"queue.item_dispatched",
 	"queue.item_cancelled",
 	"schedule.created",
 	"schedule.updated",
@@ -408,6 +409,7 @@ export const createQueueItemInputSchema = z
 		priority: queuePrioritySchema,
 		runAfter: optionalNullableTimestampSchema,
 		scheduleWindow: jsonValueSchema.nullable().optional(),
+		sessionId: optionalNullableNonBlankStringSchema,
 		status: runStatusSchema.optional(),
 		task: nonBlankStringSchema,
 		updatedAt: optionalTimestampSchema,
@@ -426,6 +428,7 @@ export const updateQueueItemInputSchema = z
 		priority: queuePrioritySchema.optional(),
 		runAfter: optionalNullableTimestampSchema,
 		scheduleWindow: jsonValueSchema.nullable().optional(),
+		sessionId: optionalNullableNonBlankStringSchema,
 		status: runStatusSchema.optional(),
 		updatedAt: optionalTimestampSchema,
 	})

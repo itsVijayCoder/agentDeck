@@ -86,6 +86,7 @@ export const createQueueItemRequestSchema = z
 		priority: queuePrioritySchema.default("normal"),
 		runAfter: optionalNullableIsoTimestampSchema,
 		scheduleWindow: jsonValueSchema.nullable().optional(),
+		sessionId: optionalNullableNonBlankStringSchema,
 		task: nonBlankStringSchema,
 	})
 	.strict();
@@ -99,6 +100,7 @@ export const updateQueueItemRequestSchema = z
 		priority: queuePrioritySchema.optional(),
 		runAfter: optionalNullableIsoTimestampSchema,
 		scheduleWindow: jsonValueSchema.nullable().optional(),
+		sessionId: optionalNullableNonBlankStringSchema,
 		status: runStatusSchema.optional(),
 	})
 	.strict();

@@ -57,7 +57,9 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
 	font: inherit;
 }
 
@@ -66,9 +68,16 @@ button {
 }
 
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
 	outline: 2px solid var(--cyan);
 	outline-offset: 2px;
+}
+
+button:disabled {
+	cursor: not-allowed;
+	opacity: 0.58;
 }
 
 .of-shell {
@@ -76,6 +85,14 @@ input:focus-visible {
 	grid-template-columns: 236px minmax(0, 1fr);
 	min-height: 100vh;
 	overflow: hidden;
+}
+
+.of-shell-loading {
+	display: grid;
+	min-height: 100vh;
+	place-items: center;
+	color: var(--muted);
+	font-size: 0.9rem;
 }
 
 .of-nav {
@@ -2188,6 +2205,200 @@ kbd {
 	border-radius: 8px;
 	background: rgba(255, 255, 255, 0.05);
 	color: var(--foreground);
+}
+
+.of-setup-shell {
+	display: grid;
+	place-items: center;
+	min-height: 100vh;
+	padding: 24px;
+}
+
+.of-setup-panel {
+	display: grid;
+	gap: 16px;
+	width: min(760px, 100%);
+	padding: 18px;
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	background: var(--panel);
+	box-shadow: var(--shadow);
+}
+
+.of-setup-panel h1,
+.of-dialog-title,
+.of-dialog [data-radix-dialog-title] {
+	margin: 0 0 6px;
+	font-size: 26px;
+	line-height: 1.12;
+}
+
+.of-setup-panel p,
+.of-dialog [data-radix-dialog-description] {
+	margin: 0;
+	color: var(--muted);
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.of-dialog-overlay {
+	position: fixed;
+	z-index: 70;
+	inset: 0;
+	background: rgba(2, 6, 14, 0.72);
+	backdrop-filter: blur(8px);
+}
+
+.of-dialog {
+	position: fixed;
+	z-index: 75;
+	top: 50%;
+	left: 50%;
+	width: min(720px, calc(100vw - 28px));
+	max-height: min(780px, calc(100vh - 28px));
+	padding: 16px;
+	overflow: auto;
+	transform: translate(-50%, -50%);
+	border: 1px solid rgba(53, 213, 255, 0.28);
+	border-radius: var(--radius);
+	background: rgba(9, 14, 24, 0.98);
+	box-shadow: var(--shadow);
+}
+
+.of-form-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 12px;
+}
+
+.of-form-grid label {
+	display: grid;
+	gap: 6px;
+	min-width: 0;
+}
+
+.of-form-grid label > span {
+	color: var(--muted);
+	font-size: 12px;
+}
+
+.of-form-grid input,
+.of-form-grid select,
+.of-form-grid textarea {
+	width: 100%;
+	min-height: 38px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.055);
+	color: var(--foreground);
+}
+
+.of-form-grid input,
+.of-form-grid select {
+	padding: 0 10px;
+}
+
+.of-form-grid textarea {
+	padding: 10px;
+	resize: vertical;
+	line-height: 1.45;
+}
+
+.of-form-full,
+.of-form-error,
+.of-form-submit {
+	grid-column: 1 / -1;
+}
+
+.of-form-error {
+	padding: 10px;
+	border: 1px solid rgba(255, 107, 107, 0.28);
+	border-radius: 8px;
+	background: rgba(255, 107, 107, 0.08);
+	color: #ffdada;
+	font-size: 13px;
+}
+
+.of-check-grid {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 8px;
+}
+
+.of-check-grid label {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	min-height: 34px;
+	padding: 0 9px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.04);
+}
+
+.of-check-grid input {
+	width: 14px;
+	min-height: 14px;
+}
+
+.of-command-copy {
+	display: grid;
+	grid-template-columns: 20px minmax(0, 1fr) 32px max-content;
+	align-items: center;
+	gap: 8px;
+	padding: 10px;
+	border: 1px solid rgba(53, 213, 255, 0.24);
+	border-radius: 8px;
+	background: rgba(53, 213, 255, 0.07);
+}
+
+.of-command-copy code {
+	min-width: 0;
+	overflow: auto;
+	color: #dff8ff;
+	font-family: var(--font-geist-mono), monospace;
+	font-size: 12px;
+	white-space: nowrap;
+}
+
+.of-command-copy span {
+	color: var(--muted);
+	font-size: 12px;
+}
+
+.of-machine-list,
+.of-machine-row {
+	display: grid;
+	gap: 10px;
+}
+
+.of-machine-row {
+	grid-template-columns: minmax(0, 1fr) max-content;
+	padding: 10px;
+	border: 1px solid rgba(148, 163, 184, 0.14);
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.04);
+}
+
+.of-machine-row.is-online {
+	border-color: rgba(85, 217, 139, 0.28);
+}
+
+.of-machine-row strong,
+.of-machine-row span,
+.of-machine-row em {
+	display: block;
+}
+
+.of-machine-row span,
+.of-machine-row em {
+	color: var(--muted);
+	font-size: 12px;
+	font-style: normal;
+}
+
+.of-machine-row .of-chip-row {
+	grid-column: 1 / -1;
 }
 
 .of-diff-drawer {

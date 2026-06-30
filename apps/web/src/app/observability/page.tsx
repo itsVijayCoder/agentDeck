@@ -5,10 +5,6 @@ export const metadata: Metadata = {
 	title: "Observability | AgentDeck",
 };
 
-export const unstable_instant = {
-	prefetch: "static",
-};
-
 export default function ObservabilityPage() {
 	return <ObservabilityScreen />;
 }

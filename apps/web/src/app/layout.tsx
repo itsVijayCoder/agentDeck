@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
 import { AppShell } from "@/components/agentdeck/app-shell";
 import { QueryProvider } from "@/lib/query-provider";
 import "./globals.css";
@@ -31,7 +32,9 @@ export default function RootLayout({
 			</head>
 			<body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
 				<QueryProvider>
-					<AppShell>{children}</AppShell>
+					<Suspense fallback={<div className="of-shell-loading">Loading AgentDeck</div>}>
+						<AppShell>{children}</AppShell>
+					</Suspense>
 				</QueryProvider>
 			</body>
 		</html>

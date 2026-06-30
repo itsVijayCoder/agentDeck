@@ -711,6 +711,16 @@ async function ensureQueueSession(
 	workspace: WorkspaceRow,
 	queueItem: QueueItemRow,
 ): Promise<{ id: string; title: string }> {
+	if (queueItem.session_id) {
+		const linked = await repositories.sessions.findById(queueItem.session_id);
+		if (linked) {
+			if (linked.status === "draft") {
+				await repositories.sessions.updateStatus(linked.id, "queued");
+			}
+			return linked;
+		}
+	}
+
 	const sessionId = `queue_${sanitizeId(queueItem.id)}`;
 	const existing = await repositories.sessions.findById(sessionId);
 	if (existing) {

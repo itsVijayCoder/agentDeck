@@ -25,6 +25,7 @@ import { transitionApprovalStatus, type ApprovalRequest, type BrowserControlMess
 import {
 	useActiveRun,
 	useAgentInventory,
+	useApprovals,
 	useAuditTrail,
 	useDecisionReports,
 	useEvalRuns,
@@ -36,6 +37,7 @@ import {
 	useWorkspaceMembers,
 	useWorkspaceSummary,
 } from "@/lib/agentdeck-queries";
+import { getAgentDeckDataMode } from "@/lib/data-mode";
 import { useSessionWebSocket } from "@/lib/use-session-websocket";
 import { useUiStore } from "@/store/ui-store";
 import {
@@ -48,9 +50,11 @@ import {
 	VerificationCard,
 } from "./primitives";
 import { CommandPalette } from "./command-palette";
+import { NewTaskDialog } from "./new-task-dialog";
+import { SetupScreen } from "./setup-screen";
 import { TerminalDock } from "./terminal-dock";
 import { defaultTerminalLeaseState, deriveTerminalLeaseStates, type TerminalLeaseState } from "./terminal-lease";
-import { activeRun, decisionReport, policyRules, queueItems, scheduledJobs, workspaceSummary } from "@/lib/mock-agentdeck";
+import type { ActiveRun, ApprovalStatus } from "@agentdeck/core";
 
 const navItems = [
 	{ href: "/mission-control", icon: Radar, id: "mission", label: "Mission" },
@@ -79,18 +83,27 @@ diff --git a/src/auth/auth-refresh.spec.ts b/src/auth/auth-refresh.spec.ts
 +});`;
 
 export function AppShell({ children }: { children: ReactNode }) {
-	const run = activeRun;
-	const workspace = workspaceSummary;
+	const pathname = usePathname();
+	const dataMode = getAgentDeckDataMode();
+	const activeRunQuery = useActiveRun();
+	const workspaceQuery = useWorkspaceSummary();
+	const queueQuery = useQueueItems();
+	const reportsQuery = useDecisionReports();
+	const schedulesQuery = useScheduledJobs();
+	const agentsQuery = useAgentInventory();
+	const workspace = workspaceQuery.data;
+	const run = activeRunQuery.data;
 	const activeTerminalTabId = useUiStore((state) => state.activeTerminalTabId);
 	const setActiveTerminalTab = useUiStore((state) => state.setActiveTerminalTab);
 	const setTerminalLeaseMode = useUiStore((state) => state.setTerminalLeaseMode);
 	const [localLeaseStates, setLocalLeaseStates] = useState<Record<string, TerminalLeaseState>>({});
-	const sessionSocket = useSessionWebSocket(run.sessionId);
+	const [newTaskOpen, setNewTaskOpen] = useState(false);
+	const sessionSocket = useSessionWebSocket(run?.sessionId ?? null);
 	const liveLeaseStates = useMemo(() => deriveTerminalLeaseStates(sessionSocket.events), [sessionSocket.events]);
-	const selectedTerminalTabId = activeTerminalTabId ?? run.terminalTabs[0]?.id ?? "";
+	const selectedTerminalTabId = activeTerminalTabId ?? run?.terminalTabs[0]?.id ?? "";
 	const selectedTerminalTab = useMemo(
-		() => run.terminalTabs.find((tab) => tab.id === selectedTerminalTabId) ?? run.terminalTabs[0],
-		[run.terminalTabs, selectedTerminalTabId],
+		() => run?.terminalTabs.find((tab) => tab.id === selectedTerminalTabId) ?? run?.terminalTabs[0],
+		[run, selectedTerminalTabId],
 	);
 	const activeLeaseState = selectedTerminalTab
 		? liveLeaseStates[selectedTerminalTab.runId] ?? localLeaseStates[selectedTerminalTab.runId] ?? defaultTerminalLeaseState
@@ -134,28 +147,60 @@ export function AppShell({ children }: { children: ReactNode }) {
 		[applyLocalTerminalControl, sessionSocket],
 	);
 
+	if (pathname === "/setup") {
+		return <>{children}</>;
+	}
+
+	if (dataMode === "live" && workspaceQuery.isLoading) {
+		return <SetupScreen initialError="Loading live workspace..." />;
+	}
+
+	if (dataMode === "live" && (!workspace || workspaceQuery.isError)) {
+		const error = workspaceQuery.error instanceof Error ? workspaceQuery.error.message : undefined;
+		return <SetupScreen initialError={error} />;
+	}
+
+	const queueItems = queueQuery.data ?? [];
+	const reports = reportsQuery.data ?? [];
+	const scheduledJobs = schedulesQuery.data ?? [];
+	const agents = agentsQuery.data ?? [];
+	const safeWorkspace =
+		workspace ??
+		({
+			branch: "main",
+			costTodayUsd: 0,
+			id: "workspace",
+			machineCount: 0,
+			name: "AgentDeck",
+			pendingApprovals: 0,
+			privacyMode: "metadata-only",
+			repo: "Local repository",
+		} as const);
+
 	return (
 		<Tooltip.Provider delayDuration={180}>
 			<div className="of-shell">
 				<LeftNavigation
-					agentCount={run.terminalTabs.filter((tab) => tab.status !== "idle").length}
-					approvalCount={run.approvals.filter((approval) => approval.status === "pending").length}
+					agentCount={agents.length}
+					approvalCount={safeWorkspace.pendingApprovals}
 					queueCount={queueItems.length}
-					reportCount={decisionReport.candidateComparison?.length ?? 0}
+					reportCount={reports.length}
+					scheduleCount={scheduledJobs.length}
 				/>
 				<div className="of-main">
 					<TopCommandBar
-						costTodayUsd={workspace.costTodayUsd}
-						machineCount={workspace.machineCount}
-						pendingApprovals={workspace.pendingApprovals}
-						privacyMode={workspace.privacyMode}
-						repo={workspace.repo}
-						branch={workspace.branch}
-						workspaceName={workspace.name}
+						branch={safeWorkspace.branch}
+						costTodayUsd={safeWorkspace.costTodayUsd}
+						machineCount={safeWorkspace.machineCount}
+						onNewTask={() => setNewTaskOpen(true)}
+						pendingApprovals={safeWorkspace.pendingApprovals}
+						privacyMode={safeWorkspace.privacyMode}
+						repo={safeWorkspace.repo}
+						workspaceName={safeWorkspace.name}
 					/>
 					<main className="of-workspace">
 						<section className="of-center">{children}</section>
-						<RightInspector />
+						<RightInspector onControl={sendTerminalControl} run={run} />
 					</main>
 					<TerminalDock
 						connected={sessionSocket.connected}
@@ -165,11 +210,17 @@ export function AppShell({ children }: { children: ReactNode }) {
 						onControl={sendTerminalControl}
 						onSelectTab={setActiveTerminalTab}
 						selectedTabId={selectedTerminalTabId}
-						sessionId={run.sessionId}
-						tabs={run.terminalTabs}
+						sessionId={run?.sessionId ?? "no-session"}
+						tabs={run?.terminalTabs ?? []}
 					/>
 				</div>
 				<CommandPalette />
+				<NewTaskDialog
+					defaultPrivacyMode={safeWorkspace.privacyMode}
+					defaultRepositoryPath={safeWorkspace.repo}
+					onOpenChange={setNewTaskOpen}
+					open={newTaskOpen}
+				/>
 				<DiffDrawer />
 				<Suspense fallback={null}>
 					<ApiDataWarmup />
@@ -200,11 +251,13 @@ function LeftNavigation({
 	approvalCount,
 	queueCount,
 	reportCount,
+	scheduleCount,
 }: {
 	agentCount: number;
 	approvalCount: number;
 	queueCount: number;
 	reportCount: number;
+	scheduleCount: number;
 }) {
 	const pathname = usePathname();
 	const counts: Record<string, number | undefined> = {
@@ -212,7 +265,7 @@ function LeftNavigation({
 		policies: approvalCount,
 		queue: queueCount,
 		reports: reportCount,
-		schedules: scheduledJobs.length,
+		schedules: scheduleCount,
 	};
 
 	return (
@@ -246,10 +299,10 @@ function LeftNavigation({
 				})}
 			</nav>
 			<div className="of-bridge-card">
-				<span className="of-dot is-online" />
+				<span className={agentCount ? "of-dot is-online" : "of-dot"} />
 				<div>
-					<strong>2 machines online</strong>
-					<span>Bridge paired and streaming</span>
+					<strong>{agentCount ? `${agentCount} agents detected` : "No bridge paired"}</strong>
+					<span>{agentCount ? "Bridge inventory is live" : "Pair a local bridge to execute runs"}</span>
 				</div>
 			</div>
 		</aside>
@@ -264,17 +317,17 @@ function TopCommandBar({
 	privacyMode,
 	repo,
 	workspaceName,
+	onNewTask,
 }: {
 	branch: string;
 	costTodayUsd: number;
 	machineCount: number;
+	onNewTask: () => void;
 	pendingApprovals: number;
 	privacyMode: string;
 	repo: string;
 	workspaceName: string;
 }) {
-	const commandPaletteOpen = useUiStore((state) => state.commandPaletteOpen);
-	const setCommandPaletteOpen = useUiStore((state) => state.setCommandPaletteOpen);
 	const privacyDecision = getPrivacyStorageDecision(privacyMode as "local-only" | "metadata-only" | "full-sync");
 
 	return (
@@ -303,12 +356,12 @@ function TopCommandBar({
 				<span className="of-privacy">R2 {privacyDecision.r2}</span>
 			</div>
 			<button
-				className={commandPaletteOpen ? "of-task-input is-open" : "of-task-input"}
-				onClick={() => setCommandPaletteOpen(!commandPaletteOpen)}
+				className="of-task-input"
+				onClick={onNewTask}
 				type="button"
 			>
 				<span>Ask agents to investigate, patch, verify, or schedule work...</span>
-				<kbd>Cmd K</kbd>
+				<kbd>New</kbd>
 			</button>
 			<div className="of-top-metrics">
 				<Metric label="Machines" value={machineCount.toString()} />
@@ -322,18 +375,44 @@ function TopCommandBar({
 	);
 }
 
-function RightInspector() {
-	const run = activeRun;
+function RightInspector({
+	onControl,
+	run,
+}: {
+	onControl: (message: BrowserControlMessage) => boolean;
+	run: ActiveRun | null | undefined;
+}) {
+	const reportQuery = useDecisionReports();
+	const policiesQuery = usePolicies();
+	const approvalsQuery = useApprovals();
+	const decisionReport = reportQuery.data?.[0];
+	const policyRules = policiesQuery.data ?? [];
 	const selectedGraphNodeId = useUiStore((state) => state.selectedGraphNodeId);
 	const [approvedIds, setApprovedIds] = useState<Set<string>>(() => new Set());
-	const selectedNode = run.graphNodes.find((node) => node.id === selectedGraphNodeId) ?? run.graphNodes[0];
-	const pendingApprovals = run.approvals.filter((approval) => !approvedIds.has(approval.id));
+	const selectedNode = run?.graphNodes.find((node) => node.id === selectedGraphNodeId) ?? run?.graphNodes[0];
+	const pendingApprovals = (approvalsQuery.data ?? run?.approvals ?? []).filter((approval) => !approvedIds.has(approval.id));
 
-	function approveRequest(approval: ApprovalRequest) {
-		const transition = transitionApprovalStatus(approval.status, "approved");
+	function decideRequest(approval: ApprovalRequest, status: Extract<ApprovalStatus, "approved" | "rejected">) {
+		const transition = transitionApprovalStatus(approval.status, status);
 		if (transition.ok) {
+			onControl({ approvalId: approval.id, status, type: "approval.decide" });
 			setApprovedIds((current) => new Set(current).add(approval.id));
 		}
+	}
+
+	if (!run) {
+		return (
+			<aside className="of-inspector">
+				<section className="of-panel">
+					<div className="of-panel-heading compact">
+						<div>
+							<h2>No active run</h2>
+							<p>Create or dispatch a task to populate live run context.</p>
+						</div>
+					</div>
+				</section>
+			</aside>
+		);
 	}
 
 	return (
@@ -341,15 +420,15 @@ function RightInspector() {
 			<section className="of-panel of-selected-node">
 				<div className="of-panel-heading compact">
 					<div>
-						<h2>{selectedNode.label}</h2>
+						<h2>{selectedNode?.label ?? "Run"}</h2>
 						<p>
-							{graphStatusLabels[selectedNode.status]} / {selectedNode.subtitle}
+							{selectedNode ? graphStatusLabels[selectedNode.status] : "Waiting"} / {selectedNode?.subtitle ?? run.status}
 						</p>
 					</div>
-					<StatusChip status={selectedNode.status} />
+					{selectedNode ? <StatusChip status={selectedNode.status} /> : null}
 				</div>
 			</section>
-			<section className="of-panel">
+			{decisionReport ? <section className="of-panel">
 				<div className="of-panel-heading compact">
 					<div>
 						<h2>Decision report</h2>
@@ -376,7 +455,7 @@ function RightInspector() {
 						))}
 					</div>
 				) : null}
-			</section>
+			</section> : null}
 			<section className="of-panel">
 				<div className="of-panel-heading compact">
 					<div>
@@ -407,10 +486,10 @@ function RightInspector() {
 								</div>
 								<p>{approval.description}</p>
 								<div className="of-approval-actions">
-									<button onClick={() => approveRequest(approval)} type="button">
+									<button onClick={() => decideRequest(approval, "approved")} type="button">
 										Approve once
 									</button>
-									<button type="button">Reject</button>
+									<button onClick={() => decideRequest(approval, "rejected")} type="button">Reject</button>
 									<button type="button">Details</button>
 								</div>
 							</article>

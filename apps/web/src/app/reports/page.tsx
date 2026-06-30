@@ -5,10 +5,6 @@ export const metadata: Metadata = {
 	title: "Reports | AgentDeck",
 };
 
-export const unstable_instant = {
-	prefetch: "static",
-};
-
 export default function ReportsPage() {
 	return <ReportsScreen />;
 }
